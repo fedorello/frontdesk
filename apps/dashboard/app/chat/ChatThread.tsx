@@ -1,3 +1,5 @@
+import { Markdown } from "./Markdown";
+import { Trace } from "./Trace";
 import type { ChatMessage } from "./types";
 
 export function ChatThread({ messages }: { messages: ChatMessage[] }) {
@@ -11,19 +13,22 @@ export function ChatThread({ messages }: { messages: ChatMessage[] }) {
 
   return (
     <div className="flex flex-col gap-3">
-      {messages.map((message, index) => (
-        <div key={index} className={message.role === "user" ? "self-end text-right" : "self-start"}>
-          <span
-            className={
-              message.role === "user"
-                ? "inline-block whitespace-pre-wrap rounded-2xl bg-zinc-900 px-3 py-2 text-sm text-white dark:bg-white dark:text-zinc-900"
-                : "inline-block whitespace-pre-wrap rounded-2xl bg-zinc-100 px-3 py-2 text-sm dark:bg-zinc-800"
-            }
-          >
-            {message.text}
-          </span>
-        </div>
-      ))}
+      {messages.map((message, index) =>
+        message.role === "user" ? (
+          <div key={index} className="self-end text-right">
+            <span className="inline-block whitespace-pre-wrap rounded-2xl bg-zinc-900 px-3 py-2 text-sm text-white dark:bg-white dark:text-zinc-900">
+              {message.text}
+            </span>
+          </div>
+        ) : (
+          <div key={index} className="max-w-[85%] self-start">
+            <div className="rounded-2xl bg-zinc-100 px-3 py-2 text-sm dark:bg-zinc-800">
+              <Markdown>{message.text}</Markdown>
+            </div>
+            <Trace steps={message.trace} />
+          </div>
+        ),
+      )}
     </div>
   );
 }

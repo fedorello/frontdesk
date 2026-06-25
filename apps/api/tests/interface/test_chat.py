@@ -31,8 +31,11 @@ async def test_chat_books_and_returns_the_reply() -> None:
         response = await client.post("/api/chat", json={"text": "haircut at 3pm", "session": "s1"})
 
     assert response.status_code == 200
-    assert response.json()["reply"] == "You're booked for 3pm! ✅"
+    payload = response.json()
+    assert payload["reply"] == "You're booked for 3pm! ✅"
     assert len(world.appointments.appointments) == 1
+    tools = [step["tool"] for step in payload["trace"] if step["kind"] == "tool"]
+    assert tools == ["find_availability", "book"]
 
 
 async def test_chat_answers_without_booking() -> None:

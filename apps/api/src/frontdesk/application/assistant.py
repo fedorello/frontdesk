@@ -18,6 +18,7 @@ from frontdesk.application.ports import (
     AppointmentRepository,
     ApprovalGate,
     ApprovalRequested,
+    AssistantObserver,
     BusinessRepository,
     Calendar,
     Clock,
@@ -45,6 +46,14 @@ ESCALATION_FALLBACK = "Let me get a colleague to help you with that — they'll 
 SLOT_FORMAT = "%a %d %b %H:%M UTC"
 
 ToolHandler = Callable[["Business", "Customer", dict[str, object]], Awaitable[str]]
+
+
+class _NullObserver:
+    async def on_thought(self, text: str) -> None: ...
+    async def on_tool(self, name: str, args: dict[str, object], result: str) -> None: ...
+
+
+_NULL_OBSERVER: AssistantObserver = _NullObserver()
 
 TOOL_SPECS: tuple[ToolSpec, ...] = (
     ToolSpec(
@@ -151,8 +160,9 @@ def _system_prompt(business: Business) -> str:
 class Assistant:
     """Handles one inbound message: run the tool-use loop, reply, persist."""
 
-    def __init__(self, deps: AssistantDeps) -> None:
+    def __init__(self, deps: AssistantDeps, observer: AssistantObserver | None = None) -> None:
         self._d = deps
+        self._observer = observer or _NULL_OBSERVER
         self._handlers: dict[str, ToolHandler] = {
             "answer_question": self._answer,
             "find_availability": self._find,
@@ -191,11 +201,14 @@ class Assistant:
             )
             if not completion.tool_calls:
                 return completion.text or ESCALATION_FALLBACK
+            if completion.text:
+                await self._observer.on_thought(completion.text)
             messages.append(
                 Message(MessageRole.ASSISTANT, completion.text or "", self._d.clock.now())
             )
             for call in completion.tool_calls:
                 result = await self._dispatch(business, customer, call)
+                await self._observer.on_tool(call.name, call.args, result)
                 messages.append(
                     Message(MessageRole.TOOL, result, self._d.clock.now(), tool_call_id=call.id)
                 )

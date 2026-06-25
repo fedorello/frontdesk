@@ -195,6 +195,16 @@ class AppointmentRepository(Protocol):
     async def get(self, appointment_id: AppointmentId) -> Appointment: ...
 
 
+class AssistantObserver(Protocol):
+    """Notified of the assistant's interim reasoning and each tool call.
+
+    A no-op by default; the web chat uses it to surface the agent's steps.
+    """
+
+    async def on_thought(self, text: str) -> None: ...
+    async def on_tool(self, name: str, args: dict[str, object], result: str) -> None: ...
+
+
 class ReminderStore(Protocol):
     async def schedule(self, reminders: Sequence[Reminder]) -> None: ...
     async def cancel_for(self, appointment_id: AppointmentId) -> None: ...

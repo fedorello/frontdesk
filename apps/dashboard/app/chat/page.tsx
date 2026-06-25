@@ -27,8 +27,11 @@ export default function ChatPage() {
         headers: { "content-type": "application/json" },
         body: JSON.stringify({ text: trimmed, session }),
       });
-      const data = (await response.json()) as { reply: string };
-      setMessages((current) => [...current, { role: "assistant", text: data.reply }]);
+      const data = (await response.json()) as { reply: string; trace?: ChatMessage["trace"] };
+      setMessages((current) => [
+        ...current,
+        { role: "assistant", text: data.reply, trace: data.trace },
+      ]);
     } catch {
       setMessages((current) => [
         ...current,
