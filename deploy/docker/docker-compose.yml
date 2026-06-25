@@ -1,0 +1,35 @@
+# Local infrastructure for Frontdesk: PostgreSQL (durable state) + Redis (events).
+# Explicit project name so it never collides with other repos' deploy/docker/.
+name: frontdesk
+
+services:
+  postgres:
+    image: postgres:18
+    environment:
+      POSTGRES_USER: frontdesk
+      POSTGRES_PASSWORD: frontdesk
+      POSTGRES_DB: frontdesk
+    ports:
+      - "5432:5432"
+    volumes:
+      # PostgreSQL 18+ expects the mount at /var/lib/postgresql (data goes in a
+      # version subdirectory); mounting .../data makes the image exit on start.
+      - frontdesk_pg:/var/lib/postgresql
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U frontdesk -d frontdesk"]
+      interval: 2s
+      timeout: 3s
+      retries: 15
+
+  redis:
+    image: redis:8
+    ports:
+      - "6379:6379"
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 2s
+      timeout: 3s
+      retries: 15
+
+volumes:
+  frontdesk_pg:

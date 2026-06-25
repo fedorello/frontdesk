@@ -11,7 +11,7 @@ then CI and evals. Every phase ends green against the gate in
 
 | Phase | Title                                   | Status      |
 | ----- | --------------------------------------- | ----------- |
-| 0     | Scaffold & gates                        | Not started |
+| 0     | Scaffold & gates                        | ✅ Done — [report](../reports/phase-0-report.md) |
 | 1     | Domain core                             | Not started |
 | 2     | Ports & in-memory fakes                 | Not started |
 | 3     | Use cases & the assistant loop          | Not started |
