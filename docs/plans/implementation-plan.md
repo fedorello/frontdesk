@@ -13,7 +13,7 @@ then CI and evals. Every phase ends green against the gate in
 | ----- | --------------------------------------- | ----------- |
 | 0     | Scaffold & gates                        | ✅ Done — [report](../reports/phase-0-report.md) |
 | 1     | Domain core                             | ✅ Done — [report](../reports/phase-1-report.md) |
-| 2     | Ports & in-memory fakes                 | Not started |
+| 2     | Ports & in-memory fakes                 | ✅ Done — [report](../reports/phase-2-report.md) |
 | 3     | Use cases & the assistant loop          | Not started |
 | 4     | Persistence (PostgreSQL)                | Not started |
 | 5     | LLM provider adapters                   | Not started |
