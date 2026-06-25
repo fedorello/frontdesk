@@ -19,13 +19,14 @@ from frontdesk.application.ports import (
 )
 from frontdesk.domain.availability import ensure_bookable, free_slots
 from frontdesk.domain.enums import AppointmentStatus, Channel, ReminderStatus
-from frontdesk.domain.errors import AppointmentNotFound, DoubleBooking
+from frontdesk.domain.errors import AppointmentNotFound, DoubleBooking, ServiceNotFound
 from frontdesk.domain.ids import (
     AppointmentId,
     BusinessId,
     CustomerId,
     ReminderId,
     ResourceId,
+    ServiceId,
 )
 from frontdesk.domain.models import (
     Appointment,
@@ -99,6 +100,7 @@ class InMemoryCustomerRepository:
     def __init__(self, ids: IdGenerator) -> None:
         self._ids = ids
         self._by_key: dict[tuple[BusinessId, Channel, str], Customer] = {}
+        self._by_id: dict[CustomerId, Customer] = {}
 
     async def upsert(self, business_id: BusinessId, channel: Channel, address: str) -> Customer:
         key = (business_id, channel, address)
@@ -107,7 +109,31 @@ class InMemoryCustomerRepository:
             return existing
         customer = Customer(CustomerId(self._ids.new()), business_id, channel, address)
         self._by_key[key] = customer
+        self._by_id[customer.id] = customer
         return customer
+
+    async def get(self, customer_id: CustomerId) -> Customer:
+        return self._by_id[customer_id]
+
+
+class InMemoryServiceRepository:
+    def __init__(self, services: Sequence[Service]) -> None:
+        self._by_id = {service.id: service for service in services}
+
+    async def get(self, service_id: ServiceId) -> Service:
+        try:
+            return self._by_id[service_id]
+        except KeyError:
+            raise ServiceNotFound(str(service_id)) from None
+
+    async def by_name(self, business_id: BusinessId, name: str) -> Service | None:
+        for service in self._by_id.values():
+            if service.business_id == business_id and service.name.casefold() == name.casefold():
+                return service
+        return None
+
+    async def for_business(self, business_id: BusinessId) -> list[Service]:
+        return [s for s in self._by_id.values() if s.business_id == business_id]
 
 
 class InMemoryConversationRepository:

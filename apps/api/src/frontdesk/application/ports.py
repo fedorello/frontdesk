@@ -18,6 +18,7 @@ from frontdesk.domain.ids import (
     CustomerId,
     ReminderId,
     ResourceId,
+    ServiceId,
 )
 from frontdesk.domain.models import (
     Appointment,
@@ -43,7 +44,8 @@ class OutboundMessage:
 @dataclass(frozen=True, slots=True)
 class InboundMessage:
     channel: Channel
-    channel_address: str
+    from_address: str  # the customer's address (phone / chat id)
+    to_address: str  # the business's channel binding that received it
     text: str
     received_at: datetime
     provider_message_id: str
@@ -169,6 +171,13 @@ class BusinessRepository(Protocol):
 
 class CustomerRepository(Protocol):
     async def upsert(self, business_id: BusinessId, channel: Channel, address: str) -> Customer: ...
+    async def get(self, customer_id: CustomerId) -> Customer: ...
+
+
+class ServiceRepository(Protocol):
+    async def get(self, service_id: ServiceId) -> Service: ...
+    async def by_name(self, business_id: BusinessId, name: str) -> Service | None: ...
+    async def for_business(self, business_id: BusinessId) -> list[Service]: ...
 
 
 class ConversationRepository(Protocol):
