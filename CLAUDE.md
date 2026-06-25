@@ -48,7 +48,18 @@ product** built with an **AI-native** workflow.
 
 ## Documentation index
 
-Keep this index in sync — when you add a document, add it here.
+All docs live under [`docs/`](./docs/) (see [`docs/README.md`](./docs/README.md)
+for the layout). Keep this index in sync — when you add a document, add it here.
 
 - [`CODING_PRINCIPLES.md`](./CODING_PRINCIPLES.md) — the engineering standard for
   this repo (clean code, tests, discipline).
+- [`docs/README.md`](./docs/README.md) — documentation layout and conventions.
+- [`docs/stack.md`](./docs/stack.md) — the technology stack and pinned versions
+  (verified 2026-06-25).
+- [`docs/architecture/overview.md`](./docs/architecture/overview.md) — the full
+  architecture: the hexagon, domain model, ports & adapters, and the answer /
+  booking / reminder flows.
+- **ADRs** (`docs/adr/`): hexagonal foundations (0001), channels behind a
+  messaging port (0002), multi-tenant by business (0003), durable reminders in
+  PostgreSQL (0004), human-in-the-loop via Airlock (0005), model-agnostic LLM
+  provider (0006), the assistant as a tool-use agent (0007).
