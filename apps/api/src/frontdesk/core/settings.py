@@ -20,3 +20,20 @@ class Settings(BaseSettings):
     database_url: str = "postgresql+asyncpg://frontdesk:frontdesk@localhost:5432/frontdesk"
     redis_url: str = "redis://localhost:6379/0"
     log_level: str = "INFO"
+
+    # LLM provider (model-agnostic; any OpenAI-compatible or Anthropic endpoint).
+    llm_provider: str = "openai"  # "openai" | "anthropic"
+    llm_api_key: str = ""
+    llm_model: str = "deepseek/deepseek-v4-flash"
+    llm_base_url: str = "https://openrouter.ai/api/v1"
+
+    # WhatsApp Cloud API.
+    whatsapp_token: str = ""
+    whatsapp_phone_number_id: str = ""
+    whatsapp_app_secret: str = ""
+    whatsapp_verify_token: str = ""
+
+    # Telegram Bot API.
+    telegram_token: str = ""
+    telegram_secret: str = ""
+    telegram_bot_address: str = ""

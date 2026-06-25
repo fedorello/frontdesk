@@ -1,6 +1,28 @@
-# Local infrastructure for Frontdesk: PostgreSQL (durable state) + Redis (events).
+# Frontdesk — local stack.
+#
+#   docker compose up -d                 → infrastructure only (Postgres + Redis)
+#   docker compose --profile app up -d   → the whole product (api + worker + dashboard)
+#
+# App services read secrets from this directory's .env (gitignored); see .env.example.
 # Explicit project name so it never collides with other repos' deploy/docker/.
 name: frontdesk
+
+x-api: &api
+  build: ../../apps/api
+  environment: &api-env
+    FRONTDESK_DATABASE_URL: postgresql+asyncpg://frontdesk:frontdesk@postgres:5432/frontdesk
+    FRONTDESK_REDIS_URL: redis://redis:6379/0
+    FRONTDESK_LLM_PROVIDER: ${FRONTDESK_LLM_PROVIDER:-openai}
+    FRONTDESK_LLM_API_KEY: ${FRONTDESK_LLM_API_KEY:-}
+    FRONTDESK_LLM_MODEL: ${FRONTDESK_LLM_MODEL:-deepseek/deepseek-v4-flash}
+    FRONTDESK_LLM_BASE_URL: ${FRONTDESK_LLM_BASE_URL:-https://openrouter.ai/api/v1}
+    FRONTDESK_WHATSAPP_TOKEN: ${FRONTDESK_WHATSAPP_TOKEN:-}
+    FRONTDESK_WHATSAPP_PHONE_NUMBER_ID: ${FRONTDESK_WHATSAPP_PHONE_NUMBER_ID:-}
+    FRONTDESK_WHATSAPP_APP_SECRET: ${FRONTDESK_WHATSAPP_APP_SECRET:-}
+    FRONTDESK_WHATSAPP_VERIFY_TOKEN: ${FRONTDESK_WHATSAPP_VERIFY_TOKEN:-}
+    FRONTDESK_TELEGRAM_TOKEN: ${FRONTDESK_TELEGRAM_TOKEN:-}
+    FRONTDESK_TELEGRAM_SECRET: ${FRONTDESK_TELEGRAM_SECRET:-}
+    FRONTDESK_TELEGRAM_BOT_ADDRESS: ${FRONTDESK_TELEGRAM_BOT_ADDRESS:-}
 
 services:
   postgres:
@@ -30,6 +52,43 @@ services:
       interval: 2s
       timeout: 3s
       retries: 15
+
+  migrate:
+    <<: *api
+    profiles: ["app"]
+    command: ["alembic", "upgrade", "head"]
+    depends_on:
+      postgres:
+        condition: service_healthy
+
+  api:
+    <<: *api
+    profiles: ["app"]
+    ports:
+      - "8000:8000"
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      migrate:
+        condition: service_completed_successfully
+
+  worker:
+    <<: *api
+    profiles: ["app"]
+    command: ["python", "-m", "frontdesk.interface.run_worker"]
+    depends_on:
+      postgres:
+        condition: service_healthy
+      migrate:
+        condition: service_completed_successfully
+
+  dashboard:
+    build: ../../apps/dashboard
+    profiles: ["app"]
+    ports:
+      - "3000:3000"
 
 volumes:
   frontdesk_pg:

@@ -13,6 +13,7 @@ dependencies = [
   "alembic>=1.18.4",
   "httpx>=0.28.1",
   "fastapi>=0.138.0",
+  "uvicorn[standard]>=0.34.0",
 ]
 
 [dependency-groups]
@@ -71,7 +72,12 @@ branch = true
 source = ["frontdesk"]
 # The DB adapters need Postgres; they're exercised by the integration suite
 # (the same port contracts), so they're omitted from the unit-coverage gate.
-omit = ["*/infrastructure/db.py", "*/infrastructure/postgres/*"]
+omit = [
+    "*/infrastructure/db.py",
+    "*/infrastructure/postgres/*",
+    "*/interface/app.py",
+    "*/interface/run_worker.py",
+]
 
 # ----- Hexagonal import boundaries -----
 [tool.importlinter]

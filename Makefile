@@ -5,13 +5,17 @@ API := apps/api
 DASHBOARD := apps/dashboard
 COMPOSE := docker compose -f deploy/docker/docker-compose.yml
 
-.PHONY: help install fmt fmt-check lint typecheck test test-integration check demo \
-	dashboard-install dashboard-check dashboard-e2e dashboard-dev up down logs
+.PHONY: help \
+	install fmt fmt-check lint typecheck test test-integration check demo serve \
+	dashboard-install dashboard-check dashboard-e2e dashboard-dev \
+	up down logs stack-build stack-up stack-down stack-logs
 
 help: ## List available targets
-	@grep -hE '^[a-zA-Z_-]+:.*?## ' $(MAKEFILE_LIST) \
-		| awk 'BEGIN{FS=":.*?## "}{printf "  \033[36m%-12s\033[0m %s\n", $$1, $$2}'
+	@awk 'BEGIN{FS=":.*?## "} \
+		/^##@ /{printf "\n\033[1m%s\033[0m\n", substr($$0,5); next} \
+		/^[a-zA-Z_-]+:.*?## /{printf "  \033[36m%-18s\033[0m %s\n", $$1, $$2}' $(MAKEFILE_LIST)
 
+##@ Backend (apps/api)
 install: ## Install the API dependencies (uv)
 	cd $(API) && uv sync
 
@@ -30,14 +34,18 @@ typecheck: ## Static types (mypy --strict)
 test: ## Unit tests with coverage
 	cd $(API) && uv run pytest
 
-test-integration: ## Integration tests against a running Postgres (make up first)
+test-integration: ## Integration tests against a running Postgres (run `make up` first)
 	cd $(API) && uv run pytest tests/integration --no-cov
 
-check: fmt-check lint typecheck test ## The full local gate
+check: fmt-check lint typecheck test ## The full backend gate
 
 demo: ## Seed a demo business and book through the real stack (needs `make up` + FD_LLM_KEY)
 	cd $(API) && uv run python scripts/demo.py
 
+serve: ## Run the API locally with reload (needs `make up`)
+	cd $(API) && uv run uvicorn frontdesk.interface.app:create_production_app --factory --reload
+
+##@ Dashboard (apps/dashboard)
 dashboard-install: ## Install the dashboard dependencies
 	cd $(DASHBOARD) && pnpm install
 
@@ -50,11 +58,25 @@ dashboard-e2e: ## Dashboard end-to-end tests (Playwright)
 dashboard-dev: ## Run the dashboard dev server
 	cd $(DASHBOARD) && pnpm dev
 
-up: ## Start infrastructure (PostgreSQL + Redis)
+##@ Local infrastructure (Postgres + Redis)
+up: ## Start Postgres + Redis (for tests and local dev)
 	$(COMPOSE) up -d
 
-down: ## Stop infrastructure
+down: ## Stop everything (containers; keeps data)
 	$(COMPOSE) down
 
 logs: ## Tail infrastructure logs
 	$(COMPOSE) logs -f
+
+##@ Full stack in Docker (api + worker + dashboard)
+stack-build: ## Build the app images
+	$(COMPOSE) --profile app build
+
+stack-up: ## Run the whole product (migrate → api + worker + dashboard)
+	$(COMPOSE) --profile app up -d --build
+
+stack-down: ## Stop the whole stack and remove its data volume
+	$(COMPOSE) --profile app down -v
+
+stack-logs: ## Tail the app logs
+	$(COMPOSE) --profile app logs -f api worker dashboard

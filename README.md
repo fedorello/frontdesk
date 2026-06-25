@@ -100,6 +100,16 @@ make dashboard-check  # typecheck, lint, test, build
 make dashboard-dev    # http://localhost:3000
 ```
 
+Or run the **whole product in Docker** — Postgres, Redis, the migration, the API,
+the reminder worker, and the dashboard, in one command:
+
+```bash
+cp deploy/docker/.env.example deploy/docker/.env   # add your LLM key
+make stack-up      # migrate → api (:8000) + worker + dashboard (:3000)
+make stack-logs
+make stack-down    # stop and wipe the volume
+```
+
 The LLM is model-agnostic — any OpenAI-compatible or Anthropic endpoint; the demo
 defaults to `deepseek/deepseek-v4-flash` via OpenRouter. The architecture, ADRs,
 and a per-phase build report live in [`docs/`](./docs).
