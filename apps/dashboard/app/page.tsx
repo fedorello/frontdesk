@@ -1,8 +1,14 @@
+import Link from "next/link";
+
 const SECTIONS = [
-  { title: "Calendar", blurb: "Today's appointments and what's coming up." },
-  { title: "Conversations", blurb: "What customers asked and how the assistant replied." },
-  { title: "Settings", blurb: "Services, hours, knowledge base, and channels." },
-  { title: "Approvals", blurb: "Sensitive actions waiting for your sign-off." },
+  { href: "/calendar", title: "Calendar", blurb: "Today's appointments and what's coming up." },
+  {
+    href: "/conversations",
+    title: "Conversations",
+    blurb: "What customers asked and how the assistant replied.",
+  },
+  { href: "/settings", title: "Settings", blurb: "Services, hours, knowledge base, and channels." },
+  { href: "/approvals", title: "Approvals", blurb: "Sensitive actions waiting for your sign-off." },
 ] as const;
 
 export default function Home() {
@@ -16,12 +22,14 @@ export default function Home() {
 
       <ul className="mt-10 grid gap-4 sm:grid-cols-2">
         {SECTIONS.map((section) => (
-          <li
-            key={section.title}
-            className="rounded-xl border border-zinc-200 p-5 dark:border-zinc-800"
-          >
-            <h2 className="font-medium">{section.title}</h2>
-            <p className="mt-1 text-sm text-zinc-500">{section.blurb}</p>
+          <li key={section.title}>
+            <Link
+              href={section.href}
+              className="block rounded-xl border border-zinc-200 p-5 hover:border-zinc-300 hover:bg-zinc-50 dark:border-zinc-800 dark:hover:bg-zinc-900"
+            >
+              <h2 className="font-medium">{section.title}</h2>
+              <p className="mt-1 text-sm text-zinc-500">{section.blurb}</p>
+            </Link>
           </li>
         ))}
       </ul>
