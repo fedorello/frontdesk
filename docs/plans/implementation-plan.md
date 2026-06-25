@@ -15,7 +15,7 @@ then CI and evals. Every phase ends green against the gate in
 | 1     | Domain core                             | ✅ Done — [report](../reports/phase-1-report.md) |
 | 2     | Ports & in-memory fakes                 | ✅ Done — [report](../reports/phase-2-report.md) |
 | 3     | Use cases & the assistant loop          | ✅ Done — [report](../reports/phase-3-report.md) |
-| 4     | Persistence (PostgreSQL)                | Not started |
+| 4     | Persistence (PostgreSQL)                | 🚧 In progress — deps + async engine + test split |
 | 5     | LLM provider adapters                   | Not started |
 | 6     | Channels & webhooks                     | Not started |
 | 7     | Worker (reminders) & the approval gate  | Not started |

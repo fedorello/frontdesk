@@ -8,6 +8,9 @@ authors = [{ name = "Fedor Chishchin" }]
 dependencies = [
   "pydantic>=2.13.4",
   "pydantic-settings>=2.14.2",
+  "sqlalchemy[asyncio]>=2.0.51",
+  "asyncpg>=0.31.0",
+  "alembic>=1.18.4",
 ]
 
 [dependency-groups]
@@ -52,11 +55,16 @@ mypy_path = "src"
 [tool.pytest.ini_options]
 asyncio_mode = "auto"
 testpaths = ["tests"]
-addopts = "--cov=frontdesk --cov-report=term-missing --cov-fail-under=90 -q"
+# The default run is unit-only (no database). Integration tests live in
+# tests/integration and run against a real Postgres via `make test-integration`.
+addopts = "--ignore=tests/integration --cov=frontdesk --cov-report=term-missing --cov-fail-under=90 -q"
 
 [tool.coverage.run]
 branch = true
 source = ["frontdesk"]
+# The DB adapters need Postgres; they're exercised by the integration suite
+# (the same port contracts), so they're omitted from the unit-coverage gate.
+omit = ["*/infrastructure/db.py", "*/infrastructure/postgres/*"]
 
 # ----- Hexagonal import boundaries -----
 [tool.importlinter]
