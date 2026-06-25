@@ -38,8 +38,8 @@ check: fmt-check lint typecheck test ## The full local gate
 dashboard-install: ## Install the dashboard dependencies
 	cd $(DASHBOARD) && pnpm install
 
-dashboard-check: ## The dashboard gate (typecheck, lint, format, build)
-	cd $(DASHBOARD) && pnpm typecheck && pnpm lint && pnpm fmt:check && pnpm build
+dashboard-check: ## The dashboard gate (typecheck, lint, format, test, build)
+	cd $(DASHBOARD) && pnpm typecheck && pnpm lint && pnpm fmt:check && pnpm test && pnpm build
 
 dashboard-dev: ## Run the dashboard dev server
 	cd $(DASHBOARD) && pnpm dev
