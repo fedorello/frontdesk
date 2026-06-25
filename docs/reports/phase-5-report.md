@@ -1,7 +1,6 @@
 # Phase 5 — LLM provider adapters — report
 
-**Status:** In progress — adapters done + recorded-response tested; the live-model
-run is pending an API key.
+**Status:** Done (2026-06-25)
 
 ## What was built (`infrastructure/providers/`)
 
@@ -25,14 +24,24 @@ run is pending an API key.
 - Swapping providers is config-only — both satisfy the `LlmProvider` port (mypy
   confirms structural conformance).
 
-## Pending
+## Live run (real model, logged to `logs/phase-5/live-run.log`)
 
-- **The live run** — one real call to a hosted model to confirm the assistant
-  works end-to-end against an actual LLM — needs a real API key (Anthropic,
-  OpenAI, or OpenRouter). It will be run and logged once the key is provided.
+Against **`deepseek/deepseek-v4-flash` via OpenRouter** (OpenAI-compatible, through
+`OpenAiProvider` — config-only, no code change):
+
+- A single `complete()` call returned text **plus a real tool call**
+  (`find_availability(service="haircut")`), parsed correctly into a `Completion`.
+- The **full Phase 3 assistant loop, unchanged**, handled "Can I book a Haircut for
+  1pm?": the live model ran the multi-turn tool flow (`find_availability` → `book`),
+  the typed core **booked a real appointment** (`ap-1`, 13:00 UTC, status pending),
+  and `MessageReceived` + `AppointmentBooked` were published.
+
+(Note: a reranker/vision model like `nvidia/llama-nemotron-rerank-vl-1b-v2` returns
+"no endpoints support tool use" — the adapter surfaced that error correctly; a
+tool-capable chat model such as deepseek-v4-flash is required.)
 
 ## Definition of Done
 
 - [x] Anthropic and OpenAI(-compatible) adapters over httpx, no SDK.
 - [x] Adapter tests against recorded responses (no live keys in CI).
-- [ ] The assistant loop runs against a real provider locally (needs an API key).
+- [x] The assistant loop runs unchanged against a real provider locally.
