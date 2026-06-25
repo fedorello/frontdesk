@@ -390,7 +390,7 @@ Even if the project is single-culture, the data schema and API are designed for 
 > **⚠️ Categorical imperative.** In the user interface **emojis are forbidden**
 > (👤📍✦🕑💡🎉🗑 and any other pictographic symbols). Icons — **only inline SVG**.
 
-- ✅ A single icon component (`Icon.svelte` / `<Icon name="trash" />`) with a set of SVG paths
+- ✅ A single icon component (`Icon.tsx` / `<Icon name="trash" />`) with a set of SVG paths
   that inherit `currentColor` and accept `size`.
 - ✅ Icons scale, are recolored by the theme, are accessible (`aria-hidden` / `aria-label`),
   and render identically on all platforms.
@@ -705,8 +705,8 @@ A consolidated list (details in each section above):
   `test` (tests only), `refactor` (no behavior change), `perf` (performance),
   `build` (build/dependencies), `ci` (CI configuration), `chore` (routine without prod code),
   `style` (formatting), `revert` (reverting a commit).
-- **scope** (optional, in parentheses) — the affected area: the name of a crate/module/feature
-  (`feat(genome): ...`, `fix(sim): ...`, `docs(gdd): ...`).
+- **scope** (optional, in parentheses) — the affected area: the name of a package/module/feature
+  (`feat(calendar): ...`, `fix(reminders): ...`, `docs(adr): ...`).
 - **description** — brief, in the **imperative mood in English**, lowercase, with no
   period at the end, ≤ 72 characters in the header. ("add splice validation", not "added/adds/Added.").
 - **body** (optional) — the WHY and context; a line break after the header is mandatory.
@@ -731,12 +731,12 @@ A consolidated list (details in each section above):
 
 ```
 # ✅ Good
-feat(genome): surface recessive thermal gene on crossbreed
-fix(sim): clamp expressed traits to [0,100] to prevent overflow
-docs(gdd): add 09-SHIPS hull/module stat tables
-refactor(net)!: switch wire format from JSON to postcard
+feat(calendar): reject double-booking with a gist exclusion constraint
+fix(reminders): claim due rows with FOR UPDATE SKIP LOCKED
+docs(adr): record durable reminders in postgres
+refactor(messaging)!: normalize inbound payloads behind one port
 
-BREAKING CHANGE: clients older than v0.3 can no longer decode snapshots.
+BREAKING CHANGE: channel adapters must return the normalized InboundMessage.
 
 # ❌ Bad
 update stuff

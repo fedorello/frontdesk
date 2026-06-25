@@ -44,11 +44,35 @@ class MessageRole(StrEnum):
     CUSTOMER = "customer"
     ASSISTANT = "assistant"
     SYSTEM = "system"
+    TOOL = "tool"              # a tool result fed back into the loop
 ```
+
+A `TOOL` message carries the result of a `ToolCall` (with its `tool_call_id`) and
+re-enters `messages` so the next `complete()` sees what the tool returned.
 
 ## Value objects & entities
 
+Imports (`datetime`/`time`, `NewType`, `dataclass`, `StrEnum`, typing) are elided.
+
 ```python
+# Ids — one NewType per entity so they never mix.
+BusinessId = NewType("BusinessId", str)
+ServiceId = NewType("ServiceId", str)
+ResourceId = NewType("ResourceId", str)
+CustomerId = NewType("CustomerId", str)
+AppointmentId = NewType("AppointmentId", str)
+ReminderId = NewType("ReminderId", str)
+
+@dataclass(frozen=True)
+class Money:                   # persisted as price_cents + currency columns
+    amount_cents: int
+    currency: str              # ISO 4217, e.g. "USD"
+
+@dataclass(frozen=True)
+class KnowledgeItem:           # one FAQ entry the assistant may answer from
+    question: str
+    answer: str
+
 @dataclass(frozen=True)
 class WorkingHours:            # per weekday, in the business timezone
     weekday: int               # 0=Mon … 6=Sun
@@ -99,6 +123,10 @@ class Message:
     role: MessageRole
     text: str
     at: datetime
+    tool_call_id: str | None = None    # set on MessageRole.TOOL results
+
+# A Conversation is just a Customer plus its ordered Messages — there is no
+# separate entity; the `conversation` table groups messages per customer.
 
 @dataclass(frozen=True)
 class Appointment:
@@ -159,9 +187,21 @@ class MessagingPort(Protocol):
 
 # --- LLM (model-agnostic, ADR-0006) ---
 @dataclass(frozen=True)
-class ToolCall:  id: str; name: str; args: Mapping[str, object]
+class ToolSpec:                # a tool the model may call
+    name: str
+    description: str
+    parameters: Mapping[str, object]    # JSON Schema for the args
+
 @dataclass(frozen=True)
-class Completion: text: str | None; tool_calls: tuple[ToolCall, ...]
+class ToolCall:
+    id: str
+    name: str
+    args: Mapping[str, object]
+
+@dataclass(frozen=True)
+class Completion:
+    text: str | None
+    tool_calls: tuple[ToolCall, ...]
 
 class LlmProvider(Protocol):
     async def complete(
@@ -205,6 +245,7 @@ class EventPublisher(Protocol):
     async def publish(self, event: DomainEvent) -> None: ...
 
 class ApprovalGate(Protocol):                     # backed by airlock-hitl (ADR-0005)
+    # SensitiveAction and Decision are the airlock-hitl request / decision types.
     async def guard(self, action: SensitiveAction) -> Decision: ...
 
 class Clock(Protocol):
@@ -260,6 +301,11 @@ gate.
 but the risk tier is **configurable per business** — a business can require approval
 for any of them.
 
+When the model calls `book` / `reschedule` / `cancel` it chooses only the
+**service** and **slot**; the core binds the rest — the **customer** from the
+conversation, and the **resource** auto-selected from availability. `issue_refund`'s
+`amount` is a `Money`.
+
 The assistant **never invents** prices, availability, or facts: it answers only from
 the knowledge base and the real calendar, and `escalate`s when unsure.
 
@@ -281,13 +327,15 @@ the knowledge base and the real calendar, and `escalate`s when unsure.
 
 ### Reminder
 
-| From      | Event                         | To          |
-| --------- | ----------------------------- | ----------- |
-| —         | scheduled on booking          | `pending`   |
-| `pending` | worker sends it               | `sent`      |
-| `pending` | appointment cancelled / moved | `cancelled` |
+| From      | Event                            | To          |
+| --------- | -------------------------------- | ----------- |
+| —         | scheduled on booking / reschedule | `pending`   |
+| `pending` | worker sends it                  | `sent`      |
+| `pending` | appointment cancelled / moved    | `cancelled` |
 
-`sent` and `cancelled` are terminal.
+`sent` and `cancelled` are terminal. A **reschedule** cancels the appointment's
+pending reminders and schedules fresh `pending` ones (Invariant 4), so the
+"scheduled" event fires on both booking and reschedule.
 
 ## Invariants
 
@@ -319,6 +367,8 @@ constraints (full DDL lives in Alembic migrations):
 - `customer(id, business_id, channel, address, name, language)` — unique `(business_id, channel, address)`
 - `conversation(id, business_id, customer_id)` + `message(id, conversation_id, role, text, at)`
 - `appointment(id, business_id, service_id, resource_id, customer_id, starts_at, ends_at, status)`
+  - `starts_at` and `ends_at` are `NOT NULL` (a NULL range bound would defeat the constraint)
+  - requires `CREATE EXTENSION IF NOT EXISTS btree_gist;` — GiST needs `btree_gist` to use `=` on the scalar `resource_id` inside the constraint
   - **`EXCLUDE USING gist (resource_id WITH =, tstzrange(starts_at, ends_at) WITH &&) WHERE (status <> 'cancelled')`** — the no-double-book guarantee
 - `reminder(id, business_id, appointment_id, due_at, kind, status)`
   - index `(status, due_at)` for the worker's claim query

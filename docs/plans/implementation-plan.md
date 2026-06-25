@@ -76,7 +76,8 @@ grounding and escalation are tested (no invented slots/prices); no live calls.
 **Goal:** durable state behind the repository and calendar ports.
 
 - SQLAlchemy 2.0 (async) models + Alembic migrations for the schema in the contracts,
-  including the **no-double-book exclusion constraint** and the reminder index.
+  including a migration that enables the `btree_gist` extension, the **no-double-book
+  exclusion constraint**, and the reminder index.
 - Repository, `Calendar`, and `ReminderStore` adapters.
 
 **DoD:** the adapters pass the same port-contract suite as the fakes, **plus**

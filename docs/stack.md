@@ -25,7 +25,7 @@ Plus shared infrastructure (PostgreSQL, Redis) wired together with Docker Compos
 | asyncpg             | 0.31.x   | Async PostgreSQL driver.                                                              |
 | httpx               | 0.28.x   | The HTTP client for every outbound call (LLM, WhatsApp, Telegram) — injected, mockable. |
 | redis (redis-py)    | 8.0.x    | Redis client for the event bus / pub-sub.                                             |
-| airlock-hitl        | ^0.1     | The human-in-the-loop approval gate for sensitive actions (our own package — dogfooded). |
+| airlock-hitl        | 0.1.x    | The human-in-the-loop approval gate for sensitive actions (our own package — dogfooded). |
 
 We deliberately do **not** take an external task-queue dependency for reminders.
 A scheduled reminder is durable, time-based state tied to a booking, so it lives
@@ -72,7 +72,7 @@ Prettier, Playwright) — pinned when the dashboard package is scaffolded.
 | Service             | Interface                       | Notes                                                                                 |
 | ------------------- | ------------------------------- | ------------------------------------------------------------------------------------- |
 | WhatsApp            | Meta **WhatsApp Cloud API** (Graph API) | The only supported path for new integrations (the On-Premises API reached EOL in 2025). Pin the Graph API version against Meta's changelog when wiring it. |
-| Telegram            | **Telegram Bot API** (~10.x)    | Standard `/bot<token>/<method>` HTTP interface.                                       |
+| Telegram            | **Telegram Bot API**            | A single evolving HTTP surface (`/bot<token>/<method>`), not a pinned version.         |
 | LLM provider        | HTTP (no vendor SDK)            | Anthropic / OpenAI / OpenAI-compatible, each an adapter behind one port (see [ADR-0006](./adr/0006-model-agnostic-llm-provider.md)). |
 
 ## Principles

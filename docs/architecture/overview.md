@@ -94,7 +94,7 @@ never touching the core ([ADR-0001](../adr/0001-architecture-foundations.md)).
 | `MessagingPort`       | Send a message (text + quick-reply buttons) to a customer on any channel.  |
 | `LlmProvider`         | One normalized chat/tool-use call to any model.                           |
 | `Calendar`            | Read availability and create/move/cancel appointments.                     |
-| `*Repository`         | Persist and load businesses, customers, conversations, appointments, reminders. |
+| `*Repository`         | Persist and load businesses, customers, conversations, appointments.       |
 | `ReminderStore`       | Enqueue a reminder at `due_at`; claim and mark due ones (durable).         |
 | `EventPublisher`      | Emit events (new message, escalation, booking) for the live dashboard.     |
 | `ApprovalGate`        | Pause a sensitive action for human approval (backed by `airlock-hitl`).    |
@@ -114,6 +114,8 @@ tested core decides *whether and how* it actually happens
   double-booking, lead time, and policy).
 - `reschedule(appointment, slot)` / `cancel(appointment)`.
 - `escalate(reason)` — hand off to a human.
+- `issue_refund(appointment, amount)` — **sensitive**: passes the approval gate
+  before it runs.
 
 Safe tools (answer, find availability) run on their own. Anything that moves money
 or is hard to undo passes the **approval gate** before it happens — the same
