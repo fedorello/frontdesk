@@ -4,6 +4,8 @@
 webhook API wired to Postgres, a real LLM provider, and the live channels.
 """
 
+from datetime import datetime
+
 import httpx
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
@@ -15,7 +17,7 @@ from frontdesk.application.appointments import (
     RescheduleAppointment,
 )
 from frontdesk.application.assistant import Assistant, AssistantDeps
-from frontdesk.application.ports import LlmProvider, MessagingPort
+from frontdesk.application.ports import Clock, LlmProvider, MessagingPort
 from frontdesk.core.settings import Settings
 from frontdesk.infrastructure.channels.composite import LoggingMessaging, RoutingMessaging
 from frontdesk.infrastructure.channels.telegram import TelegramMessaging
@@ -34,9 +36,15 @@ from frontdesk.infrastructure.postgres.adapters import (
 )
 from frontdesk.infrastructure.providers.anthropic import AnthropicProvider
 from frontdesk.infrastructure.providers.openai import OpenAiProvider
-from frontdesk.infrastructure.system import SystemClock, UuidIdGenerator
+from frontdesk.infrastructure.system import FixedClock, SystemClock, UuidIdGenerator
 from frontdesk.interface.chat import build_chat_router
 from frontdesk.interface.webhooks import WebhookConfig, create_app
+
+
+def build_clock(settings: Settings) -> Clock:
+    if settings.fixed_now:
+        return FixedClock(datetime.fromisoformat(settings.fixed_now))
+    return SystemClock()
 
 
 def build_provider(settings: Settings, client: httpx.AsyncClient) -> LlmProvider:
@@ -78,7 +86,7 @@ def create_production_app() -> FastAPI:
     settings = Settings()
     engine = create_engine(settings.database_url)
     sessions = make_session_factory(engine)
-    clock = SystemClock()
+    clock = build_clock(settings)
     ids = UuidIdGenerator()
     client = httpx.AsyncClient(timeout=30)
 

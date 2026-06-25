@@ -24,6 +24,8 @@ class Settings(BaseSettings):
     # The business the web chat demo talks to (matches the seeded channel binding).
     demo_to_address: str = "+BIZ"
     cors_allow_origins: str = "*"
+    # Freeze "now" (ISO 8601) for a stable demo; empty = the real system clock.
+    fixed_now: str = ""
 
     # LLM provider (model-agnostic; any OpenAI-compatible or Anthropic endpoint).
     llm_provider: str = "openai"  # "openai" | "anthropic"

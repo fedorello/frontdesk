@@ -14,8 +14,8 @@ from frontdesk.infrastructure.postgres.adapters import (
     SqlReminderStore,
     SqlServiceRepository,
 )
-from frontdesk.infrastructure.system import SystemClock, UuidIdGenerator
-from frontdesk.interface.app import build_messaging
+from frontdesk.infrastructure.system import UuidIdGenerator
+from frontdesk.interface.app import build_clock, build_messaging
 from frontdesk.interface.worker import ReminderWorker
 
 
@@ -32,7 +32,7 @@ async def run() -> None:
         SqlServiceRepository(sessions),
         build_messaging(settings, client),
     )
-    worker = ReminderWorker(send, SystemClock())
+    worker = ReminderWorker(send, build_clock(settings))
 
     stop = asyncio.Event()
     loop = asyncio.get_running_loop()
