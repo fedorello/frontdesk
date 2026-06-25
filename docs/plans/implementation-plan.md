@@ -18,7 +18,7 @@ then CI and evals. Every phase ends green against the gate in
 | 4     | Persistence (PostgreSQL)                | ✅ Done — [report](../reports/phase-4-report.md) |
 | 5     | LLM provider adapters                   | ✅ Done — [report](../reports/phase-5-report.md) |
 | 6     | Channels & webhooks                     | ✅ Done — [report](../reports/phase-6-report.md) |
-| 7     | Worker (reminders) & the approval gate  | Not started |
+| 7     | Worker (reminders) & the approval gate  | ✅ Done — [report](../reports/phase-7-report.md) |
 | 8     | Admin dashboard                         | Not started |
 | 9     | CI/CD, evals & release readiness        | Not started |
 

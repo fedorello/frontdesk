@@ -23,6 +23,7 @@ from frontdesk.domain.models import (
     WorkingHours,
 )
 from frontdesk.infrastructure.memory import (
+    AutoDecisionGate,
     InMemoryAppointmentRepository,
     InMemoryBusinessRepository,
     InMemoryCalendar,
@@ -59,7 +60,7 @@ class World:
     clock: FixedClock
 
 
-def build_world(script: Sequence[Completion]) -> World:
+def build_world(script: Sequence[Completion], *, gate_approves: bool = False) -> World:
     business = Business(
         BusinessId("biz"),
         "Ana's Studio",
@@ -109,6 +110,7 @@ def build_world(script: Sequence[Completion]) -> World:
         cancel=cancel,
         messaging=messaging,
         events=events,
+        gate=AutoDecisionGate(approved=gate_approves),
         clock=clock,
     )
     return World(

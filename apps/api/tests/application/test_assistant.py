@@ -3,6 +3,7 @@
 from frontdesk.application.assistant import ESCALATION_FALLBACK, MAX_STEPS
 from frontdesk.application.ports import (
     AppointmentBooked,
+    ApprovalRequested,
     Completion,
     Escalated,
     InboundMessage,
@@ -125,3 +126,31 @@ async def test_find_availability_reports_unknown_service() -> None:
     await world.assistant.handle(inbound("do you do massages?"))
 
     assert world.messaging.sent[-1][1].text == "Sorry, we don't offer that yet."
+
+
+async def test_sensitive_refund_is_gated_when_not_approved() -> None:
+    world = build_world(
+        [
+            _tool("1", "issue_refund", {"appointment_id": "ap-1", "amount": 49.99}),
+            Completion("I've flagged your refund for approval."),
+        ],
+        gate_approves=False,
+    )
+
+    await world.assistant.handle(inbound("I want a refund please"))
+
+    assert any(isinstance(event, ApprovalRequested) for event in world.events.events)
+
+
+async def test_sensitive_refund_runs_when_approved() -> None:
+    world = build_world(
+        [
+            _tool("1", "issue_refund", {"appointment_id": "ap-1", "amount": 49.99}),
+            Completion("Your refund is on its way."),
+        ],
+        gate_approves=True,
+    )
+
+    await world.assistant.handle(inbound("I want a refund please"))
+
+    assert not any(isinstance(event, ApprovalRequested) for event in world.events.events)

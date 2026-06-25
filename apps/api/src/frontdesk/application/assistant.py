@@ -16,6 +16,8 @@ from frontdesk.application.appointments import (
 )
 from frontdesk.application.ports import (
     AppointmentRepository,
+    ApprovalGate,
+    ApprovalRequested,
     BusinessRepository,
     Calendar,
     Clock,
@@ -28,6 +30,7 @@ from frontdesk.application.ports import (
     MessageReceived,
     MessagingPort,
     OutboundMessage,
+    SensitiveAction,
     ServiceRepository,
     ToolCall,
     ToolSpec,
@@ -90,6 +93,15 @@ TOOL_SPECS: tuple[ToolSpec, ...] = (
         "Hand off to a human when you cannot help.",
         {"type": "object", "properties": {"reason": {"type": "string"}}, "required": ["reason"]},
     ),
+    ToolSpec(
+        "issue_refund",
+        "Issue a refund for an appointment. Sensitive — requires human approval.",
+        {
+            "type": "object",
+            "properties": {"appointment_id": {"type": "string"}, "amount": {"type": "number"}},
+            "required": ["appointment_id"],
+        },
+    ),
 )
 
 
@@ -107,6 +119,7 @@ class AssistantDeps:
     cancel: CancelAppointment
     messaging: MessagingPort
     events: EventPublisher
+    gate: ApprovalGate
     clock: Clock
 
 
@@ -147,6 +160,7 @@ class Assistant:
             "reschedule": self._do_reschedule,
             "cancel": self._do_cancel,
             "escalate": self._escalate,
+            "issue_refund": self._do_refund,
         }
 
     async def handle(self, inbound: InboundMessage) -> None:
@@ -262,3 +276,18 @@ class Assistant:
     ) -> str:
         await self._d.events.publish(Escalated(business.id, customer.id, _arg(args, "reason")))
         return "I've passed this to a team member who will follow up shortly."
+
+    async def _do_refund(
+        self, business: Business, customer: Customer, args: dict[str, object]
+    ) -> str:
+        # Sensitive: the model can't issue a refund on its own — it passes the gate.
+        action = SensitiveAction(
+            "issue_refund",
+            args,
+            f"Refund for {customer.channel_address} ({_arg(args, 'appointment_id')})",
+        )
+        decision = await self._d.gate.guard(action)
+        if not decision.approved:
+            await self._d.events.publish(ApprovalRequested(business.id, action.summary))
+            return "That needs a team sign-off — I've flagged it and we'll confirm shortly."
+        return "Your refund has been approved and issued."
