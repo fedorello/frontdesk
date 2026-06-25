@@ -19,7 +19,7 @@ then CI and evals. Every phase ends green against the gate in
 | 5     | LLM provider adapters                   | ✅ Done — [report](../reports/phase-5-report.md) |
 | 6     | Channels & webhooks                     | ✅ Done — [report](../reports/phase-6-report.md) |
 | 7     | Worker (reminders) & the approval gate  | ✅ Done — [report](../reports/phase-7-report.md) |
-| 8     | Admin dashboard                         | 🚧 Scaffold done (Next 16, gate green); views next |
+| 8     | Admin dashboard                         | ✅ Done — [report](../reports/phase-8-report.md) |
 | 9     | CI/CD, evals & release readiness        | Not started |
 
 ## Phase 0 — Scaffold & gates
