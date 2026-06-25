@@ -4,7 +4,7 @@
 API := apps/api
 COMPOSE := docker compose -f deploy/docker/docker-compose.yml
 
-.PHONY: help install fmt fmt-check lint typecheck test check up down logs
+.PHONY: help install fmt fmt-check lint typecheck test test-integration check up down logs
 
 help: ## List available targets
 	@grep -hE '^[a-zA-Z_-]+:.*?## ' $(MAKEFILE_LIST) \
@@ -27,6 +27,9 @@ typecheck: ## Static types (mypy --strict)
 
 test: ## Unit tests with coverage
 	cd $(API) && uv run pytest
+
+test-integration: ## Integration tests against a running Postgres (make up first)
+	cd $(API) && uv run pytest tests/integration --no-cov
 
 check: fmt-check lint typecheck test ## The full local gate
 
