@@ -12,7 +12,7 @@ from frontdesk.application.ports import (
 )
 from frontdesk.domain.enums import AppointmentStatus, Channel
 from frontdesk.domain.ids import AppointmentId
-from tests.application.world import NOW, build_world, inbound
+from tests.application.world import NOW, build_world, inbound, make_customer
 
 
 def _tool(call_id: str, name: str, args: dict[str, object]) -> Completion:
@@ -65,6 +65,18 @@ async def test_escalation_flow_hands_off() -> None:
 
     assert any(isinstance(event, Escalated) for event in world.events.events)
     assert world.messaging.sent[-1][1].text == "A team member will follow up shortly."
+
+
+async def test_failed_booking_returns_current_availability() -> None:
+    world = build_world([])
+    customer = make_customer()
+    args: dict[str, object] = {"service": "Haircut", "start": "2026-06-26T12:00:00+00:00"}
+
+    first = await world.assistant._do_book(world.business, customer, args)
+    retry = await world.assistant._do_book(world.business, customer, args)  # same slot → taken
+
+    assert "Booked" in first
+    assert "currently free" in retry.lower()  # the model gets ground truth, not a stale list
 
 
 def test_system_prompt_lists_only_real_services() -> None:

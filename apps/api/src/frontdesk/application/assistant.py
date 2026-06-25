@@ -147,6 +147,14 @@ def _parse_iso(value: object) -> datetime | None:
     return parsed if parsed.tzinfo is not None else parsed.replace(tzinfo=UTC)
 
 
+def _format_slots(slots: Sequence[TimeSlot]) -> str:
+    if not slots:
+        return "no free times right now"
+    return "; ".join(
+        f"{s.starts_at.strftime(SLOT_FORMAT)} (start={s.starts_at.isoformat()})" for s in slots
+    )
+
+
 def _system_prompt(business: Business, services: Sequence[Service]) -> str:
     menu = "\n".join(f"- {s.name} ({s.duration_minutes} min)" for s in services) or "- (none yet)"
     knowledge = "\n".join(f"Q: {item.question}\nA: {item.answer}" for item in business.knowledge)
@@ -156,6 +164,9 @@ def _system_prompt(business: Business, services: Sequence[Service]) -> str:
         "invent times, prices, services, or facts. Escalate when you cannot help.\n\n"
         "These are the ONLY services we offer. Never offer, suggest, or search for anything "
         f"not on this list — if a customer asks for something else, say we don't offer it:\n{menu}"
+        "\n\nFree times change as time passes. Always read availability from find_availability "
+        "right before offering slots, and never repeat a slot list from earlier in the chat. If a "
+        "booking fails, the tool gives you the current free slots — offer exactly those."
         f"\n\nKnowledge base:\n{knowledge}"
     )
 
@@ -241,10 +252,7 @@ class Assistant:
         slots = await self._d.calendar.find_availability(service, around)
         if not slots:
             return "There are no free slots in that window."
-        lines = [
-            f"{s.starts_at.strftime(SLOT_FORMAT)} (start={s.starts_at.isoformat()})" for s in slots
-        ]
-        return "Free slots:\n" + "\n".join(lines)
+        return "Free slots: " + _format_slots(slots)
 
     async def _do_book(
         self, business: Business, customer: Customer, args: dict[str, object]
@@ -257,7 +265,12 @@ class Assistant:
         try:
             appointment = await self._d.book(service, service.resource_ids[0], customer, slot)
         except DomainError as error:
-            return f"That slot isn't available: {error}"
+            current = await self._d.calendar.find_availability(service, self._d.clock.now())
+            return (
+                f"Couldn't book that time ({error}) — it may have just passed or been taken. "
+                f"The currently free slots are: {_format_slots(current)}. "
+                "Offer these exact times; do not reuse any earlier list."
+            )
         when = slot.starts_at.strftime(SLOT_FORMAT)
         return f"Booked {service.name} for {when}. Reference: {appointment.id}."
 
