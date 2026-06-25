@@ -1,6 +1,11 @@
 import Link from "next/link";
 
 const SECTIONS = [
+  {
+    href: "/chat",
+    title: "Chat with the assistant",
+    blurb: "Talk to the real agent and book — live, end to end.",
+  },
   { href: "/calendar", title: "Calendar", blurb: "Today's appointments and what's coming up." },
   {
     href: "/conversations",

@@ -6,6 +6,7 @@ webhook API wired to Postgres, a real LLM provider, and the live channels.
 
 import httpx
 from fastapi import FastAPI
+from fastapi.middleware.cors import CORSMiddleware
 
 from frontdesk.application.appointments import (
     BookAppointment,
@@ -34,6 +35,7 @@ from frontdesk.infrastructure.postgres.adapters import (
 from frontdesk.infrastructure.providers.anthropic import AnthropicProvider
 from frontdesk.infrastructure.providers.openai import OpenAiProvider
 from frontdesk.infrastructure.system import SystemClock, UuidIdGenerator
+from frontdesk.interface.chat import build_chat_router
 from frontdesk.interface.webhooks import WebhookConfig, create_app
 
 
@@ -107,4 +109,12 @@ def create_production_app() -> FastAPI:
         telegram_secret=settings.telegram_secret,
         telegram_bot_address=settings.telegram_bot_address,
     )
-    return create_app(assistant=Assistant(deps), idempotency=InMemoryIdempotency(), config=config)
+    app = create_app(assistant=Assistant(deps), idempotency=InMemoryIdempotency(), config=config)
+    app.add_middleware(
+        CORSMiddleware,
+        allow_origins=[o.strip() for o in settings.cors_allow_origins.split(",")],
+        allow_methods=["*"],
+        allow_headers=["*"],
+    )
+    app.include_router(build_chat_router(deps, settings.demo_to_address, clock))
+    return app

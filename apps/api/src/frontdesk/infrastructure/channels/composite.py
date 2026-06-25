@@ -19,6 +19,16 @@ class LoggingMessaging:
         _logger.info("reply → %s: %s", customer.channel_address, message.text)
 
 
+class CapturingMessaging:
+    """Records replies instead of sending — for the synchronous web chat."""
+
+    def __init__(self) -> None:
+        self.replies: list[str] = []
+
+    async def send(self, customer: Customer, message: OutboundMessage) -> None:
+        self.replies.append(message.text)
+
+
 class RoutingMessaging:
     """Dispatches ``send`` to the WhatsApp or Telegram adapter by channel."""
 

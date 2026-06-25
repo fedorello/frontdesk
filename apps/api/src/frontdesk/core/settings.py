@@ -21,6 +21,10 @@ class Settings(BaseSettings):
     redis_url: str = "redis://localhost:6379/0"
     log_level: str = "INFO"
 
+    # The business the web chat demo talks to (matches the seeded channel binding).
+    demo_to_address: str = "+BIZ"
+    cors_allow_origins: str = "*"
+
     # LLM provider (model-agnostic; any OpenAI-compatible or Anthropic endpoint).
     llm_provider: str = "openai"  # "openai" | "anthropic"
     llm_api_key: str = ""

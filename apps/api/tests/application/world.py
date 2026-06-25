@@ -58,6 +58,7 @@ class World:
     reschedule: RescheduleAppointment
     cancel: CancelAppointment
     clock: FixedClock
+    deps: AssistantDeps
 
 
 def build_world(script: Sequence[Completion], *, gate_approves: bool = False) -> World:
@@ -128,6 +129,7 @@ def build_world(script: Sequence[Completion], *, gate_approves: bool = False) ->
         reschedule=reschedule,
         cancel=cancel,
         clock=clock,
+        deps=deps,
     )
 
 

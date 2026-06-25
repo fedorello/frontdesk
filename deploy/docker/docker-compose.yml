@@ -61,6 +61,14 @@ services:
       postgres:
         condition: service_healthy
 
+  seed:
+    <<: *api
+    profiles: ["app"]
+    command: ["python", "scripts/seed.py"]
+    depends_on:
+      migrate:
+        condition: service_completed_successfully
+
   api:
     <<: *api
     profiles: ["app"]
@@ -71,7 +79,7 @@ services:
         condition: service_healthy
       redis:
         condition: service_healthy
-      migrate:
+      seed:
         condition: service_completed_successfully
 
   worker:
