@@ -6,7 +6,7 @@ DASHBOARD := apps/dashboard
 COMPOSE := docker compose -f deploy/docker/docker-compose.yml
 
 .PHONY: help install fmt fmt-check lint typecheck test test-integration check \
-	dashboard-install dashboard-check dashboard-dev up down logs
+	dashboard-install dashboard-check dashboard-e2e dashboard-dev up down logs
 
 help: ## List available targets
 	@grep -hE '^[a-zA-Z_-]+:.*?## ' $(MAKEFILE_LIST) \
@@ -40,6 +40,9 @@ dashboard-install: ## Install the dashboard dependencies
 
 dashboard-check: ## The dashboard gate (typecheck, lint, format, test, build)
 	cd $(DASHBOARD) && pnpm typecheck && pnpm lint && pnpm fmt:check && pnpm test && pnpm build
+
+dashboard-e2e: ## Dashboard end-to-end tests (Playwright)
+	cd $(DASHBOARD) && pnpm e2e
 
 dashboard-dev: ## Run the dashboard dev server
 	cd $(DASHBOARD) && pnpm dev
