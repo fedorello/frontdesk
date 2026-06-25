@@ -2,9 +2,11 @@
 .DEFAULT_GOAL := help
 
 API := apps/api
+DASHBOARD := apps/dashboard
 COMPOSE := docker compose -f deploy/docker/docker-compose.yml
 
-.PHONY: help install fmt fmt-check lint typecheck test test-integration check up down logs
+.PHONY: help install fmt fmt-check lint typecheck test test-integration check \
+	dashboard-install dashboard-check dashboard-dev up down logs
 
 help: ## List available targets
 	@grep -hE '^[a-zA-Z_-]+:.*?## ' $(MAKEFILE_LIST) \
@@ -32,6 +34,15 @@ test-integration: ## Integration tests against a running Postgres (make up first
 	cd $(API) && uv run pytest tests/integration --no-cov
 
 check: fmt-check lint typecheck test ## The full local gate
+
+dashboard-install: ## Install the dashboard dependencies
+	cd $(DASHBOARD) && pnpm install
+
+dashboard-check: ## The dashboard gate (typecheck, lint, format, build)
+	cd $(DASHBOARD) && pnpm typecheck && pnpm lint && pnpm fmt:check && pnpm build
+
+dashboard-dev: ## Run the dashboard dev server
+	cd $(DASHBOARD) && pnpm dev
 
 up: ## Start infrastructure (PostgreSQL + Redis)
 	$(COMPOSE) up -d
