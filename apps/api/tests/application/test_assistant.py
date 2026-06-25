@@ -1,6 +1,6 @@
 """The assistant loop: the answer, booking, and escalation flows end-to-end."""
 
-from frontdesk.application.assistant import ESCALATION_FALLBACK, MAX_STEPS
+from frontdesk.application.assistant import ESCALATION_FALLBACK, MAX_STEPS, _system_prompt
 from frontdesk.application.ports import (
     AppointmentBooked,
     ApprovalRequested,
@@ -65,6 +65,16 @@ async def test_escalation_flow_hands_off() -> None:
 
     assert any(isinstance(event, Escalated) for event in world.events.events)
     assert world.messaging.sent[-1][1].text == "A team member will follow up shortly."
+
+
+def test_system_prompt_lists_only_real_services() -> None:
+    world = build_world([])
+
+    prompt = _system_prompt(world.business, [world.service])
+
+    assert "Haircut" in prompt
+    assert "ONLY services" in prompt
+    assert "never invent" in prompt.lower()
 
 
 def test_answer_is_grounded() -> None:

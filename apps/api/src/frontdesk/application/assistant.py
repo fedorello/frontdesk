@@ -5,7 +5,7 @@ how* it happens. It answers only from the knowledge base and the real calendar,
 and escalates when unsure. See ADR-0007.
 """
 
-from collections.abc import Awaitable, Callable
+from collections.abc import Awaitable, Callable, Sequence
 from dataclasses import dataclass
 from datetime import UTC, datetime, timedelta
 
@@ -39,7 +39,7 @@ from frontdesk.application.ports import (
 from frontdesk.domain.enums import MessageRole
 from frontdesk.domain.errors import DomainError
 from frontdesk.domain.ids import AppointmentId
-from frontdesk.domain.models import Business, Customer, Message, TimeSlot
+from frontdesk.domain.models import Business, Customer, Message, Service, TimeSlot
 
 MAX_STEPS = 6
 ESCALATION_FALLBACK = "Let me get a colleague to help you with that — they'll be in touch shortly."
@@ -147,13 +147,16 @@ def _parse_iso(value: object) -> datetime | None:
     return parsed if parsed.tzinfo is not None else parsed.replace(tzinfo=UTC)
 
 
-def _system_prompt(business: Business) -> str:
+def _system_prompt(business: Business, services: Sequence[Service]) -> str:
+    menu = "\n".join(f"- {s.name} ({s.duration_minutes} min)" for s in services) or "- (none yet)"
     knowledge = "\n".join(f"Q: {item.question}\nA: {item.answer}" for item in business.knowledge)
     return (
         f"You are the front desk for {business.name}. Be brief and warm, and reply in the "
         "customer's language. Use the tools to check real availability and to book — never "
-        "invent times, prices, or facts. Escalate when you cannot help.\n\n"
-        f"Knowledge base:\n{knowledge}"
+        "invent times, prices, services, or facts. Escalate when you cannot help.\n\n"
+        "These are the ONLY services we offer. Never offer, suggest, or search for anything "
+        f"not on this list — if a customer asks for something else, say we don't offer it:\n{menu}"
+        f"\n\nKnowledge base:\n{knowledge}"
     )
 
 
@@ -194,7 +197,7 @@ class Assistant:
 
     async def _run(self, business: Business, customer: Customer) -> str:
         messages = list(await self._d.conversations.history(customer))
-        system = _system_prompt(business)
+        system = _system_prompt(business, await self._d.services.for_business(business.id))
         for _ in range(MAX_STEPS):
             completion = await self._d.llm.complete(
                 system=system, messages=messages, tools=TOOL_SPECS
