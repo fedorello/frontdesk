@@ -16,7 +16,7 @@ then CI and evals. Every phase ends green against the gate in
 | 2     | Ports & in-memory fakes                 | ✅ Done — [report](../reports/phase-2-report.md) |
 | 3     | Use cases & the assistant loop          | ✅ Done — [report](../reports/phase-3-report.md) |
 | 4     | Persistence (PostgreSQL)                | ✅ Done — [report](../reports/phase-4-report.md) |
-| 5     | LLM provider adapters                   | Not started |
+| 5     | LLM provider adapters                   | 🚧 Adapters done (100% cov) — [report](../reports/phase-5-report.md); live run pending key |
 | 6     | Channels & webhooks                     | Not started |
 | 7     | Worker (reminders) & the approval gate  | Not started |
 | 8     | Admin dashboard                         | Not started |
