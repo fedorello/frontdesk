@@ -7,6 +7,11 @@ How the Frontdesk docs are organized. Keep this index in sync.
 - [`architecture/overview.md`](./architecture/overview.md) — the full architecture:
   the hexagon, the domain model, the ports & adapters, and the three flows
   (answer, booking, reminder).
+- [`design/contracts.md`](./design/contracts.md) — the precise contract: domain
+  types, ports, use cases, the assistant's tools, state machines, invariants, the
+  database schema, and the errors.
+- [`plans/implementation-plan.md`](./plans/implementation-plan.md) — the phased,
+  inside-out build with a status snapshot and a Definition of Done per phase.
 
 ## Architecture Decision Records (`adr/`)
 

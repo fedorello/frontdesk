@@ -59,6 +59,11 @@ for the layout). Keep this index in sync — when you add a document, add it her
 - [`docs/architecture/overview.md`](./docs/architecture/overview.md) — the full
   architecture: the hexagon, domain model, ports & adapters, and the answer /
   booking / reminder flows.
+- [`docs/design/contracts.md`](./docs/design/contracts.md) — the precise contract:
+  domain types, ports, use cases, the assistant's tools, state machines,
+  invariants, the database schema, and errors.
+- [`docs/plans/implementation-plan.md`](./docs/plans/implementation-plan.md) — the
+  phased, inside-out build with a status snapshot and per-phase Definition of Done.
 - **ADRs** (`docs/adr/`): hexagonal foundations (0001), channels behind a
   messaging port (0002), multi-tenant by business (0003), durable reminders in
   PostgreSQL (0004), human-in-the-loop via Airlock (0005), model-agnostic LLM
