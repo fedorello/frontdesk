@@ -17,7 +17,7 @@ then CI and evals. Every phase ends green against the gate in
 | 3     | Use cases & the assistant loop          | ✅ Done — [report](../reports/phase-3-report.md) |
 | 4     | Persistence (PostgreSQL)                | ✅ Done — [report](../reports/phase-4-report.md) |
 | 5     | LLM provider adapters                   | ✅ Done — [report](../reports/phase-5-report.md) |
-| 6     | Channels & webhooks                     | 🚧 Adapters done (send + parse, tested); webhook layer next |
+| 6     | Channels & webhooks                     | ✅ Done — [report](../reports/phase-6-report.md) |
 | 7     | Worker (reminders) & the approval gate  | Not started |
 | 8     | Admin dashboard                         | Not started |
 | 9     | CI/CD, evals & release readiness        | Not started |

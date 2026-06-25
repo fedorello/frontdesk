@@ -130,6 +130,12 @@ class IdGenerator(Protocol):
     def new(self) -> str: ...
 
 
+class Idempotency(Protocol):
+    async def seen(self, key: str) -> bool:
+        """True if ``key`` was already processed; records it as processed."""
+        ...
+
+
 # --------------------------------------------------------------------------- #
 # Driven ports                                                                #
 # --------------------------------------------------------------------------- #

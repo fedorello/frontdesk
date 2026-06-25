@@ -12,6 +12,7 @@ dependencies = [
   "asyncpg>=0.31.0",
   "alembic>=1.18.4",
   "httpx>=0.28.1",
+  "fastapi>=0.138.0",
 ]
 
 [dependency-groups]
@@ -44,6 +45,10 @@ ignore = ["PLR0913"]
 
 [tool.ruff.lint.per-file-ignores]
 "tests/**" = ["PLR2004", "S101"]
+
+[tool.ruff.lint.flake8-bugbear]
+# FastAPI's dependency markers are designed to be called in argument defaults.
+extend-immutable-calls = ["fastapi.Query", "fastapi.Header", "fastapi.Depends", "fastapi.Path"]
 
 # ----- Types -----
 [tool.mypy]

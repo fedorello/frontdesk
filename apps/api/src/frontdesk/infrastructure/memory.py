@@ -56,6 +56,17 @@ class InMemoryEventPublisher:
         self.events.append(event)
 
 
+class InMemoryIdempotency:
+    def __init__(self) -> None:
+        self._seen: set[str] = set()
+
+    async def seen(self, key: str) -> bool:
+        if key in self._seen:
+            return True
+        self._seen.add(key)
+        return False
+
+
 class ScriptedLlmProvider:
     """Replays a fixed list of completions so the assistant loop is deterministic."""
 
