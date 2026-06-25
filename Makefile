@@ -5,7 +5,7 @@ API := apps/api
 DASHBOARD := apps/dashboard
 COMPOSE := docker compose -f deploy/docker/docker-compose.yml
 
-.PHONY: help install fmt fmt-check lint typecheck test test-integration check \
+.PHONY: help install fmt fmt-check lint typecheck test test-integration check demo \
 	dashboard-install dashboard-check dashboard-e2e dashboard-dev up down logs
 
 help: ## List available targets
@@ -34,6 +34,9 @@ test-integration: ## Integration tests against a running Postgres (make up first
 	cd $(API) && uv run pytest tests/integration --no-cov
 
 check: fmt-check lint typecheck test ## The full local gate
+
+demo: ## Seed a demo business and book through the real stack (needs `make up` + FD_LLM_KEY)
+	cd $(API) && uv run python scripts/demo.py
 
 dashboard-install: ## Install the dashboard dependencies
 	cd $(DASHBOARD) && pnpm install

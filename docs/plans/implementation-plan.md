@@ -20,7 +20,7 @@ then CI and evals. Every phase ends green against the gate in
 | 6     | Channels & webhooks                     | ✅ Done — [report](../reports/phase-6-report.md) |
 | 7     | Worker (reminders) & the approval gate  | ✅ Done — [report](../reports/phase-7-report.md) |
 | 8     | Admin dashboard                         | ✅ Done — [report](../reports/phase-8-report.md) |
-| 9     | CI/CD, evals & release readiness        | Not started |
+| 9     | CI/CD, evals & release readiness        | ✅ Done — [report](../reports/phase-9-report.md) |
 
 ## Phase 0 — Scaffold & gates
 

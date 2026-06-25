@@ -55,7 +55,7 @@ Any small, appointment-based service business: hair & beauty, clinics and
 therapists, tutors and coaches, studios, barbershops, repair and trades. If your
 calendar is your revenue and your inbox is WhatsApp, this is for you.
 
-## Planned architecture
+## Architecture
 
 Frontdesk is built as a real, maintainable product, not a demo script:
 
@@ -73,15 +73,44 @@ Frontdesk is built as a real, maintainable product, not a demo script:
 - **An admin dashboard** for the business: calendar, conversations, settings, and
   a clear view of what the assistant did and what it escalated.
 
-The concrete stack and pinned versions will live in `docs/stack.md`; the leaning
-is a Python (FastAPI) core, a Next.js admin app, Postgres for data, and Redis for
-events and the reminder scheduler — run locally and in production through Docker
-Compose, with a Makefile as the single entry point.
+The stack and pinned versions live in [`docs/stack.md`](./docs/stack.md): a Python
+3.14 / FastAPI core, a Next.js 16 admin app, Postgres for data (with a gist
+exclusion constraint that makes double-booking impossible), and Redis for events —
+run locally and in production through Docker Compose, with a Makefile as the single
+entry point.
+
+## Quickstart
+
+Prerequisites: Docker, [`uv`](https://docs.astral.sh/uv/), `pnpm`, and Node 24.
+
+```bash
+make install          # backend deps
+make check            # the full gate: ruff, mypy, import-linter, pytest
+
+make up               # Postgres + Redis
+make test-integration # adapters against a real Postgres (double-book rejected, SKIP LOCKED)
+
+# The integrated demo: seeds a business, then a WhatsApp-style message drives the
+# real assistant (SQL-backed) to book a real, persisted appointment via a real model.
+FD_LLM_KEY=sk-or-... make demo
+
+# The admin dashboard (calendar, conversations, settings, approvals inbox)
+make dashboard-install
+make dashboard-check  # typecheck, lint, test, build
+make dashboard-dev    # http://localhost:3000
+```
+
+The LLM is model-agnostic — any OpenAI-compatible or Anthropic endpoint; the demo
+defaults to `deepseek/deepseek-v4-flash` via OpenRouter. The architecture, ADRs,
+and a per-phase build report live in [`docs/`](./docs).
 
 ## Status
 
-Early — built in the open. This repository starts with its engineering standard
-and guidance; the implementation follows in staged, reviewed phases.
+Built in the open, in staged and reviewed phases (see
+[`docs/plans/implementation-plan.md`](./docs/plans/implementation-plan.md) and the
+per-phase reports in [`docs/reports/`](./docs/reports)). The core product works
+end-to-end: a real WhatsApp message books a real appointment, with reminders and an
+approval gate for sensitive actions.
 
 ## How it's built
 
