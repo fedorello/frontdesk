@@ -39,6 +39,7 @@ from frontdesk.infrastructure.memory import (
     ScriptedLlmProvider,
 )
 from frontdesk.infrastructure.system import FixedClock, SequentialIdGenerator
+from frontdesk.interface.telegram_inbound import TelegramInbound
 from frontdesk.interface.telegram_webhook import build_telegram_router
 from tests.port_contracts import NOW
 
@@ -102,16 +103,14 @@ async def test_routes_each_business_to_its_own_bot() -> None:
     await bots.upsert(TelegramBotConfig(BusinessId("biz2"), "222:BBB", "sec2", "bob_bot"))
 
     app = FastAPI()
-    app.include_router(
-        build_telegram_router(
-            _base_deps(businesses),
-            bots,
-            InMemoryLlmConfigRepository(),
-            InMemoryUsageStore(),
-            SETTINGS,
-            client,
-        )
+    inbound = TelegramInbound(
+        _base_deps(businesses),
+        InMemoryLlmConfigRepository(),
+        InMemoryUsageStore(),
+        SETTINGS,
+        client,
     )
+    app.include_router(build_telegram_router(inbound, bots))
 
     transport = httpx.ASGITransport(app=app)
     async with httpx.AsyncClient(transport=transport, base_url="http://test") as web:
@@ -174,16 +173,14 @@ async def test_managed_default_daily_limit_caps_messages() -> None:
     )
 
     app = FastAPI()
-    app.include_router(
-        build_telegram_router(
-            _base_deps(businesses),
-            bots,
-            InMemoryLlmConfigRepository(),
-            InMemoryUsageStore(),
-            settings,
-            client,
-        )
+    inbound = TelegramInbound(
+        _base_deps(businesses),
+        InMemoryLlmConfigRepository(),
+        InMemoryUsageStore(),
+        settings,
+        client,
     )
+    app.include_router(build_telegram_router(inbound, bots))
     transport = httpx.ASGITransport(app=app)
     async with httpx.AsyncClient(transport=transport, base_url="http://test") as web:
         headers = {"x-telegram-bot-api-secret-token": "sec1"}

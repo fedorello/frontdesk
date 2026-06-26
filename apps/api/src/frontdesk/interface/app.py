@@ -54,6 +54,7 @@ from frontdesk.interface.config_api import build_config_router
 from frontdesk.interface.metrics_api import build_metrics_router
 from frontdesk.interface.read_api import build_read_router
 from frontdesk.interface.telegram_connect import build_telegram_connect_router
+from frontdesk.interface.telegram_inbound import TelegramInbound
 from frontdesk.interface.telegram_webhook import build_telegram_router
 from frontdesk.interface.webhooks import WebhookConfig, create_app
 
@@ -157,11 +158,10 @@ def create_production_app() -> FastAPI:
         allow_methods=["*"],
         allow_headers=["*"],
     )
+    telegram_inbound = TelegramInbound(deps, llm_configs, usage, settings, client)
     app.include_router(build_chat_router(deps, settings.demo_to_address, clock))
     app.include_router(build_approvals_router(pending_approvals))
-    app.include_router(
-        build_telegram_router(deps, telegram_bots, llm_configs, usage, settings, client)
-    )
+    app.include_router(build_telegram_router(telegram_inbound, telegram_bots))
     app.include_router(build_auth_router(accounts, SqlBusinessRepository(sessions), ids, settings))
     app.include_router(build_llm_config_router(llm_configs, guard))
     app.include_router(
