@@ -63,11 +63,18 @@ with a clear “you're done” at the end. Steps:
 4. **Knowledge base** — a few question/answer facts the assistant may use (e.g.
    “Where are you located?”, “Do you take card?”). The assistant only answers from
    these — empty is allowed but discouraged.
-5. **Connect Telegram** — the key step. The owner needs guidance to: create a bot in
+5. **Choose your AI** — how the assistant is powered. Two paths: use the **included
+   default** (zero setup — we provide the model) or **bring your own provider** (pick
+   OpenAI / Anthropic / OpenRouter, choose a model, and paste an API key). After
+   pasting a key, show whether it **validated** or **failed**. The key is
+   **write-only**: once saved it's shown only as a masked hint (e.g. `…ab12`), never
+   in full. Make the trade-off clear (own key = your account/your bill; default =
+   instant start).
+6. **Connect Telegram** — the key step. The owner needs guidance to: create a bot in
    Telegram (via BotFather), copy the bot **token**, and paste it here. After pasting,
    show whether the connection **succeeded** (and the bot's name) or **failed**
    (invalid token). Once connected, the assistant is live.
-6. **Done** — confirmation, a link to message/test their own bot, and into the
+7. **Done** — confirmation, a link to message/test their own bot, and into the
    dashboard.
 
 Design the wizard's **progress**, the **per-step validation/errors**, and a way to
@@ -109,6 +116,10 @@ Grouped settings the owner manages over time. Sections:
 - **Services** — add / edit / remove (same data as onboarding).
 - **Working hours** — edit.
 - **Knowledge base** — add / edit / remove Q&A entries.
+- **AI provider** — choose the included **default** or **bring your own** (OpenAI /
+  Anthropic / OpenRouter + model + API key). The saved key shows only as a masked
+  hint with a “replace” / “remove” action; never the full key. A way to **test** the
+  current provider.
 - **Channels** — the **Telegram** connection: status, bot name, **reconnect** /
   **disconnect**, and re-paste a token. (Space for other channels later — keep it
   extensible; do not design WhatsApp now.)

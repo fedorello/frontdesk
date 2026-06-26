@@ -24,8 +24,10 @@ green against the gate and is verified with a real run.
 **Goal:** every business replies through **its own** bot; one server, many bots.
 
 - Schema + migration: a `telegram_bot` config per business — `business_id`,
-  `bot_token` (encrypted), `secret_token`, `username`, `webhook_set` — plus a small
-  encryption helper keyed by `FRONTDESK_SECRET_KEY`.
+  `bot_token` (encrypted), `secret_token`, `username`, `webhook_set`.
+- A `SecretCipher` port for **all** stored secrets (bot tokens *and* LLM keys) —
+  authenticated encryption with an env key now, a KMS adapter later
+  ([ADR-0009](../adr/0009-byo-llm-provider-and-secrets.md)). Key: `FRONTDESK_SECRET_KEY`.
 - A `ChannelConfigRepository` port + SQL adapter (get a business's Telegram config).
 - Make outbound **tenant-aware**: the webhook handler and the reminder worker build
   the per-business Telegram messaging adapter from the stored token (instead of the
@@ -43,11 +45,19 @@ right bot; a reminder is sent from the right bot; integration test proves isolat
 - Write endpoints (scoped later in Phase D): create/update business profile
   (name, timezone, **default language**), services (name, duration, price), working
   hours, resources, and knowledge-base entries.
+- **Bring-your-own LLM provider** ([ADR-0009](../adr/0009-byo-llm-provider-and-secrets.md)):
+  an `llm_config` per business — `mode` (platform default *or* own), `provider`
+  (openai · anthropic · openrouter), `model`, and an **encrypted** `api_key`. The
+  provider is resolved **per business** at request time; `default` uses the platform's
+  OpenRouter + `deepseek-v4-flash`. The key is encrypted via `SecretCipher`, validated
+  on entry (one cheap call), **never returned or logged** (only `{provider, model,
+  hint}` is exposed).
 - Validation in the application layer; the domain rules are unchanged.
 
-**DoD:** a business + services + hours + knowledge can be created and edited entirely
-via the API; the assistant immediately reflects the changes (offers only real
-services, answers from the new knowledge).
+**DoD:** a business + services + hours + knowledge + LLM provider can be created and
+edited entirely via the API; a business using its **own** key runs the assistant on
+its own model, and one on `default` runs on the platform model — both verified; the
+key never appears in any response or log.
 
 ## Phase C — Telegram self-serve connect
 

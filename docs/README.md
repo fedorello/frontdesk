@@ -48,3 +48,5 @@ How the Frontdesk docs are organized. Keep this index in sync.
   — the model decides intent; the typed core decides what actually happens.
 - [0008 — Multi-tenant self-serve SaaS](./adr/0008-multi-tenant-self-serve-saas.md) —
   per-tenant Telegram bots, self-serve onboarding, multilingual; Telegram-first.
+- [0009 — BYO LLM provider & API-key storage](./adr/0009-byo-llm-provider-and-secrets.md)
+  — bring your own provider/key or use the managed default; how keys are stored safely.
