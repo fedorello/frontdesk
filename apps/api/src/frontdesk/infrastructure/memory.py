@@ -165,6 +165,9 @@ class InMemoryUsageStore:
         self._counts[key] = self._counts.get(key, 0) + 1
         return self._counts[key]
 
+    async def count(self, business_id: BusinessId, day: str) -> int:
+        return self._counts.get((business_id, day), 0)
+
 
 class InMemoryChannelBindingRepository:
     """Writes bindings into a business repo so ``for_channel`` resolves them."""

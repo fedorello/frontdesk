@@ -249,3 +249,9 @@ async def check_usage_store(store: UsageStore) -> None:
 
     other_day = await store.increment_and_count(BusinessId("biz"), "usage-test-day-2")
     assert other_day == 1  # a different day starts fresh
+
+    assert await store.count(BusinessId("biz"), "usage-test-day") == second  # read-only, no bump
+    assert (
+        await store.count(BusinessId("biz"), "usage-test-day") == second
+    )  # still, idempotent read
+    assert await store.count(BusinessId("biz"), "untouched-day") == 0

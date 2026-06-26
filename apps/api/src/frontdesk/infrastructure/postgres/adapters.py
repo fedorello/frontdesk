@@ -920,3 +920,13 @@ class SqlUsageStore:
             ).scalar_one()
             await session.commit()
             return int(count)
+
+    async def count(self, business_id: BusinessId, day: str) -> int:
+        async with self._sf() as session:
+            result = (
+                await session.execute(
+                    text("SELECT count FROM usage_counter WHERE business_id = :bid AND day = :day"),
+                    {"bid": str(business_id), "day": day},
+                )
+            ).scalar_one_or_none()
+            return int(result) if result is not None else 0

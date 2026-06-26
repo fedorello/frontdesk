@@ -77,4 +77,13 @@ def build_telegram_connect_router(
             return TelegramStatus(connected=False)
         return TelegramStatus(connected=bot.webhook_set, username=bot.username)
 
+    @router.get("/api/businesses/{business_id}/telegram/health")
+    async def health(business_id: str) -> dict[str, object]:
+        """Live check: is the stored bot token still valid with Telegram?"""
+        bot = await telegram_bots.get(BusinessId(business_id))
+        if bot is None:
+            return {"connected": False, "alive": False}
+        me = await telegram_get_me(bot.bot_token, client)
+        return {"connected": True, "alive": me is not None, "username": bot.username}
+
     return router

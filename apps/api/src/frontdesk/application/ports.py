@@ -209,6 +209,7 @@ class UsageStore(Protocol):
     """Per-business daily usage counter for the managed-default LLM (cost control)."""
 
     async def increment_and_count(self, business_id: BusinessId, day: str) -> int: ...
+    async def count(self, business_id: BusinessId, day: str) -> int: ...
 
 
 class CustomerRepository(Protocol):

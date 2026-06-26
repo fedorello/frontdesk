@@ -50,6 +50,7 @@ from frontdesk.interface.auth import build_auth_router, make_owner_guard
 from frontdesk.interface.business_config import build_llm_config_router
 from frontdesk.interface.chat import build_chat_router
 from frontdesk.interface.config_api import build_config_router
+from frontdesk.interface.metrics_api import build_metrics_router
 from frontdesk.interface.read_api import build_read_router
 from frontdesk.interface.telegram_connect import build_telegram_connect_router
 from frontdesk.interface.telegram_webhook import build_telegram_router
@@ -182,4 +183,5 @@ def create_production_app() -> FastAPI:
             guard,
         )
     )
+    app.include_router(build_metrics_router(usage, settings, clock, guard))
     return app

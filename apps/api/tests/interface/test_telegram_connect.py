@@ -57,6 +57,9 @@ async def test_connect_flow() -> None:
         st = (await web.get("/api/businesses/ana/telegram")).json()
         assert st == {"connected": True, "username": "ana_bot"}
 
+        health = (await web.get("/api/businesses/ana/telegram/health")).json()
+        assert health == {"connected": True, "alive": True, "username": "ana_bot"}  # getMe live
+
         disc = await web.post("/api/businesses/ana/telegram/disconnect")
         assert disc.json() == {"disconnected": True}
 
