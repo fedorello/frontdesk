@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useState } from "react";
 
@@ -196,6 +197,12 @@ export default function OnboardingPage() {
                 <PrimaryButton onClick={submitAccount} busy={busy}>
                   {t("onboarding.signUp")}
                 </PrimaryButton>
+                <p className="text-center text-sm text-muted">
+                  {t("auth.haveAccount")}{" "}
+                  <Link href="/login" className="font-bold text-accent">
+                    {t("onboarding.logIn")}
+                  </Link>
+                </p>
               </>
             )}
 

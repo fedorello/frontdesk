@@ -7,8 +7,8 @@ import { BottomNav } from "@/components/BottomNav";
 import { Sidebar } from "@/components/Sidebar";
 import { Topbar } from "@/components/Topbar";
 
-// The onboarding wizard is a standalone full-screen flow — no dashboard chrome.
-const BARE_ROUTES = ["/onboarding"];
+// Auth screens are standalone full-screen flows — no dashboard chrome.
+const BARE_ROUTES = ["/onboarding", "/login"];
 
 export function AppShell({ children }: { children: ReactNode }) {
   const pathname = usePathname();
