@@ -3,22 +3,11 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 
-import type { MessageKey } from "@/app/lib/i18n";
 import { useI18n } from "@/app/lib/I18nProvider";
 import { useTheme } from "@/app/lib/ThemeProvider";
-import { Icon, type IconName } from "@/components/icons";
-
-const NAV: { href: string; key: MessageKey; icon: IconName }[] = [
-  { href: "/", key: "nav.overview", icon: "overview" },
-  { href: "/conversations", key: "nav.conversations", icon: "conversations" },
-  { href: "/calendar", key: "nav.calendar", icon: "calendar" },
-  { href: "/approvals", key: "nav.approvals", icon: "approvals" },
-  { href: "/settings", key: "nav.settings", icon: "settings" },
-];
-
-function isActive(pathname: string, href: string): boolean {
-  return href === "/" ? pathname === "/" : pathname.startsWith(href);
-}
+import { BotStatus } from "@/components/BotStatus";
+import { Icon } from "@/components/icons";
+import { isActive, NAV_ITEMS } from "@/components/nav-items";
 
 export function Sidebar() {
   const { t } = useI18n();
@@ -38,7 +27,7 @@ export function Sidebar() {
       </div>
 
       <nav className="flex flex-col gap-1">
-        {NAV.map((item) => {
+        {NAV_ITEMS.map((item) => {
           const active = isActive(pathname, item.href);
           return (
             <Link
@@ -66,14 +55,17 @@ export function Sidebar() {
         {t("nav.tryAssistant")}
       </Link>
 
-      <button
-        type="button"
-        onClick={toggle}
-        className="mt-auto flex items-center justify-center gap-2 rounded-xl border border-line bg-surface-3 px-3 py-2.5 text-[13px] font-semibold text-muted"
-      >
-        <Icon name={theme === "dark" ? "sun" : "moon"} size={15} />
-        {theme === "dark" ? t("common.light") : t("common.dark")}
-      </button>
+      <div className="mt-auto space-y-2.5">
+        <BotStatus />
+        <button
+          type="button"
+          onClick={toggle}
+          className="flex w-full items-center justify-center gap-2 rounded-xl border border-line bg-surface-3 px-3 py-2.5 text-[13px] font-semibold text-muted"
+        >
+          <Icon name={theme === "dark" ? "sun" : "moon"} size={15} />
+          {theme === "dark" ? t("common.light") : t("common.dark")}
+        </button>
+      </div>
     </aside>
   );
 }
