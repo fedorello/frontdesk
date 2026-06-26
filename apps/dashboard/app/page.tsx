@@ -1,43 +1,76 @@
-import Link from "next/link";
+"use client";
 
-const SECTIONS = [
-  {
-    href: "/chat",
-    title: "Chat with the assistant",
-    blurb: "Talk to the real agent and book — live, end to end.",
-  },
-  { href: "/calendar", title: "Calendar", blurb: "Today's appointments and what's coming up." },
-  {
-    href: "/conversations",
-    title: "Conversations",
-    blurb: "What customers asked and how the assistant replied.",
-  },
-  { href: "/settings", title: "Settings", blurb: "Services, hours, knowledge base, and channels." },
-  { href: "/approvals", title: "Approvals", blurb: "Sensitive actions waiting for your sign-off." },
-] as const;
+import Link from "next/link";
+import { useEffect, useState } from "react";
+
+import { api } from "@/app/lib/api";
+import type { MessageKey } from "@/app/lib/i18n";
+import { useI18n } from "@/app/lib/I18nProvider";
+import { getSession } from "@/app/lib/session";
+
+const LINKS: { href: string; key: MessageKey }[] = [
+  { href: "/calendar", key: "nav.calendar" },
+  { href: "/conversations", key: "nav.conversations" },
+  { href: "/settings", key: "nav.settings" },
+  { href: "/approvals", key: "nav.approvals" },
+];
 
 export default function Home() {
+  const { t } = useI18n();
+  const [counts, setCounts] = useState<{ bookings: number; messages: number } | null>(null);
+  const [needsAuth, setNeedsAuth] = useState(false);
+
+  useEffect(() => {
+    const session = getSession();
+    if (session === null) {
+      // eslint-disable-next-line react-hooks/set-state-in-effect
+      setNeedsAuth(true);
+      return;
+    }
+    Promise.all([
+      api.appointments(session.businessId, session.token),
+      api.conversations(session.businessId, session.token),
+    ])
+      .then(([bookings, messages]) =>
+        setCounts({ bookings: bookings.length, messages: messages.length }),
+      )
+      .catch(() => setCounts({ bookings: 0, messages: 0 }));
+  }, []);
+
   return (
     <main className="mx-auto w-full max-w-4xl flex-1 px-6 py-16">
-      <h1 className="text-2xl font-semibold tracking-tight">Frontdesk — Admin</h1>
-      <p className="mt-2 max-w-2xl text-sm text-zinc-500">
-        Your AI front desk answers messages, books appointments, and reminds customers. This is
-        where you watch what it did and sign off on anything sensitive.
-      </p>
+      <h1 className="text-2xl font-semibold tracking-tight">{t("nav.overview")}</h1>
+
+      {needsAuth && <p className="mt-4 text-sm text-zinc-500">{t("calendar.connectFirst")}</p>}
+
+      {counts !== null && (
+        <div className="mt-8 grid gap-4 sm:grid-cols-2">
+          <Stat label={t("overview.bookings")} value={counts.bookings} />
+          <Stat label={t("overview.messages")} value={counts.messages} />
+        </div>
+      )}
 
       <ul className="mt-10 grid gap-4 sm:grid-cols-2">
-        {SECTIONS.map((section) => (
-          <li key={section.title}>
+        {LINKS.map((link) => (
+          <li key={link.href}>
             <Link
-              href={section.href}
+              href={link.href}
               className="block rounded-xl border border-zinc-200 p-5 hover:border-zinc-300 hover:bg-zinc-50 dark:border-zinc-800 dark:hover:bg-zinc-900"
             >
-              <h2 className="font-medium">{section.title}</h2>
-              <p className="mt-1 text-sm text-zinc-500">{section.blurb}</p>
+              <h2 className="font-medium">{t(link.key)}</h2>
             </Link>
           </li>
         ))}
       </ul>
     </main>
+  );
+}
+
+function Stat({ label, value }: { label: string; value: number }) {
+  return (
+    <div className="rounded-xl border border-zinc-200 p-5 dark:border-zinc-800">
+      <div className="text-3xl font-semibold tabular-nums">{value}</div>
+      <div className="mt-1 text-sm text-zinc-500">{label}</div>
+    </div>
   );
 }
