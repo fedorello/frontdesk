@@ -1,0 +1,178 @@
+// Dashboard internationalization (M5). First-class from the first screen: every
+// user-facing string is a key resolved per locale. No hard-coded copy in components.
+
+export const LOCALES = ["en", "es", "ru", "zh"] as const;
+export type Locale = (typeof LOCALES)[number];
+export const DEFAULT_LOCALE: Locale = "en";
+
+export const LOCALE_NAMES: Record<Locale, string> = {
+  en: "English",
+  es: "Español",
+  ru: "Русский",
+  zh: "中文",
+};
+
+// The message catalog. Keys are stable; values are translated per locale.
+const MESSAGES = {
+  en: {
+    "nav.overview": "Overview",
+    "nav.conversations": "Conversations",
+    "nav.calendar": "Calendar",
+    "nav.approvals": "Approvals",
+    "nav.settings": "Settings",
+    "onboarding.title": "Set up your receptionist",
+    "onboarding.email": "Email",
+    "onboarding.password": "Password",
+    "onboarding.businessName": "Business name",
+    "onboarding.timezone": "Timezone",
+    "onboarding.signUp": "Create account",
+    "onboarding.logIn": "Log in",
+    "onboarding.step.account": "Account",
+    "onboarding.step.business": "Business",
+    "onboarding.step.service": "Service",
+    "onboarding.step.ai": "AI",
+    "onboarding.step.telegram": "Telegram",
+    "onboarding.serviceName": "Service name",
+    "onboarding.duration": "Duration (minutes)",
+    "onboarding.addService": "Add service",
+    "onboarding.chooseAi": "Choose the AI",
+    "onboarding.defaultAi": "Use the managed default (recommended)",
+    "onboarding.ownAi": "Bring my own provider & key",
+    "onboarding.apiKey": "API key",
+    "onboarding.connectTelegram": "Connect Telegram",
+    "onboarding.botToken": "Bot token (from BotFather)",
+    "onboarding.connect": "Connect",
+    "onboarding.finish": "Finish",
+    "onboarding.connected": "Connected as @{username}",
+    "common.next": "Next",
+    "common.back": "Back",
+    "common.saving": "Saving…",
+    "common.error": "Something went wrong. Please try again.",
+  },
+  es: {
+    "nav.overview": "Resumen",
+    "nav.conversations": "Conversaciones",
+    "nav.calendar": "Calendario",
+    "nav.approvals": "Aprobaciones",
+    "nav.settings": "Ajustes",
+    "onboarding.title": "Configura tu recepcionista",
+    "onboarding.email": "Correo electrónico",
+    "onboarding.password": "Contraseña",
+    "onboarding.businessName": "Nombre del negocio",
+    "onboarding.timezone": "Zona horaria",
+    "onboarding.signUp": "Crear cuenta",
+    "onboarding.logIn": "Iniciar sesión",
+    "onboarding.step.account": "Cuenta",
+    "onboarding.step.business": "Negocio",
+    "onboarding.step.service": "Servicio",
+    "onboarding.step.ai": "IA",
+    "onboarding.step.telegram": "Telegram",
+    "onboarding.serviceName": "Nombre del servicio",
+    "onboarding.duration": "Duración (minutos)",
+    "onboarding.addService": "Agregar servicio",
+    "onboarding.chooseAi": "Elige la IA",
+    "onboarding.defaultAi": "Usar la opción gestionada (recomendado)",
+    "onboarding.ownAi": "Usar mi propio proveedor y clave",
+    "onboarding.apiKey": "Clave de API",
+    "onboarding.connectTelegram": "Conectar Telegram",
+    "onboarding.botToken": "Token del bot (de BotFather)",
+    "onboarding.connect": "Conectar",
+    "onboarding.finish": "Finalizar",
+    "onboarding.connected": "Conectado como @{username}",
+    "common.next": "Siguiente",
+    "common.back": "Atrás",
+    "common.saving": "Guardando…",
+    "common.error": "Algo salió mal. Inténtalo de nuevo.",
+  },
+  ru: {
+    "nav.overview": "Обзор",
+    "nav.conversations": "Диалоги",
+    "nav.calendar": "Календарь",
+    "nav.approvals": "Подтверждения",
+    "nav.settings": "Настройки",
+    "onboarding.title": "Настройте вашего ресепшиониста",
+    "onboarding.email": "Эл. почта",
+    "onboarding.password": "Пароль",
+    "onboarding.businessName": "Название бизнеса",
+    "onboarding.timezone": "Часовой пояс",
+    "onboarding.signUp": "Создать аккаунт",
+    "onboarding.logIn": "Войти",
+    "onboarding.step.account": "Аккаунт",
+    "onboarding.step.business": "Бизнес",
+    "onboarding.step.service": "Услуга",
+    "onboarding.step.ai": "ИИ",
+    "onboarding.step.telegram": "Telegram",
+    "onboarding.serviceName": "Название услуги",
+    "onboarding.duration": "Длительность (минут)",
+    "onboarding.addService": "Добавить услугу",
+    "onboarding.chooseAi": "Выберите ИИ",
+    "onboarding.defaultAi": "Использовать наш вариант (рекомендуется)",
+    "onboarding.ownAi": "Свой провайдер и ключ",
+    "onboarding.apiKey": "Ключ API",
+    "onboarding.connectTelegram": "Подключить Telegram",
+    "onboarding.botToken": "Токен бота (из BotFather)",
+    "onboarding.connect": "Подключить",
+    "onboarding.finish": "Готово",
+    "onboarding.connected": "Подключён как @{username}",
+    "common.next": "Далее",
+    "common.back": "Назад",
+    "common.saving": "Сохранение…",
+    "common.error": "Что-то пошло не так. Попробуйте ещё раз.",
+  },
+  zh: {
+    "nav.overview": "概览",
+    "nav.conversations": "对话",
+    "nav.calendar": "日历",
+    "nav.approvals": "审批",
+    "nav.settings": "设置",
+    "onboarding.title": "设置您的接待助手",
+    "onboarding.email": "邮箱",
+    "onboarding.password": "密码",
+    "onboarding.businessName": "企业名称",
+    "onboarding.timezone": "时区",
+    "onboarding.signUp": "创建账户",
+    "onboarding.logIn": "登录",
+    "onboarding.step.account": "账户",
+    "onboarding.step.business": "企业",
+    "onboarding.step.service": "服务",
+    "onboarding.step.ai": "AI",
+    "onboarding.step.telegram": "Telegram",
+    "onboarding.serviceName": "服务名称",
+    "onboarding.duration": "时长（分钟）",
+    "onboarding.addService": "添加服务",
+    "onboarding.chooseAi": "选择 AI",
+    "onboarding.defaultAi": "使用托管默认（推荐）",
+    "onboarding.ownAi": "使用自己的提供商和密钥",
+    "onboarding.apiKey": "API 密钥",
+    "onboarding.connectTelegram": "连接 Telegram",
+    "onboarding.botToken": "机器人令牌（来自 BotFather）",
+    "onboarding.connect": "连接",
+    "onboarding.finish": "完成",
+    "onboarding.connected": "已连接为 @{username}",
+    "common.next": "下一步",
+    "common.back": "返回",
+    "common.saving": "保存中…",
+    "common.error": "出错了，请重试。",
+  },
+} as const;
+
+export type MessageKey = keyof (typeof MESSAGES)["en"];
+
+export function translate(
+  locale: Locale,
+  key: MessageKey,
+  vars?: Record<string, string | number>,
+): string {
+  const table = MESSAGES[locale] ?? MESSAGES[DEFAULT_LOCALE];
+  let value: string = table[key] ?? MESSAGES[DEFAULT_LOCALE][key] ?? key;
+  if (vars) {
+    for (const [name, replacement] of Object.entries(vars)) {
+      value = value.replace(`{${name}}`, String(replacement));
+    }
+  }
+  return value;
+}
+
+export function isLocale(value: string): value is Locale {
+  return (LOCALES as readonly string[]).includes(value);
+}
