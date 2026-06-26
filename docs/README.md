@@ -23,10 +23,12 @@ How the Frontdesk docs are organized. Keep this index in sync.
 - [`plans/implementation-plan.md`](./plans/implementation-plan.md) — the phased,
   inside-out build with a status snapshot and a Definition of Done per phase.
 
-## SaaS direction (multi-tenant, Telegram-first, multilingual)
+## Tovayo — the SaaS direction (multi-tenant, Telegram-first, multilingual)
 
-- [`plans/saas-telegram-plan.md`](./plans/saas-telegram-plan.md) — the phased plan to
-  turn Frontdesk into a self-serve SaaS.
+- [`plans/tovayo-implementation-plan.md`](./plans/tovayo-implementation-plan.md) —
+  **the roadmap**: vision, architecture deltas, milestones (M1–M6), and the MVP cut.
+- [`plans/saas-telegram-plan.md`](./plans/saas-telegram-plan.md) — the per-phase
+  backend detail behind the roadmap.
 - [`design/ux-brief.md`](./design/ux-brief.md) — the UI/UX brief for the dashboard
   (what screens are needed; hand to a designer).
 
