@@ -2,7 +2,8 @@
 
 import { useEffect, useState } from "react";
 
-import { api, type ServiceInput } from "@/app/lib/api";
+import { api, type ServiceInput, type TelegramStatus } from "@/app/lib/api";
+import { errorMessageKey } from "@/app/lib/errors";
 import { useI18n } from "@/app/lib/I18nProvider";
 import { getSession } from "@/app/lib/session";
 import { EmptyState } from "@/components/ui/EmptyState";
@@ -22,6 +23,10 @@ export default function SettingsPage() {
   const [newService, setNewService] = useState("");
   const [newDuration, setNewDuration] = useState(60);
   const [saved, setSaved] = useState(false);
+  const [telegram, setTelegram] = useState<TelegramStatus | null>(null);
+  const [botToken, setBotToken] = useState("");
+  const [connecting, setConnecting] = useState(false);
+  const [connectError, setConnectError] = useState<string | null>(null);
 
   useEffect(() => {
     const current = getSession();
@@ -29,10 +34,11 @@ export default function SettingsPage() {
     // eslint-disable-next-line react-hooks/set-state-in-effect
     setSession(current);
     void (async () => {
-      const [profile, list, llm] = await Promise.all([
+      const [profile, list, llm, tg] = await Promise.all([
         api.getBusiness(current.businessId, current.token).catch(() => null),
         api.getServices(current.businessId, current.token).catch(() => []),
         api.getLlm(current.businessId, current.token).catch(() => ({ mode: "default" })),
+        api.telegramStatus(current.businessId, current.token).catch(() => null),
       ]);
       if (profile) {
         setName(profile.name);
@@ -40,6 +46,7 @@ export default function SettingsPage() {
       }
       setServices(list);
       setAiMode(llm.mode);
+      setTelegram(tg);
     })();
   }, []);
 
@@ -72,6 +79,19 @@ export default function SettingsPage() {
   const removeService = async (id: string) => {
     await api.deleteService(session.businessId, id, session.token);
     setServices(services.filter((service) => service.id !== id));
+  };
+
+  const connectBot = async () => {
+    setConnecting(true);
+    setConnectError(null);
+    try {
+      setTelegram(await api.connectTelegram(session.businessId, botToken, session.token));
+      setBotToken("");
+    } catch (caught) {
+      setConnectError(t(errorMessageKey(caught)));
+    } finally {
+      setConnecting(false);
+    }
   };
 
   return (
@@ -156,6 +176,42 @@ export default function SettingsPage() {
         <p className="mt-2 text-sm text-muted">
           {aiMode === "own" ? t("onboarding.ownAi") : t("onboarding.defaultAi")}
         </p>
+      </section>
+
+      <section className="rounded-2xl border border-line bg-surface p-5 shadow-card">
+        <h2 className="font-bold">{t("onboarding.connectTelegram")}</h2>
+        <p
+          className={`mt-2 flex items-center gap-2 text-sm font-semibold ${
+            telegram?.connected ? "text-success" : "text-muted"
+          }`}
+        >
+          <span className="h-2 w-2 rounded-full bg-current" />
+          {telegram?.connected
+            ? t("onboarding.connected", { username: telegram.username ?? "" })
+            : t("bot.offline")}
+        </p>
+        {connectError && (
+          <p role="alert" className="mt-3 rounded-lg bg-danger-soft p-3 text-sm text-danger">
+            {connectError}
+          </p>
+        )}
+        <div className="mt-3 flex gap-2">
+          <input
+            aria-label={t("onboarding.botToken")}
+            value={botToken}
+            onChange={(event) => setBotToken(event.target.value)}
+            placeholder={t("onboarding.botToken")}
+            className={inputClass}
+          />
+          <button
+            type="button"
+            onClick={connectBot}
+            disabled={connecting || botToken === ""}
+            className="shrink-0 rounded-lg bg-accent px-4 py-2.5 text-sm font-bold text-accent-contrast disabled:opacity-50"
+          >
+            {connecting ? t("common.saving") : t("onboarding.connect")}
+          </button>
+        </div>
       </section>
     </main>
   );
