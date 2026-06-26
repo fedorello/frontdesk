@@ -6,9 +6,10 @@ provider lives in its own router (``business_config.py``).
 
 from collections.abc import Awaitable, Callable
 from datetime import time
+from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
 
 from fastapi import APIRouter, Depends, HTTPException
-from pydantic import BaseModel
+from pydantic import BaseModel, field_validator
 
 from frontdesk.application.ports import (
     BusinessRepository,
@@ -33,6 +34,18 @@ class BusinessProfile(BaseModel):
     lead_time_minutes: int = 0
     buffer_minutes: int = 0
     knowledge: list[KnowledgeItemIO] = []
+    description: str = ""
+
+    @field_validator("timezone")
+    @classmethod
+    def _valid_timezone(cls, value: str) -> str:
+        # Reject anything ZoneInfo can't load (e.g. "UTC-3"); availability math needs a
+        # real IANA key, otherwise booking crashes at runtime.
+        try:
+            ZoneInfo(value)
+        except (ZoneInfoNotFoundError, ValueError) as exc:
+            raise ValueError(f"unknown timezone: {value}") from exc
+        return value
 
 
 class ServiceIO(BaseModel):
@@ -41,6 +54,7 @@ class ServiceIO(BaseModel):
     price_cents: int | None = None
     currency: str | None = None
     resource_ids: list[str] = []
+    description: str = ""
 
 
 class ServiceView(ServiceIO):
@@ -66,6 +80,7 @@ def _service_view(service: Service) -> ServiceView:
         price_cents=service.price.amount_cents if service.price else None,
         currency=service.price.currency if service.price else None,
         resource_ids=[str(r) for r in service.resource_ids],
+        description=service.description,
     )
 
 
@@ -87,6 +102,7 @@ def build_config_router(
                 lead_time_minutes=body.lead_time_minutes,
                 buffer_minutes=body.buffer_minutes,
                 knowledge=tuple(KnowledgeItem(k.question, k.answer) for k in body.knowledge),
+                description=body.description,
             )
         )
         return body
@@ -104,6 +120,7 @@ def build_config_router(
             knowledge=[
                 KnowledgeItemIO(question=k.question, answer=k.answer) for k in business.knowledge
             ],
+            description=business.description,
         )
 
     @router.get("/api/businesses/{business_id}/services")
@@ -124,6 +141,7 @@ def build_config_router(
             body.duration_minutes,
             price,
             tuple(ResourceId(r) for r in body.resource_ids),
+            description=body.description,
         )
         await services.upsert(service)
         return _service_view(service)

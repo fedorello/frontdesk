@@ -29,7 +29,8 @@ async def test_business_profile_roundtrip() -> None:
             "/api/businesses/ana",
             json={
                 "name": "Ana Studio",
-                "timezone": "UTC",
+                "timezone": "America/Montevideo",
+                "description": "A cosy two-chair salon downtown.",
                 "knowledge": [{"question": "hours", "answer": "9-5"}],
             },
         )
@@ -37,20 +38,33 @@ async def test_business_profile_roundtrip() -> None:
 
         got = (await client.get("/api/businesses/ana")).json()
         assert got["name"] == "Ana Studio"
+        assert got["description"] == "A cosy two-chair salon downtown."  # round-trips
         assert got["knowledge"][0]["answer"] == "9-5"
         assert (await client.get("/api/businesses/missing")).status_code == 404
+
+
+async def test_invalid_timezone_is_rejected() -> None:
+    async with _client() as client:
+        bad = await client.put("/api/businesses/ana", json={"name": "Ana", "timezone": "UTC-3"})
+        assert bad.status_code == 422  # not a real IANA key — would crash availability math
 
 
 async def test_services_crud() -> None:
     async with _client() as client:
         await client.put(
             "/api/businesses/ana/services/svc1",
-            json={"name": "Haircut", "duration_minutes": 60, "resource_ids": ["res"]},
+            json={
+                "name": "Haircut",
+                "duration_minutes": 60,
+                "resource_ids": ["res"],
+                "description": "Wash, cut and style.",
+            },
         )
         listed = (await client.get("/api/businesses/ana/services")).json()
         assert len(listed) == 1
         assert listed[0]["id"] == "svc1"
         assert listed[0]["name"] == "Haircut"
+        assert listed[0]["description"] == "Wash, cut and style."  # round-trips
 
         await client.delete("/api/businesses/ana/services/svc1")
         assert (await client.get("/api/businesses/ana/services")).json() == []

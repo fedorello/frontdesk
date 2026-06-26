@@ -66,6 +66,7 @@ def _to_business(row: Row) -> Business:
         lead_time_minutes=row["lead_time_minutes"],
         buffer_minutes=row["buffer_minutes"],
         knowledge=knowledge,
+        description=row["description"],
     )
 
 
@@ -91,6 +92,7 @@ def _to_service(row: Row) -> Service:
         row["duration_minutes"],
         price,
         resource_ids,
+        description=row["description"],
     )
 
 
@@ -186,10 +188,11 @@ class SqlBusinessRepository:
             await session.execute(
                 text(
                     "INSERT INTO business (id, name, timezone, lead_time_minutes, buffer_minutes, "
-                    "knowledge) VALUES (:id, :name, :tz, :lead, :buf, CAST(:kb AS jsonb)) "
+                    "knowledge, description) "
+                    "VALUES (:id, :name, :tz, :lead, :buf, CAST(:kb AS jsonb), :desc) "
                     "ON CONFLICT (id) DO UPDATE SET name = :name, timezone = :tz, "
                     "lead_time_minutes = :lead, buffer_minutes = :buf, "
-                    "knowledge = CAST(:kb AS jsonb)"
+                    "knowledge = CAST(:kb AS jsonb), description = :desc"
                 ),
                 {
                     "id": str(business.id),
@@ -198,6 +201,7 @@ class SqlBusinessRepository:
                     "lead": business.lead_time_minutes,
                     "buf": business.buffer_minutes,
                     "kb": knowledge,
+                    "desc": business.description,
                 },
             )
             await session.commit()
@@ -259,10 +263,11 @@ class SqlServiceRepository:
             await session.execute(
                 text(
                     "INSERT INTO service (id, business_id, name, duration_minutes, price_cents, "
-                    "currency, resource_ids) "
-                    "VALUES (:id, :bid, :name, :dur, :cents, :cur, CAST(:rids AS jsonb)) "
+                    "currency, resource_ids, description) "
+                    "VALUES (:id, :bid, :name, :dur, :cents, :cur, CAST(:rids AS jsonb), :desc) "
                     "ON CONFLICT (id) DO UPDATE SET name = :name, duration_minutes = :dur, "
-                    "price_cents = :cents, currency = :cur, resource_ids = CAST(:rids AS jsonb)"
+                    "price_cents = :cents, currency = :cur, resource_ids = CAST(:rids AS jsonb), "
+                    "description = :desc"
                 ),
                 {
                     "id": str(service.id),
@@ -272,6 +277,7 @@ class SqlServiceRepository:
                     "cents": service.price.amount_cents if service.price else None,
                     "cur": service.price.currency if service.price else None,
                     "rids": rids,
+                    "desc": service.description,
                 },
             )
             await session.commit()
