@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
 
 import { Nav } from "@/components/Nav";
+import { I18nProvider } from "@/app/lib/I18nProvider";
 import "./globals.css";
 
 const geistSans = Geist({
@@ -15,8 +16,8 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "Frontdesk Admin",
-  description: "The admin dashboard for the Frontdesk AI front desk.",
+  title: "tovayo",
+  description: "The dashboard for your tovayo AI receptionist.",
 };
 
 export default function RootLayout({
@@ -27,8 +28,10 @@ export default function RootLayout({
   return (
     <html lang="en" className={`${geistSans.variable} ${geistMono.variable} h-full antialiased`}>
       <body className="min-h-full flex flex-col">
-        <Nav />
-        {children}
+        <I18nProvider>
+          <Nav />
+          {children}
+        </I18nProvider>
       </body>
     </html>
   );
