@@ -223,9 +223,20 @@ class ResourceRepository(Protocol):
     async def upsert(self, resource: Resource) -> None: ...
 
 
+@dataclass(frozen=True, slots=True)
+class RecentMessage:
+    customer: str  # the customer's channel address
+    role: str
+    text: str
+    at: datetime
+
+
 class ConversationRepository(Protocol):
     async def history(self, customer: Customer, *, limit: int = 30) -> list[Message]: ...
     async def append(self, customer: Customer, message: Message) -> None: ...
+    async def recent_for_business(
+        self, business_id: BusinessId, *, limit: int = 30
+    ) -> list[RecentMessage]: ...
 
 
 class AppointmentRepository(Protocol):

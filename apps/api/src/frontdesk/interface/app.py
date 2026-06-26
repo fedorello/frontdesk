@@ -171,6 +171,11 @@ def create_production_app() -> FastAPI:
         )
     )
     app.include_router(
-        build_read_router(SqlAppointmentRepository(sessions), SqlServiceRepository(sessions), guard)
+        build_read_router(
+            SqlAppointmentRepository(sessions),
+            SqlServiceRepository(sessions),
+            SqlConversationRepository(sessions),
+            guard,
+        )
     )
     return app

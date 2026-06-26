@@ -17,6 +17,7 @@ from frontdesk.application.ports import (
     IdGenerator,
     LlmConfig,
     OutboundMessage,
+    RecentMessage,
     SensitiveAction,
     TelegramBotConfig,
 )
@@ -228,12 +229,23 @@ class InMemoryResourceRepository:
 class InMemoryConversationRepository:
     def __init__(self) -> None:
         self._by_customer: dict[CustomerId, list[Message]] = {}
+        self._all: list[tuple[Customer, Message]] = []
 
     async def history(self, customer: Customer, *, limit: int = 30) -> list[Message]:
         return self._by_customer.get(customer.id, [])[-limit:]
 
     async def append(self, customer: Customer, message: Message) -> None:
         self._by_customer.setdefault(customer.id, []).append(message)
+        self._all.append((customer, message))
+
+    async def recent_for_business(
+        self, business_id: BusinessId, *, limit: int = 30
+    ) -> list[RecentMessage]:
+        recent = [(c, m) for c, m in self._all if c.business_id == business_id][-limit:]
+        return [
+            RecentMessage(c.channel_address, m.role.value, m.text, m.at)
+            for c, m in reversed(recent)
+        ]
 
 
 class InMemoryAppointmentRepository:

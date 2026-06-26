@@ -59,6 +59,13 @@ export interface AppointmentView {
   status: string;
 }
 
+export interface MessageView {
+  customer: string;
+  role: string;
+  text: string;
+  at: string;
+}
+
 async function request<T>(
   method: string,
   path: string,
@@ -119,4 +126,7 @@ export const api = {
 
   appointments: (id: string, token: string): Promise<AppointmentView[]> =>
     request("GET", `/api/businesses/${id}/appointments`, undefined, token),
+
+  conversations: (id: string, token: string): Promise<MessageView[]> =>
+    request("GET", `/api/businesses/${id}/conversations`, undefined, token),
 };

@@ -24,6 +24,29 @@ test("the calendar shows the business's live bookings", async ({ page }) => {
   await expect(page.getByText("13:00")).toBeVisible();
 });
 
+test("conversations shows the live message feed", async ({ page }) => {
+  await page.route("**/api/businesses/**/conversations", (route) =>
+    route.fulfill({
+      json: [
+        {
+          customer: "55501",
+          role: "customer",
+          text: "Can I book?",
+          at: "2026-06-26T09:00:00+00:00",
+        },
+      ],
+    }),
+  );
+  await page.addInitScript(() => {
+    window.localStorage.setItem("tovayo.session", JSON.stringify({ token: "t", businessId: "b" }));
+  });
+
+  await page.goto("/conversations");
+
+  await expect(page.getByRole("heading", { name: "Conversations" })).toBeVisible();
+  await expect(page.getByText("Can I book?")).toBeVisible(); // from the live endpoint
+});
+
 test("approving a pending action clears it from the inbox", async ({ page }) => {
   // Mock the approvals API: one pending request until it's approved.
   let approved = false;

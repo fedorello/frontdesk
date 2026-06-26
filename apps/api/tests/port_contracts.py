@@ -133,6 +133,11 @@ async def check_conversation_repository(repo: ConversationRepository) -> None:
     history = await repo.history(customer, limit=2)
     assert [m.text for m in history] == ["msg-1", "msg-2"]  # last 2, in order
 
+    recent = await repo.recent_for_business(BusinessId("biz"))
+    assert [m.text for m in recent[:2]] == ["msg-2", "msg-1"]  # most recent first
+    assert recent[0].customer == customer.channel_address
+    assert await repo.recent_for_business(BusinessId("no-such-business")) == []
+
 
 async def check_appointment_repository(repo: AppointmentRepository) -> None:
     with pytest.raises(AppointmentNotFound):

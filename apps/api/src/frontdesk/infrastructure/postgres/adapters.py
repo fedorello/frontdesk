@@ -14,6 +14,7 @@ from frontdesk.application.ports import (
     Clock,
     IdGenerator,
     LlmConfig,
+    RecentMessage,
     SecretCipher,
     TelegramBotConfig,
 )
@@ -422,6 +423,26 @@ class SqlConversationRepository:
                 },
             )
             await session.commit()
+
+    async def recent_for_business(
+        self, business_id: BusinessId, *, limit: int = 30
+    ) -> list[RecentMessage]:
+        async with self._sf() as session:
+            rows = (
+                (
+                    await session.execute(
+                        text(
+                            "SELECT m.role, m.body, m.at, c.address FROM message m "
+                            "JOIN customer c ON c.id = m.customer_id "
+                            "WHERE m.business_id = :bid ORDER BY m.id DESC LIMIT :lim"
+                        ),
+                        {"bid": str(business_id), "lim": limit},
+                    )
+                )
+                .mappings()
+                .all()
+            )
+            return [RecentMessage(r["address"], r["role"], r["body"], r["at"]) for r in rows]
 
 
 class SqlAppointmentRepository:
