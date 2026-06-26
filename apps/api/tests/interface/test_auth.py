@@ -28,11 +28,13 @@ def test_password_hash_roundtrip() -> None:
     assert not verify_password("x", "not-a-valid-hash")
 
 
-def test_token_roundtrip() -> None:
-    token = issue_token("acc-1", "k")
-    assert verify_token(token, "k") == "acc-1"
-    assert verify_token(token, "other-key") is None  # wrong key
-    assert verify_token("garbage", "k") is None  # malformed
+def test_token_roundtrip_and_expiry() -> None:
+    token = issue_token("acc-1", "k", issued_at=1000)
+    assert verify_token(token, "k", now=1000, max_age=3600) == "acc-1"
+    assert verify_token(token, "k", now=1000, max_age=0) == "acc-1"  # 0 = never expires
+    assert verify_token(token, "k", now=1000 + 4000, max_age=3600) is None  # expired
+    assert verify_token(token, "other-key", now=1000, max_age=3600) is None  # wrong key
+    assert verify_token("garbage", "k", now=1000, max_age=3600) is None  # malformed
 
 
 def _app() -> FastAPI:

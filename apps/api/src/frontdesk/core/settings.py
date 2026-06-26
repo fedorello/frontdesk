@@ -27,6 +27,8 @@ class Settings(BaseSettings):
     # Daily message cap per business on the managed-default LLM (0 = unlimited). Own-key
     # businesses are never capped. Cost control for the platform-paid default (ADR-0009).
     managed_default_daily_limit: int = 0
+    # Owner session-token lifetime in seconds (0 = never expires). Default 7 days.
+    token_max_age_seconds: int = 604800
 
     # The business the web chat demo talks to (matches the seeded channel binding).
     demo_to_address: str = "+BIZ"

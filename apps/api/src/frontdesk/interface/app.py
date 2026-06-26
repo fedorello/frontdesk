@@ -123,7 +123,7 @@ def create_production_app() -> FastAPI:
     llm_configs = SqlLlmConfigRepository(sessions, cipher)
     accounts = SqlAccountRepository(sessions)
     usage = SqlUsageStore(sessions)
-    guard = make_owner_guard(accounts, settings.secret_key)
+    guard = make_owner_guard(accounts, settings.secret_key, settings.token_max_age_seconds)
 
     deps = AssistantDeps(
         build_provider(settings, client),

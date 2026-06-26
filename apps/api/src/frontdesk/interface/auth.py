@@ -4,6 +4,7 @@ Tokens are HMAC-signed (``security.py``); one account owns one business, and the
 guard rejects any request whose token doesn't own the business in the path (M4).
 """
 
+import time
 from collections.abc import Awaitable, Callable
 
 from fastapi import APIRouter, Header, HTTPException
@@ -61,7 +62,8 @@ def build_auth_router(
             AccountId(ids.new()), body.email, hash_password(body.password), business_id
         )
         await accounts.upsert(account)
-        return AuthView(token=issue_token(account.id, settings.secret_key), business_id=business_id)
+        token = issue_token(account.id, settings.secret_key, int(time.time()))
+        return AuthView(token=token, business_id=business_id)
 
     @router.post("/api/login")
     async def login(body: LoginInput) -> AuthView:
@@ -69,7 +71,7 @@ def build_auth_router(
         if account is None or not verify_password(body.password, account.password_hash):
             raise HTTPException(401, "invalid email or password")
         return AuthView(
-            token=issue_token(account.id, settings.secret_key),
+            token=issue_token(account.id, settings.secret_key, int(time.time())),
             business_id=str(account.business_id),
         )
 
@@ -77,12 +79,13 @@ def build_auth_router(
 
 
 def make_owner_guard(
-    accounts: AccountRepository, key: str
+    accounts: AccountRepository, key: str, max_age: int = 0
 ) -> Callable[[str, str], Awaitable[None]]:
     """A dependency that requires the caller's token to own the path's business."""
 
     async def guard(business_id: str, authorization: str = Header(default="")) -> None:
-        account_id = verify_token(authorization.removeprefix("Bearer ").strip(), key)
+        token = authorization.removeprefix("Bearer ").strip()
+        account_id = verify_token(token, key, now=int(time.time()), max_age=max_age)
         if account_id is None:
             raise HTTPException(401, "not authenticated")
         account = await accounts.get(AccountId(account_id))
