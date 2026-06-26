@@ -42,6 +42,7 @@ from frontdesk.infrastructure.providers.openai import OpenAiProvider
 from frontdesk.infrastructure.secrets import FernetCipher
 from frontdesk.infrastructure.system import FixedClock, SystemClock, UuidIdGenerator
 from frontdesk.interface.approvals import build_approvals_router
+from frontdesk.interface.business_config import build_llm_config_router
 from frontdesk.interface.chat import build_chat_router
 from frontdesk.interface.telegram_webhook import build_telegram_router
 from frontdesk.interface.webhooks import WebhookConfig, create_app
@@ -145,4 +146,5 @@ def create_production_app() -> FastAPI:
     app.include_router(build_chat_router(deps, settings.demo_to_address, clock))
     app.include_router(build_approvals_router(pending_approvals))
     app.include_router(build_telegram_router(deps, telegram_bots, llm_configs, settings, client))
+    app.include_router(build_llm_config_router(llm_configs))
     return app
