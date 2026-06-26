@@ -66,7 +66,7 @@ Each milestone ends green against the gate and is verified with a real run. They
 to the [SaaS plan](./saas-telegram-plan.md) phases; here they're sequenced with
 dependencies and an MVP cut.
 
-### M1 — Tenant-aware backend _(foundation; blocks everything)_
+### M1 — Tenant-aware backend ✅ _(done — [report](../reports/m1-report.md))_
 Per-business secrets via a `SecretCipher` port (encrypt at rest, env key now;
 [ADR-0009](../adr/0009-byo-llm-provider-and-secrets.md)). Make **outbound messaging**
 and the **LLM provider** resolve **per business** at request time; route the Telegram

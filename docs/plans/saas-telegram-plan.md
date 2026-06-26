@@ -10,7 +10,7 @@ green against the gate and is verified with a real run.
 
 | Phase | Title | Status |
 | --- | --- | --- |
-| A | Per-tenant Telegram + tenant-aware outbound | Not started |
+| A | Per-tenant Telegram + tenant-aware outbound | ✅ Done — [report](../reports/m1-report.md) |
 | B | Business configuration write-API | Not started |
 | C | Telegram self-serve connect | Not started |
 | D | Accounts, auth & tenant scoping | Not started |
