@@ -74,7 +74,7 @@ webhook by business. _(SaaS plan A.)_
 **DoD:** two businesses, two bots, two models — each answered correctly and in
 isolation; integration-tested.
 
-### M2 — Business configuration API
+### M2 — Business configuration API ✅ _(done — [report](../reports/m2-report.md))_
 Write APIs for profile (name, timezone, **default language**), services, hours,
 knowledge, and **LLM provider** (default or own — encrypted key, validated on entry,
 never returned/logged; [ADR-0009](../adr/0009-byo-llm-provider-and-secrets.md)).
