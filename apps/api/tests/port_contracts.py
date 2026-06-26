@@ -18,6 +18,8 @@ from frontdesk.application.ports import (
     LlmConfig,
     LlmConfigRepository,
     ReminderStore,
+    ResourceRepository,
+    ServiceRepository,
     TelegramBotConfig,
     TelegramBotRepository,
 )
@@ -34,6 +36,7 @@ from frontdesk.domain.ids import (
 from frontdesk.domain.models import (
     Business,
     Customer,
+    KnowledgeItem,
     Message,
     Reminder,
     Resource,
@@ -173,3 +176,42 @@ async def check_llm_config_repository(repo: LlmConfigRepository) -> None:
     assert reverted is not None
     assert reverted.mode == "default"
     assert reverted.api_key is None
+
+
+async def check_business_write(repo: BusinessRepository) -> None:
+    assert await repo.find(BusinessId("new-biz")) is None
+
+    await repo.upsert(
+        Business(BusinessId("new-biz"), "New", "UTC", knowledge=(KnowledgeItem("q", "a"),))
+    )
+    found = await repo.find(BusinessId("new-biz"))
+    assert found is not None
+    assert found.name == "New"
+    assert found.knowledge[0].answer == "a"
+
+    await repo.upsert(Business(BusinessId("new-biz"), "Renamed", "UTC"))
+    renamed = await repo.find(BusinessId("new-biz"))
+    assert renamed is not None
+    assert renamed.name == "Renamed"  # upsert updates in place
+
+
+async def check_service_write(repo: ServiceRepository) -> None:
+    sid = ServiceId("svc-x")
+    await repo.upsert(
+        Service(sid, BusinessId("biz"), "Massage", 30, resource_ids=(ResourceId("res"),))
+    )
+    assert any(s.id == sid for s in await repo.for_business(BusinessId("biz")))
+
+    await repo.remove(sid)
+    assert all(s.id != sid for s in await repo.for_business(BusinessId("biz")))
+
+
+async def check_resource_write(repo: ResourceRepository) -> None:
+    rid = ResourceId("res-y")
+    hours = (WorkingHours(0, time(9), time(17)),)
+    await repo.upsert(Resource(rid, BusinessId("biz"), "Room", hours))
+    assert any(r.id == rid for r in await repo.for_business(BusinessId("biz")))
+
+    await repo.upsert(Resource(rid, BusinessId("biz"), "Suite", hours))
+    updated = [r for r in await repo.for_business(BusinessId("biz")) if r.id == rid]
+    assert updated[0].name == "Suite"  # upsert updates in place

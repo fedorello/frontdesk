@@ -130,6 +130,12 @@ class InMemoryBusinessRepository:
     async def get(self, business_id: BusinessId) -> Business:
         return self._by_id[business_id]
 
+    async def find(self, business_id: BusinessId) -> Business | None:
+        return self._by_id.get(business_id)
+
+    async def upsert(self, business: Business) -> None:
+        self._by_id[business.id] = business
+
 
 class InMemoryCustomerRepository:
     def __init__(self, ids: IdGenerator) -> None:
@@ -169,6 +175,23 @@ class InMemoryServiceRepository:
 
     async def for_business(self, business_id: BusinessId) -> list[Service]:
         return [s for s in self._by_id.values() if s.business_id == business_id]
+
+    async def upsert(self, service: Service) -> None:
+        self._by_id[service.id] = service
+
+    async def remove(self, service_id: ServiceId) -> None:
+        self._by_id.pop(service_id, None)
+
+
+class InMemoryResourceRepository:
+    def __init__(self, resources: Sequence[Resource] = ()) -> None:
+        self._by_id = {resource.id: resource for resource in resources}
+
+    async def for_business(self, business_id: BusinessId) -> list[Resource]:
+        return [r for r in self._by_id.values() if r.business_id == business_id]
+
+    async def upsert(self, resource: Resource) -> None:
+        self._by_id[resource.id] = resource
 
 
 class InMemoryConversationRepository:

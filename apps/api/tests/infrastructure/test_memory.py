@@ -31,6 +31,8 @@ from frontdesk.infrastructure.memory import (
     InMemoryLlmConfigRepository,
     InMemoryMessaging,
     InMemoryReminderStore,
+    InMemoryResourceRepository,
+    InMemoryServiceRepository,
     InMemoryTelegramBotRepository,
     ScriptedLlmProvider,
 )
@@ -44,11 +46,14 @@ from tests.port_contracts import (
     NOW,
     check_appointment_repository,
     check_business_repository,
+    check_business_write,
     check_calendar,
     check_conversation_repository,
     check_customer_repository,
     check_llm_config_repository,
     check_reminder_store,
+    check_resource_write,
+    check_service_write,
     check_telegram_bot_repository,
     make_business,
     make_customer,
@@ -172,3 +177,15 @@ async def test_telegram_bot_repository_fake() -> None:
 
 async def test_llm_config_repository_fake() -> None:
     await check_llm_config_repository(InMemoryLlmConfigRepository())
+
+
+async def test_business_write_fake() -> None:
+    await check_business_write(InMemoryBusinessRepository([], {}))
+
+
+async def test_service_write_fake() -> None:
+    await check_service_write(InMemoryServiceRepository([]))
+
+
+async def test_resource_write_fake() -> None:
+    await check_resource_write(InMemoryResourceRepository())

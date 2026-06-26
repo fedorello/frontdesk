@@ -27,6 +27,8 @@ from frontdesk.infrastructure.postgres.adapters import (
     SqlCustomerRepository,
     SqlLlmConfigRepository,
     SqlReminderStore,
+    SqlResourceRepository,
+    SqlServiceRepository,
     SqlTelegramBotRepository,
 )
 from frontdesk.infrastructure.secrets import FernetCipher
@@ -35,11 +37,14 @@ from tests.port_contracts import (
     NOW,
     check_appointment_repository,
     check_business_repository,
+    check_business_write,
     check_calendar,
     check_conversation_repository,
     check_customer_repository,
     check_llm_config_repository,
     check_reminder_store,
+    check_resource_write,
+    check_service_write,
     check_telegram_bot_repository,
 )
 
@@ -160,3 +165,15 @@ def _reminder(rid: str) -> Reminder:
     return Reminder(
         ReminderId(rid), BusinessId("biz"), AppointmentId("appt"), NOW - timedelta(minutes=1), "24h"
     )
+
+
+async def test_business_write(sessionmaker: Factory) -> None:
+    await check_business_write(SqlBusinessRepository(sessionmaker))
+
+
+async def test_service_write(sessionmaker: Factory) -> None:
+    await check_service_write(SqlServiceRepository(sessionmaker))
+
+
+async def test_resource_write(sessionmaker: Factory) -> None:
+    await check_resource_write(SqlResourceRepository(sessionmaker))

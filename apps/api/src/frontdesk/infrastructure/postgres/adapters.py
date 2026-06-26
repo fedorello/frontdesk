@@ -162,6 +162,43 @@ class SqlBusinessRepository:
                 raise KeyError(str(business_id))
             return _to_business(row)
 
+    async def find(self, business_id: BusinessId) -> Business | None:
+        async with self._sf() as session:
+            row = (
+                (
+                    await session.execute(
+                        text("SELECT * FROM business WHERE id = :id"), {"id": str(business_id)}
+                    )
+                )
+                .mappings()
+                .first()
+            )
+        return _to_business(row) if row else None
+
+    async def upsert(self, business: Business) -> None:
+        knowledge = json.dumps(
+            [{"question": k.question, "answer": k.answer} for k in business.knowledge]
+        )
+        async with self._sf() as session:
+            await session.execute(
+                text(
+                    "INSERT INTO business (id, name, timezone, lead_time_minutes, buffer_minutes, "
+                    "knowledge) VALUES (:id, :name, :tz, :lead, :buf, CAST(:kb AS jsonb)) "
+                    "ON CONFLICT (id) DO UPDATE SET name = :name, timezone = :tz, "
+                    "lead_time_minutes = :lead, buffer_minutes = :buf, "
+                    "knowledge = CAST(:kb AS jsonb)"
+                ),
+                {
+                    "id": str(business.id),
+                    "name": business.name,
+                    "tz": business.timezone,
+                    "lead": business.lead_time_minutes,
+                    "buf": business.buffer_minutes,
+                    "kb": knowledge,
+                },
+            )
+            await session.commit()
+
 
 class SqlServiceRepository:
     def __init__(self, sessionmaker: async_sessionmaker[AsyncSession]) -> None:
@@ -212,6 +249,79 @@ class SqlServiceRepository:
                 .all()
             )
             return [_to_service(row) for row in rows]
+
+    async def upsert(self, service: Service) -> None:
+        rids = json.dumps([str(r) for r in service.resource_ids])
+        async with self._sf() as session:
+            await session.execute(
+                text(
+                    "INSERT INTO service (id, business_id, name, duration_minutes, price_cents, "
+                    "currency, resource_ids) "
+                    "VALUES (:id, :bid, :name, :dur, :cents, :cur, CAST(:rids AS jsonb)) "
+                    "ON CONFLICT (id) DO UPDATE SET name = :name, duration_minutes = :dur, "
+                    "price_cents = :cents, currency = :cur, resource_ids = CAST(:rids AS jsonb)"
+                ),
+                {
+                    "id": str(service.id),
+                    "bid": str(service.business_id),
+                    "name": service.name,
+                    "dur": service.duration_minutes,
+                    "cents": service.price.amount_cents if service.price else None,
+                    "cur": service.price.currency if service.price else None,
+                    "rids": rids,
+                },
+            )
+            await session.commit()
+
+    async def remove(self, service_id: ServiceId) -> None:
+        async with self._sf() as session:
+            await session.execute(
+                text("DELETE FROM service WHERE id = :id"), {"id": str(service_id)}
+            )
+            await session.commit()
+
+
+class SqlResourceRepository:
+    def __init__(self, sessionmaker: async_sessionmaker[AsyncSession]) -> None:
+        self._sf = sessionmaker
+
+    async def for_business(self, business_id: BusinessId) -> list[Resource]:
+        async with self._sf() as session:
+            rows = (
+                (
+                    await session.execute(
+                        text("SELECT * FROM resource WHERE business_id = :bid"),
+                        {"bid": str(business_id)},
+                    )
+                )
+                .mappings()
+                .all()
+            )
+            return [_to_resource(row) for row in rows]
+
+    async def upsert(self, resource: Resource) -> None:
+        hours = json.dumps(
+            [
+                {"weekday": h.weekday, "opens": h.opens.isoformat(), "closes": h.closes.isoformat()}
+                for h in resource.working_hours
+            ]
+        )
+        async with self._sf() as session:
+            await session.execute(
+                text(
+                    "INSERT INTO resource (id, business_id, name, working_hours) "
+                    "VALUES (:id, :bid, :name, CAST(:wh AS jsonb)) "
+                    "ON CONFLICT (id) DO UPDATE SET name = :name, "
+                    "working_hours = CAST(:wh AS jsonb)"
+                ),
+                {
+                    "id": str(resource.id),
+                    "bid": str(resource.business_id),
+                    "name": resource.name,
+                    "wh": hours,
+                },
+            )
+            await session.commit()
 
 
 class SqlCustomerRepository:
