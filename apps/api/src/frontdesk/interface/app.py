@@ -25,6 +25,7 @@ from frontdesk.infrastructure.channels.telegram import TelegramMessaging
 from frontdesk.infrastructure.channels.whatsapp import WhatsAppMessaging
 from frontdesk.infrastructure.db import create_engine, make_session_factory
 from frontdesk.infrastructure.events import LoggingEventPublisher
+from frontdesk.infrastructure.logging_setup import configure_logging
 from frontdesk.infrastructure.memory import InMemoryIdempotency
 from frontdesk.infrastructure.postgres.adapters import (
     SqlAccountRepository,
@@ -108,6 +109,7 @@ def build_messaging(settings: Settings, client: httpx.AsyncClient) -> MessagingP
 
 def create_production_app() -> FastAPI:
     settings = Settings()
+    configure_logging(settings.log_level, settings.log_file)
     engine = create_engine(settings.database_url)
     sessions = make_session_factory(engine)
     clock = build_clock(settings)

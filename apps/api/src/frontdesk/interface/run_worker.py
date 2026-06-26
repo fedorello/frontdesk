@@ -8,6 +8,7 @@ import httpx
 from frontdesk.application.worker import SendDueReminders
 from frontdesk.core.settings import Settings
 from frontdesk.infrastructure.db import create_engine, make_session_factory
+from frontdesk.infrastructure.logging_setup import configure_logging
 from frontdesk.infrastructure.postgres.adapters import (
     SqlAppointmentRepository,
     SqlCustomerRepository,
@@ -23,6 +24,7 @@ from frontdesk.interface.worker import ReminderWorker
 
 async def run() -> None:
     settings = Settings()
+    configure_logging(settings.log_level, settings.log_file)
     engine = create_engine(settings.database_url)
     sessions = make_session_factory(engine)
     ids = UuidIdGenerator()

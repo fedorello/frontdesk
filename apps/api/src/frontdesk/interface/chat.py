@@ -5,6 +5,7 @@ differs (one HTTP request/response instead of a webhook + outbound send). It als
 collects the agent's reasoning and tool calls so the UI can show its work.
 """
 
+import logging
 import uuid
 from dataclasses import replace
 
@@ -15,6 +16,8 @@ from frontdesk.application.assistant import Assistant, AssistantDeps
 from frontdesk.application.ports import Clock, InboundMessage
 from frontdesk.domain.enums import Channel
 from frontdesk.infrastructure.channels.composite import CapturingMessaging
+
+_logger = logging.getLogger("frontdesk.chat")
 
 
 class TraceStep(BaseModel):
@@ -36,16 +39,18 @@ class ChatReply(BaseModel):
 
 
 class _TraceCollector:
-    """Implements AssistantObserver, recording the agent's steps for the UI."""
+    """Implements AssistantObserver: records the agent's steps for the UI and the log."""
 
     def __init__(self) -> None:
         self.steps: list[TraceStep] = []
 
     async def on_thought(self, text: str) -> None:
         self.steps.append(TraceStep(kind="thought", text=text))
+        _logger.info("thought text=%r", text)
 
     async def on_tool(self, name: str, args: dict[str, object], result: str) -> None:
         self.steps.append(TraceStep(kind="tool", tool=name, args=args, result=result))
+        _logger.info("tool name=%s args=%s result=%r", name, args, result)
 
 
 def build_chat_router(deps: AssistantDeps, to_address: str, clock: Clock) -> APIRouter:

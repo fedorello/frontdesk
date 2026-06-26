@@ -29,6 +29,8 @@ class Settings(BaseSettings):
     managed_default_daily_limit: int = 0
     # Owner session-token lifetime in seconds (0 = never expires). Default 7 days.
     token_max_age_seconds: int = 604800
+    # If set, the real data-flow logs (events, messaging, agent, webhook) also go here.
+    log_file: str = ""
 
     # The business the web chat demo talks to (matches the seeded channel binding).
     demo_to_address: str = "+BIZ"

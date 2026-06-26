@@ -7,6 +7,7 @@ capped at a daily message quota (cost control). See ADR-0008 / ADR-0009.
 """
 
 import json
+import logging
 from dataclasses import replace
 
 import httpx
@@ -23,9 +24,11 @@ from frontdesk.core.settings import Settings
 from frontdesk.domain.ids import BusinessId, CustomerId
 from frontdesk.domain.models import Customer
 from frontdesk.infrastructure.channels.telegram import parse_telegram_inbound
+from frontdesk.infrastructure.observers import LoggingObserver
 from frontdesk.interface.tenancy import provider_from_config, telegram_messaging_from_config
 
 _SECRET_HEADER = "x-telegram-bot-api-secret-token"
+_logger = logging.getLogger("frontdesk.webhook")
 _QUOTA_MESSAGE = (
     "We've reached today's message limit for the free assistant. "
     "Please try again tomorrow — sorry about that!"
@@ -58,10 +61,21 @@ def build_telegram_router(
         llm_config = await llm_configs.get(bid)
         messaging = telegram_messaging_from_config(bot, client)
         on_managed_default = llm_config is None or llm_config.mode != "own"
+        _logger.info(
+            "inbound business=%s from=%s mode=%s text=%r",
+            business_id,
+            inbound.from_address,
+            "default" if on_managed_default else "own",
+            inbound.text,
+        )
         limit = settings.managed_default_daily_limit
         if on_managed_default and limit > 0:
             day = deps.clock.now().date().isoformat()
-            if await usage.increment_and_count(bid, day) > limit:
+            count = await usage.increment_and_count(bid, day)
+            if count > limit:
+                _logger.warning(
+                    "quota_exceeded business=%s count=%s limit=%s", business_id, count, limit
+                )
                 customer = Customer(CustomerId("quota"), bid, inbound.channel, inbound.from_address)
                 await messaging.send(customer, OutboundMessage(_QUOTA_MESSAGE))
                 return Response(status_code=200)
@@ -71,9 +85,11 @@ def build_telegram_router(
                 deps,
                 messaging=messaging,
                 llm=provider_from_config(llm_config, settings, client),
-            )
+            ),
+            LoggingObserver(business_id),
         )
         await assistant.handle(inbound)
+        _logger.info("handled business=%s from=%s", business_id, inbound.from_address)
         return Response(status_code=200)
 
     return router

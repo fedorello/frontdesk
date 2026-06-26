@@ -16,33 +16,35 @@
   html, body { margin: 0; padding: 0; }
   body { font-family: 'Plus Jakarta Sans', system-ui, sans-serif; -webkit-font-smoothing: antialiased; }
   :root, [data-theme="light"] {
-    --bg: #f1f0ف7; --bg: #f1f0f7;
-    --surface: #ffffff; --surface-2: #faf9fe; --surface-3: #f1eefb;
-    --text: #1b1a27; --text-muted: #6c6a83; --text-faint: #9b99ae;
-    --border: #eae8f4; --border-strong: #ddd9ec;
-    --accent: #6b48db; --accent-strong: #5a39c6; --accent-soft: #efeafd; --accent-contrast: #ffffff;
-    --ring: rgba(107,72,219,.32);
+    --bg: #f7f8fa;
+    --surface: #ffffff; --surface-2: #fbfcfd; --surface-3: #f0f2f5;
+    --text: #0e1116; --text-muted: #5a616e; --text-faint: #99a0ac;
+    --border: #edeff2; --border-strong: #dde0e6;
+    --accent: #2563eb; --accent-strong: #1d4ed8; --accent-soft: #e9f0fe; --accent-contrast: #ffffff;
+    --ring: rgba(37,99,235,.3);
+    --pink: #e84393; --pink-strong: #d62f80; --pink-soft: #fde9f2; --pink-contrast: #ffffff;
     --success: #1f9d6b; --success-soft: #e4f6ee;
     --warning: #c98712; --warning-soft: #fbf1dd;
-    --danger: #d8474e; --danger-soft: #fbe8e9;
-    --shadow-sm: 0 1px 2px rgba(27,26,39,.06);
-    --shadow: 0 1px 3px rgba(27,26,39,.07), 0 10px 26px rgba(27,26,39,.05);
-    --shadow-lg: 0 8px 40px rgba(27,26,39,.12);
-    --stage: #e9e7f2;
+    --danger: #e0414b; --danger-soft: #fce8e9;
+    --shadow-sm: 0 1px 2px rgba(14,17,22,.05);
+    --shadow: 0 1px 3px rgba(14,17,22,.06), 0 10px 26px rgba(14,17,22,.04);
+    --shadow-lg: 0 8px 40px rgba(14,17,22,.1);
+    --stage: #eaecf0;
   }
   [data-theme="dark"] {
-    --bg: #131220; --surface: #1d1c2b; --surface-2: #232233; --surface-3: #2b2940;
-    --text: #f2f1f8; --text-muted: #a8a5c0; --text-faint: #76738f;
-    --border: #2d2b40; --border-strong: #3a3853;
-    --accent: #8b6dff; --accent-strong: #9d83ff; --accent-soft: #2a2444; --accent-contrast: #ffffff;
-    --ring: rgba(139,109,255,.42);
+    --bg: #0d0f13; --surface: #161a20; --surface-2: #1c2027; --surface-3: #242932;
+    --text: #f3f5f8; --text-muted: #a2a9b6; --text-faint: #6d7480;
+    --border: #252a32; --border-strong: #333944;
+    --accent: #4f8cff; --accent-strong: #6fa3ff; --accent-soft: #15233e; --accent-contrast: #ffffff;
+    --ring: rgba(79,140,255,.42);
+    --pink: #f570ad; --pink-strong: #ff86bd; --pink-soft: #341e2b; --pink-contrast: #0d0f13;
     --success: #34c98a; --success-soft: #16352a;
     --warning: #e6b450; --warning-soft: #38301c;
     --danger: #ff6b71; --danger-soft: #3a2326;
     --shadow-sm: 0 1px 2px rgba(0,0,0,.4);
     --shadow: 0 1px 3px rgba(0,0,0,.45), 0 12px 30px rgba(0,0,0,.4);
     --shadow-lg: 0 10px 50px rgba(0,0,0,.55);
-    --stage: #0d0c16;
+    --stage: #060709;
   }
   ::selection { background: var(--ring); }
   @keyframes fd-spin { to { transform: rotate(360deg); } }
@@ -381,7 +383,7 @@
                   <sc-if value="{{ botOffline }}" hint-placeholder-val="{{ false }}"><button onClick="{{ toggleBot }}" style="margin-top:9px;width:100%;padding:7px;border-radius:9px;border:none;background:var(--accent);color:var(--accent-contrast);font-family:inherit;font-size:12px;font-weight:700;cursor:pointer;">{{ T.reconnect }}</button></sc-if>
                 </div>
                 <div style="display:flex;align-items:center;gap:10px;padding:8px;border-radius:12px;">
-                  <div style="width:34px;height:34px;border-radius:50%;background:var(--accent-soft);color:var(--accent);display:flex;align-items:center;justify-content:center;font-weight:800;font-size:14px;">{{ avatar }}</div>
+                  <div style="width:34px;height:34px;border-radius:50%;background:var(--pink-soft);color:var(--pink);display:flex;align-items:center;justify-content:center;font-weight:800;font-size:14px;">{{ avatar }}</div>
                   <div style="line-height:1.2;min-width:0;flex:1;">
                     <div style="font-size:13px;font-weight:700;">Maya Rivera</div>
                     <div style="font-size:11px;color:var(--text-faint);">Bloom Studio</div>
@@ -410,7 +412,7 @@
                   <select value="{{ lang }}" onChange="{{ setLang }}" style="appearance:none;border:1px solid var(--border);background:var(--surface);color:var(--text);font-family:inherit;font-size:13px;font-weight:700;border-radius:10px;padding:8px 12px;cursor:pointer;">
                     <sc-for list="{{ langs }}" as="l" hint-placeholder-count="4"><option value="{{ l.id }}">{{ l.label }}</option></sc-for>
                   </select>
-                  <div style="width:36px;height:36px;border-radius:50%;background:var(--accent-soft);color:var(--accent);display:flex;align-items:center;justify-content:center;font-weight:800;font-size:14px;">{{ avatar }}</div>
+                  <div style="width:36px;height:36px;border-radius:50%;background:var(--pink-soft);color:var(--pink);display:flex;align-items:center;justify-content:center;font-weight:800;font-size:14px;">{{ avatar }}</div>
                 </div>
               </header>
             </sc-if>
@@ -536,7 +538,7 @@
                   <div style="background:var(--surface);border:1px solid var(--border);border-radius:16px;box-shadow:var(--shadow-sm);overflow:hidden;">
                     <sc-for list="{{ convList }}" as="c" hint-placeholder-count="5">
                       <div onClick="{{ c.esc ? openConvEsc : openConvNormal }}" style="display:flex;align-items:center;gap:13px;padding:14px 16px;border-bottom:1px solid var(--border);cursor:pointer;">
-                        <div style="width:40px;height:40px;border-radius:50%;flex-shrink:0;background:var(--accent-soft);color:var(--accent);display:flex;align-items:center;justify-content:center;font-weight:800;font-size:15px;">{{ c.init }}</div>
+                        <div style="width:40px;height:40px;border-radius:50%;flex-shrink:0;background:var(--pink-soft);color:var(--pink);display:flex;align-items:center;justify-content:center;font-weight:800;font-size:15px;">{{ c.init }}</div>
                         <div style="flex:1;min-width:0;">
                           <div style="display:flex;align-items:center;gap:8px;"><span style="font-weight:700;font-size:14.5px;">{{ c.name }}</span></div>
                           <div style="font-size:13px;color:var(--text-muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">{{ c.last }}</div>
@@ -555,7 +557,7 @@
                   <div style="display:flex;flex-direction:column;height:100%;animation:fd-rise .3s ease;">
                     <div style="display:flex;align-items:center;gap:12px;padding-bottom:14px;border-bottom:1px solid var(--border);margin-bottom:16px;">
                       <button onClick="{{ backToList }}" style="width:34px;height:34px;border-radius:10px;border:1px solid var(--border);background:var(--surface);color:var(--text-muted);cursor:pointer;display:flex;align-items:center;justify-content:center;"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m15 18-6-6 6-6"/></svg></button>
-                      <div style="width:40px;height:40px;border-radius:50%;background:var(--accent-soft);color:var(--accent);display:flex;align-items:center;justify-content:center;font-weight:800;">{{ threadInit }}</div>
+                      <div style="width:40px;height:40px;border-radius:50%;background:var(--pink-soft);color:var(--pink);display:flex;align-items:center;justify-content:center;font-weight:800;">{{ threadInit }}</div>
                       <div style="flex:1;min-width:0;">
                         <div style="font-weight:700;font-size:15px;">{{ threadName }}</div>
                         <div style="font-size:12px;color:var(--text-faint);">Telegram</div>
@@ -868,7 +870,7 @@
                   </div>
                   <div style="flex:1;display:flex;flex-direction:column;background:var(--surface-2);border:1px solid var(--border);border-radius:18px;box-shadow:var(--shadow-sm);overflow:hidden;min-height:420px;">
                     <div style="display:flex;align-items:center;gap:10px;padding:13px 16px;background:var(--surface);border-bottom:1px solid var(--border);">
-                      <div style="width:34px;height:34px;border-radius:10px;background:var(--accent);color:var(--accent-contrast);display:flex;align-items:center;justify-content:center;"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3l2.2 6 6 .3-4.7 3.9 1.6 5.8L12 15.8 6.9 19l1.6-5.8L3.8 9.3l6-.3z"/></svg></div>
+                      <div style="width:34px;height:34px;border-radius:10px;background:var(--pink);color:var(--pink-contrast);display:flex;align-items:center;justify-content:center;"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3l2.2 6 6 .3-4.7 3.9 1.6 5.8L12 15.8 6.9 19l1.6-5.8L3.8 9.3l6-.3z"/></svg></div>
                       <div><div style="font-weight:700;font-size:14px;">Bloom Studio</div><div style="font-size:11.5px;color:var(--text-faint);">{{ T.poweredBy }}</div></div>
                     </div>
                     <div class="fd-scroll" style="flex:1;overflow:auto;padding:16px;display:flex;flex-direction:column;gap:11px;">
@@ -1319,7 +1321,7 @@ class Component extends DCLogic {
 
     // ----- preview -----
     const pvBubble = (me) => me
-      ? `max-width:80%;padding:11px 14px;border-radius:16px 16px 4px 16px;background:var(--accent);color:var(--accent-contrast);font-size:13.5px;line-height:1.5;`
+      ? `max-width:80%;padding:11px 14px;border-radius:16px 16px 4px 16px;background:var(--pink);color:var(--pink-contrast);font-size:13.5px;line-height:1.5;`
       : `max-width:80%;padding:11px 14px;border-radius:16px 16px 16px 4px;background:var(--surface);border:1px solid var(--border);color:var(--text);font-size:13.5px;line-height:1.5;`;
     const previewMsgs = s.previewLog.map(m => ({ ...m, wrap: `display:flex;justify-content:${m.from === 'me' ? 'flex-end' : 'flex-start'};`, bubble: pvBubble(m.from === 'me') }));
     const pvChips = ['What are your prices?', 'Book a haircut tomorrow', 'Where are you located?'].map(c => ({ text: c, onClick: () => this.doSend(c) }));
