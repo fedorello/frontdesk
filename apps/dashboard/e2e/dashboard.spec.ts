@@ -24,6 +24,29 @@ test("the calendar shows the business's live bookings", async ({ page }) => {
   await expect(page.getByText("13:00")).toBeVisible();
 });
 
+test("settings loads the live business config for editing", async ({ page }) => {
+  await page.route("**/api/businesses/*/services", (route) =>
+    route.fulfill({ json: [{ id: "svc1", name: "Haircut", duration_minutes: 60 }] }),
+  );
+  await page.route("**/api/businesses/*/llm", (route) =>
+    route.fulfill({ json: { mode: "default" } }),
+  );
+  await page.route("**/api/businesses/*", (route) =>
+    route.request().method() === "GET"
+      ? route.fulfill({ json: { name: "Ana Studio", timezone: "UTC", knowledge: [] } })
+      : route.fulfill({ json: {} }),
+  );
+  await page.addInitScript(() => {
+    window.localStorage.setItem("tovayo.session", JSON.stringify({ token: "t", businessId: "b" }));
+  });
+
+  await page.goto("/settings");
+
+  await expect(page.getByRole("heading", { name: "Settings" })).toBeVisible();
+  await expect(page.getByLabel("Business name")).toHaveValue("Ana Studio"); // live profile
+  await expect(page.getByText("Haircut · 60 min")).toBeVisible(); // live services
+});
+
 test("conversations shows the live message feed", async ({ page }) => {
   await page.route("**/api/businesses/**/conversations", (route) =>
     route.fulfill({

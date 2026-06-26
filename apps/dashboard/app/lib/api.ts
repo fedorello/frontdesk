@@ -97,8 +97,20 @@ export const api = {
   login: (body: { email: string; password: string }): Promise<AuthResult> =>
     request("POST", "/api/login", body),
 
+  getBusiness: (id: string, token: string): Promise<BusinessProfile> =>
+    request("GET", `/api/businesses/${id}`, undefined, token),
+
   putBusiness: (id: string, body: BusinessProfile, token: string): Promise<BusinessProfile> =>
     request("PUT", `/api/businesses/${id}`, body, token),
+
+  getServices: (id: string, token: string): Promise<(ServiceInput & { id: string })[]> =>
+    request("GET", `/api/businesses/${id}/services`, undefined, token),
+
+  deleteService: (id: string, serviceId: string, token: string): Promise<unknown> =>
+    request("DELETE", `/api/businesses/${id}/services/${serviceId}`, undefined, token),
+
+  getLlm: (id: string, token: string): Promise<{ mode: string; api_key_hint?: string | null }> =>
+    request("GET", `/api/businesses/${id}/llm`, undefined, token),
 
   putService: (
     id: string,
