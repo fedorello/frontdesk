@@ -898,3 +898,25 @@ class SqlAccountRepository:
                 },
             )
             await session.commit()
+
+
+class SqlUsageStore:
+    def __init__(self, sessionmaker: async_sessionmaker[AsyncSession]) -> None:
+        self._sf = sessionmaker
+
+    async def increment_and_count(self, business_id: BusinessId, day: str) -> int:
+        async with self._sf() as session:
+            count = (
+                await session.execute(
+                    text(
+                        "INSERT INTO usage_counter (business_id, day, count) "
+                        "VALUES (:bid, :day, 1) "
+                        "ON CONFLICT (business_id, day) "
+                        "DO UPDATE SET count = usage_counter.count + 1 "
+                        "RETURNING count"
+                    ),
+                    {"bid": str(business_id), "day": day},
+                )
+            ).scalar_one()
+            await session.commit()
+            return int(count)

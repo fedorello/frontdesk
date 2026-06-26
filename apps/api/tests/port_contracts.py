@@ -24,6 +24,7 @@ from frontdesk.application.ports import (
     ServiceRepository,
     TelegramBotConfig,
     TelegramBotRepository,
+    UsageStore,
 )
 from frontdesk.domain.enums import AppointmentStatus, Channel, MessageRole
 from frontdesk.domain.errors import AppointmentNotFound, DomainError
@@ -239,3 +240,12 @@ async def check_account_repository(repo: AccountRepository) -> None:
     assert got is not None
     assert got.email == "o@x.com"
     assert got.password_hash == "hashed-pw"
+
+
+async def check_usage_store(store: UsageStore) -> None:
+    first = await store.increment_and_count(BusinessId("biz"), "usage-test-day")
+    second = await store.increment_and_count(BusinessId("biz"), "usage-test-day")
+    assert second == first + 1  # increments within the same day
+
+    other_day = await store.increment_and_count(BusinessId("biz"), "usage-test-day-2")
+    assert other_day == 1  # a different day starts fresh

@@ -35,6 +35,7 @@ from frontdesk.infrastructure.memory import (
     InMemoryResourceRepository,
     InMemoryServiceRepository,
     InMemoryTelegramBotRepository,
+    InMemoryUsageStore,
     ScriptedLlmProvider,
 )
 from frontdesk.infrastructure.system import (
@@ -57,6 +58,7 @@ from tests.port_contracts import (
     check_resource_write,
     check_service_write,
     check_telegram_bot_repository,
+    check_usage_store,
     make_business,
     make_customer,
     make_resource,
@@ -195,3 +197,7 @@ async def test_resource_write_fake() -> None:
 
 async def test_account_repository_fake() -> None:
     await check_account_repository(InMemoryAccountRepository())
+
+
+async def test_usage_store_fake() -> None:
+    await check_usage_store(InMemoryUsageStore())

@@ -31,6 +31,7 @@ from frontdesk.infrastructure.postgres.adapters import (
     SqlResourceRepository,
     SqlServiceRepository,
     SqlTelegramBotRepository,
+    SqlUsageStore,
 )
 from frontdesk.infrastructure.secrets import FernetCipher
 from frontdesk.infrastructure.system import FixedClock, SequentialIdGenerator
@@ -48,6 +49,7 @@ from tests.port_contracts import (
     check_resource_write,
     check_service_write,
     check_telegram_bot_repository,
+    check_usage_store,
 )
 
 Factory = async_sessionmaker[AsyncSession]
@@ -183,3 +185,7 @@ async def test_resource_write(sessionmaker: Factory) -> None:
 
 async def test_account_repository(sessionmaker: Factory) -> None:
     await check_account_repository(SqlAccountRepository(sessionmaker))
+
+
+async def test_usage_store(sessionmaker: Factory) -> None:
+    await check_usage_store(SqlUsageStore(sessionmaker))

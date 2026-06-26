@@ -39,6 +39,7 @@ from frontdesk.infrastructure.postgres.adapters import (
     SqlResourceRepository,
     SqlServiceRepository,
     SqlTelegramBotRepository,
+    SqlUsageStore,
 )
 from frontdesk.infrastructure.providers.anthropic import AnthropicProvider
 from frontdesk.infrastructure.providers.openai import OpenAiProvider
@@ -121,6 +122,7 @@ def create_production_app() -> FastAPI:
     telegram_bots = SqlTelegramBotRepository(sessions, cipher)
     llm_configs = SqlLlmConfigRepository(sessions, cipher)
     accounts = SqlAccountRepository(sessions)
+    usage = SqlUsageStore(sessions)
     guard = make_owner_guard(accounts, settings.secret_key)
 
     deps = AssistantDeps(
@@ -154,7 +156,9 @@ def create_production_app() -> FastAPI:
     )
     app.include_router(build_chat_router(deps, settings.demo_to_address, clock))
     app.include_router(build_approvals_router(pending_approvals))
-    app.include_router(build_telegram_router(deps, telegram_bots, llm_configs, settings, client))
+    app.include_router(
+        build_telegram_router(deps, telegram_bots, llm_configs, usage, settings, client)
+    )
     app.include_router(build_auth_router(accounts, SqlBusinessRepository(sessions), ids, settings))
     app.include_router(build_llm_config_router(llm_configs, guard))
     app.include_router(

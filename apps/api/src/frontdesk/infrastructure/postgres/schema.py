@@ -57,6 +57,15 @@ CREATE_STATEMENTS: tuple[str, ...] = (
         business_id text REFERENCES business(id)
     )
     """,
+    # Per-business daily usage of the managed-default LLM (cost control; ADR-0009).
+    """
+    CREATE TABLE usage_counter (
+        business_id text NOT NULL REFERENCES business(id),
+        day text NOT NULL,
+        count integer NOT NULL DEFAULT 0,
+        PRIMARY KEY (business_id, day)
+    )
+    """,
     """
     CREATE TABLE resource (
         id text PRIMARY KEY,
@@ -135,6 +144,7 @@ DROP_STATEMENTS: tuple[str, ...] = tuple(
         "customer",
         "service",
         "resource",
+        "usage_counter",
         "account",
         "llm_config",
         "telegram_bot",

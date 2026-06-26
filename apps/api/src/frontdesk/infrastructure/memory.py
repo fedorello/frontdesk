@@ -156,6 +156,16 @@ class InMemoryAccountRepository:
         self._by_email[account.email] = account
 
 
+class InMemoryUsageStore:
+    def __init__(self) -> None:
+        self._counts: dict[tuple[BusinessId, str], int] = {}
+
+    async def increment_and_count(self, business_id: BusinessId, day: str) -> int:
+        key = (business_id, day)
+        self._counts[key] = self._counts.get(key, 0) + 1
+        return self._counts[key]
+
+
 class InMemoryChannelBindingRepository:
     """Writes bindings into a business repo so ``for_channel`` resolves them."""
 

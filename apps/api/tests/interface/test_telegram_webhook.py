@@ -35,6 +35,7 @@ from frontdesk.infrastructure.memory import (
     InMemoryReminderStore,
     InMemoryServiceRepository,
     InMemoryTelegramBotRepository,
+    InMemoryUsageStore,
     ScriptedLlmProvider,
 )
 from frontdesk.infrastructure.system import FixedClock, SequentialIdGenerator
@@ -103,7 +104,12 @@ async def test_routes_each_business_to_its_own_bot() -> None:
     app = FastAPI()
     app.include_router(
         build_telegram_router(
-            _base_deps(businesses), bots, InMemoryLlmConfigRepository(), SETTINGS, client
+            _base_deps(businesses),
+            bots,
+            InMemoryLlmConfigRepository(),
+            InMemoryUsageStore(),
+            SETTINGS,
+            client,
         )
     )
 
@@ -137,3 +143,53 @@ async def test_routes_each_business_to_its_own_bot() -> None:
     # Isolation: business 1 replied via bot 111, business 2 via bot 222.
     assert any("bot111:AAA/sendMessage" in u for u in sent)
     assert any("bot222:BBB/sendMessage" in u for u in sent)
+
+
+async def test_managed_default_daily_limit_caps_messages() -> None:
+    llm_calls = 0
+    replies: list[str] = []
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        nonlocal llm_calls
+        url = str(request.url)
+        if "chat/completions" in url:
+            llm_calls += 1
+            return httpx.Response(200, json={"choices": [{"message": {"content": "Hello!"}}]})
+        if "sendMessage" in url:
+            import json as _json
+
+            replies.append(_json.loads(request.content)["text"])
+            return httpx.Response(200, json={"ok": True})
+        return httpx.Response(404)
+
+    client = httpx.AsyncClient(transport=httpx.MockTransport(handler))
+    businesses = InMemoryBusinessRepository(
+        [Business(BusinessId("biz1"), "Ana", "UTC")],
+        {(Channel.TELEGRAM, "ana_bot"): BusinessId("biz1")},
+    )
+    bots = InMemoryTelegramBotRepository()
+    await bots.upsert(TelegramBotConfig(BusinessId("biz1"), "111:AAA", "sec1", "ana_bot"))
+    settings = Settings(
+        llm_api_key="k", llm_base_url="https://openrouter.ai/api/v1", managed_default_daily_limit=1
+    )
+
+    app = FastAPI()
+    app.include_router(
+        build_telegram_router(
+            _base_deps(businesses),
+            bots,
+            InMemoryLlmConfigRepository(),
+            InMemoryUsageStore(),
+            settings,
+            client,
+        )
+    )
+    transport = httpx.ASGITransport(app=app)
+    async with httpx.AsyncClient(transport=transport, base_url="http://test") as web:
+        headers = {"x-telegram-bot-api-secret-token": "sec1"}
+        first = await web.post("/webhooks/telegram/biz1", json=UPDATE, headers=headers)
+        second = await web.post("/webhooks/telegram/biz1", json=UPDATE, headers=headers)
+
+    assert (first.status_code, second.status_code) == (200, 200)
+    assert llm_calls == 1  # the 2nd message is blocked before reaching the LLM
+    assert any("today's message limit" in text for text in replies)  # quota reply sent

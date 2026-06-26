@@ -24,6 +24,9 @@ class Settings(BaseSettings):
     secret_key: str = ""
     # Public base URL of this server — where Telegram bots' webhooks are registered.
     public_url: str = "http://localhost:8000"
+    # Daily message cap per business on the managed-default LLM (0 = unlimited). Own-key
+    # businesses are never capped. Cost control for the platform-paid default (ADR-0009).
+    managed_default_daily_limit: int = 0
 
     # The business the web chat demo talks to (matches the seeded channel binding).
     demo_to_address: str = "+BIZ"
