@@ -44,14 +44,16 @@ The **Conversations screen** is wired the same way: `GET
 /api/businesses/{id}/conversations` (guarded) + a live feed, covered by a Playwright
 e2e. Both live screens (calendar + conversations) now render real, auth-scoped data.
 
-The **Overview** home page is wired too: live booking + message counts from the
-appointments/conversations endpoints, internationalized, with a sign-in prompt.
+The **Overview** home page is wired too: live booking + message counts. The
+**Settings/management page** loads the owner's live config (profile, services, AI
+mode) and edits it (rename, add/remove services) via the guarded PUT/DELETE APIs —
+the "management UI" half of M5, internationalized and e2e-covered. **Approvals** is
+internationalized.
 
 ## What remains in M5
 
-- **Internationalize the settings/approvals screens** — designer-independent polish.
-- **The visual design** — awaiting the designer's mockups; the components are built to
-  be restyled without changing the data/i18n layer.
+- **The visual design** — awaiting the designer's mockups; every screen is functional
+  and internationalized, built to be restyled without changing the data/i18n layer.
 
 ## Definition of Done
 
@@ -60,4 +62,6 @@ appointments/conversations endpoints, internationalized, with a sign-in prompt.
 - [x] Onboarding happy path implemented and covered by a Playwright e2e.
 - [x] Calendar, conversations, **and the Overview** show **real, auth-scoped data**
       (calendar proven in a live run; all covered by e2e).
-- [ ] Designer's visual design applied (hand-off pending).
+- [x] **Management UI**: the settings screen edits the live config (profile/services)
+      via the guarded APIs; e2e-covered.
+- [ ] Designer's visual design applied (hand-off pending — the only remaining item).
