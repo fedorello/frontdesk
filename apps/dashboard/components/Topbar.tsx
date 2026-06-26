@@ -1,10 +1,13 @@
 "use client";
 
-import { usePathname } from "next/navigation";
+import Link from "next/link";
+import { usePathname, useRouter } from "next/navigation";
+import { useEffect, useState } from "react";
 
 import type { MessageKey } from "@/app/lib/i18n";
 import { useI18n } from "@/app/lib/I18nProvider";
 import { LanguageSwitcher } from "@/app/lib/LanguageSwitcher";
+import { clearSession, getSession } from "@/app/lib/session";
 import { Icon } from "@/components/icons";
 
 const TITLES: Record<string, MessageKey> = {
@@ -17,7 +20,21 @@ const TITLES: Record<string, MessageKey> = {
 
 export function Topbar() {
   const { t } = useI18n();
+  const router = useRouter();
   const pathname = usePathname();
+  const [signedIn, setSignedIn] = useState(false);
+
+  useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect
+    setSignedIn(getSession() !== null);
+  }, [pathname]);
+
+  const logOut = () => {
+    clearSession();
+    setSignedIn(false);
+    router.push("/login");
+  };
+
   const titleKey = TITLES[pathname] ?? "nav.overview";
 
   return (
@@ -35,9 +52,22 @@ export function Topbar() {
       </div>
       <div className="ml-auto flex items-center gap-2.5">
         <LanguageSwitcher />
-        <div className="flex h-9 w-9 items-center justify-center rounded-full bg-pink-soft text-sm font-extrabold text-pink">
-          M
-        </div>
+        {signedIn ? (
+          <button
+            type="button"
+            onClick={logOut}
+            className="rounded-lg border border-line-strong px-3 py-2 text-sm font-semibold text-muted hover:bg-surface-3"
+          >
+            {t("auth.logOut")}
+          </button>
+        ) : (
+          <Link
+            href="/login"
+            className="rounded-lg bg-accent px-4 py-2 text-sm font-bold text-accent-contrast"
+          >
+            {t("onboarding.logIn")}
+          </Link>
+        )}
       </div>
     </header>
   );

@@ -52,12 +52,20 @@ export default function Home() {
           title={t("overview.signedOutTitle")}
           body={t("calendar.connectFirst")}
           action={
-            <Link
-              href="/onboarding"
-              className="rounded-lg bg-accent px-4 py-2.5 text-sm font-bold text-accent-contrast"
-            >
-              {t("onboarding.signUp")}
-            </Link>
+            <>
+              <Link
+                href="/login"
+                className="rounded-lg bg-accent px-4 py-2.5 text-sm font-bold text-accent-contrast"
+              >
+                {t("onboarding.logIn")}
+              </Link>
+              <Link
+                href="/onboarding"
+                className="rounded-lg border border-line-strong px-4 py-2.5 text-sm font-bold text-ink"
+              >
+                {t("onboarding.signUp")}
+              </Link>
+            </>
           }
         />
       </Page>

@@ -30,3 +30,11 @@ test("a wrong password shows an error, not a crash", async ({ page }) => {
 
   await expect(page.getByText("invalid email or password")).toBeVisible();
 });
+
+test("a signed-out visitor reaches login from the dashboard button", async ({ page }) => {
+  await page.route("**/api/businesses/**", (route) => route.fulfill({ json: [] }));
+  await page.goto("/");
+  await page.getByRole("link", { name: "Log in" }).first().click();
+  await expect(page).toHaveURL(/\/login$/);
+  await expect(page.getByRole("heading", { name: "Log in" })).toBeVisible();
+});
