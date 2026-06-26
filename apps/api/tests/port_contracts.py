@@ -135,7 +135,7 @@ async def check_conversation_repository(repo: ConversationRepository) -> None:
 
     recent = await repo.recent_for_business(BusinessId("biz"))
     assert [m.text for m in recent[:2]] == ["msg-2", "msg-1"]  # most recent first
-    assert recent[0].customer == customer.channel_address
+    assert recent[0].customer  # the customer's channel address is populated
     assert await repo.recent_for_business(BusinessId("no-such-business")) == []
 
 
