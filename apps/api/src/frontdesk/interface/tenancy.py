@@ -8,8 +8,16 @@ See ADR-0008 / ADR-0009.
 
 import httpx
 
-from frontdesk.application.ports import LlmConfig, LlmProvider, MessagingPort, TelegramBotConfig
+from frontdesk.application.ports import (
+    LlmConfig,
+    LlmProvider,
+    MessagingPort,
+    OutboundMessage,
+    TelegramBotConfig,
+    TelegramBotRepository,
+)
 from frontdesk.core.settings import Settings
+from frontdesk.domain.models import Customer
 from frontdesk.infrastructure.channels.composite import LoggingMessaging
 from frontdesk.infrastructure.channels.telegram import TelegramMessaging
 from frontdesk.infrastructure.providers.anthropic import AnthropicProvider
@@ -57,3 +65,18 @@ def telegram_messaging_from_config(
     if config is None:
         return LoggingMessaging()
     return TelegramMessaging(token=config.bot_token, bot_address=config.username, client=client)
+
+
+class TenantTelegramMessaging:
+    """MessagingPort that routes each reply through the customer's business's bot.
+
+    Used by the reminder worker: every reminder is sent from the right business's bot.
+    """
+
+    def __init__(self, telegram_bots: TelegramBotRepository, client: httpx.AsyncClient) -> None:
+        self._bots = telegram_bots
+        self._client = client
+
+    async def send(self, customer: Customer, message: OutboundMessage) -> None:
+        bot = await self._bots.get(customer.business_id)
+        await telegram_messaging_from_config(bot, self._client).send(customer, message)

@@ -13,9 +13,11 @@ from frontdesk.infrastructure.postgres.adapters import (
     SqlCustomerRepository,
     SqlReminderStore,
     SqlServiceRepository,
+    SqlTelegramBotRepository,
 )
 from frontdesk.infrastructure.system import UuidIdGenerator
-from frontdesk.interface.app import build_clock, build_messaging
+from frontdesk.interface.app import build_cipher, build_clock
+from frontdesk.interface.tenancy import TenantTelegramMessaging
 from frontdesk.interface.worker import ReminderWorker
 
 
@@ -25,12 +27,13 @@ async def run() -> None:
     sessions = make_session_factory(engine)
     ids = UuidIdGenerator()
     client = httpx.AsyncClient(timeout=30)
+    telegram_bots = SqlTelegramBotRepository(sessions, build_cipher(settings))
     send = SendDueReminders(
         SqlReminderStore(sessions),
         SqlAppointmentRepository(sessions),
         SqlCustomerRepository(sessions, ids),
         SqlServiceRepository(sessions),
-        build_messaging(settings, client),
+        TenantTelegramMessaging(telegram_bots, client),  # each reminder via its business's bot
     )
     worker = ReminderWorker(send, build_clock(settings))
 

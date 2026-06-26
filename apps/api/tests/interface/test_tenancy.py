@@ -1,6 +1,7 @@
 """Per-business resolution picks the right provider/model/key and bot."""
 
 import json
+from collections.abc import Callable
 from typing import Any
 
 import httpx
@@ -12,7 +13,12 @@ from frontdesk.domain.ids import BusinessId, CustomerId
 from frontdesk.domain.models import Customer
 from frontdesk.infrastructure.channels.composite import LoggingMessaging
 from frontdesk.infrastructure.channels.telegram import TelegramMessaging
-from frontdesk.interface.tenancy import provider_from_config, telegram_messaging_from_config
+from frontdesk.infrastructure.memory import InMemoryTelegramBotRepository
+from frontdesk.interface.tenancy import (
+    TenantTelegramMessaging,
+    provider_from_config,
+    telegram_messaging_from_config,
+)
 
 SETTINGS = Settings(
     llm_api_key="platform-key",
@@ -102,3 +108,35 @@ async def test_messaging_uses_the_business_bot_token() -> None:
     )
 
     assert "bot123:BOTTOKEN/sendMessage" in captured["url"]  # the business's own token
+
+
+async def test_tenant_messaging_routes_each_customer_via_its_business_bot() -> None:
+    sent: list[str] = []
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        sent.append(str(request.url))
+        return httpx.Response(200, json={"ok": True})
+
+    client = _capturing_messaging_client(handler)
+    bots = InMemoryTelegramBotRepository()
+    await bots.upsert(TelegramBotConfig(BusinessId("biz1"), "111:AAA", "s1", "ana_bot"))
+    await bots.upsert(TelegramBotConfig(BusinessId("biz2"), "222:BBB", "s2", "bob_bot"))
+    messaging = TenantTelegramMessaging(bots, client)
+
+    await messaging.send(
+        Customer(CustomerId("c1"), BusinessId("biz1"), Channel.TELEGRAM, "11"),
+        OutboundMessage("hi"),
+    )
+    await messaging.send(
+        Customer(CustomerId("c2"), BusinessId("biz2"), Channel.TELEGRAM, "22"),
+        OutboundMessage("hi"),
+    )
+
+    assert any("bot111:AAA/sendMessage" in u for u in sent)
+    assert any("bot222:BBB/sendMessage" in u for u in sent)
+
+
+def _capturing_messaging_client(
+    handler: Callable[[httpx.Request], httpx.Response],
+) -> httpx.AsyncClient:
+    return httpx.AsyncClient(transport=httpx.MockTransport(handler))

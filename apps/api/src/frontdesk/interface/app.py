@@ -17,7 +17,7 @@ from frontdesk.application.appointments import (
     RescheduleAppointment,
 )
 from frontdesk.application.assistant import Assistant, AssistantDeps
-from frontdesk.application.ports import Clock, LlmProvider, MessagingPort
+from frontdesk.application.ports import Clock, LlmProvider, MessagingPort, SecretCipher
 from frontdesk.core.settings import Settings
 from frontdesk.infrastructure.airlock_gate import AirlockApprovalGate, PendingApprovals
 from frontdesk.infrastructure.channels.composite import LoggingMessaging, RoutingMessaging
@@ -37,6 +37,7 @@ from frontdesk.infrastructure.postgres.adapters import (
 )
 from frontdesk.infrastructure.providers.anthropic import AnthropicProvider
 from frontdesk.infrastructure.providers.openai import OpenAiProvider
+from frontdesk.infrastructure.secrets import FernetCipher
 from frontdesk.infrastructure.system import FixedClock, SystemClock, UuidIdGenerator
 from frontdesk.interface.approvals import build_approvals_router
 from frontdesk.interface.chat import build_chat_router
@@ -47,6 +48,10 @@ def build_clock(settings: Settings) -> Clock:
     if settings.fixed_now:
         return FixedClock(datetime.fromisoformat(settings.fixed_now))
     return SystemClock()
+
+
+def build_cipher(settings: Settings) -> SecretCipher:
+    return FernetCipher(settings.secret_key)
 
 
 def build_provider(settings: Settings, client: httpx.AsyncClient) -> LlmProvider:
