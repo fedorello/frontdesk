@@ -24,6 +24,7 @@ export interface BusinessProfile {
   lead_time_minutes?: number;
   buffer_minutes?: number;
   knowledge?: { question: string; answer: string }[];
+  description?: string;
 }
 
 export interface ServiceInput {
@@ -32,6 +33,7 @@ export interface ServiceInput {
   price_cents?: number | null;
   currency?: string | null;
   resource_ids?: string[];
+  description?: string;
 }
 
 export interface WorkingHours {
