@@ -1,6 +1,9 @@
 """Typed application configuration, read once from the environment."""
 
+from pydantic import field_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
+
+DEFAULT_TELEGRAM_API_BASE = "https://api.telegram.org"
 
 
 class Settings(BaseSettings):
@@ -25,7 +28,7 @@ class Settings(BaseSettings):
     # Public base URL of this server — where Telegram bots' webhooks are registered.
     public_url: str = "http://localhost:8000"
     # Telegram Bot API base — override for a self-hosted Bot API server or a local mock.
-    telegram_api_base: str = "https://api.telegram.org"
+    telegram_api_base: str = DEFAULT_TELEGRAM_API_BASE
     # Daily message cap per business on the managed-default LLM (0 = unlimited). Own-key
     # businesses are never capped. Cost control for the platform-paid default (ADR-0009).
     managed_default_daily_limit: int = 0
@@ -57,3 +60,10 @@ class Settings(BaseSettings):
     telegram_token: str = ""
     telegram_secret: str = ""
     telegram_bot_address: str = ""
+
+    @field_validator("telegram_api_base")
+    @classmethod
+    def _telegram_base_or_default(cls, value: str) -> str:
+        # An empty env var (FRONTDESK_TELEGRAM_API_BASE=) must not blank the base —
+        # otherwise outbound URLs lose their protocol and every Telegram call crashes.
+        return value.strip() or DEFAULT_TELEGRAM_API_BASE

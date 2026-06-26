@@ -1,5 +1,6 @@
 "use client";
 
+import { useRouter } from "next/navigation";
 import { useState } from "react";
 
 import { api, ApiError } from "@/app/lib/api";
@@ -19,6 +20,7 @@ const WEEKDAYS = [0, 1, 2, 3, 4]; // Mon–Fri
 
 export default function OnboardingPage() {
   const { t } = useI18n();
+  const router = useRouter();
   const [step, setStep] = useState(0);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -112,6 +114,9 @@ export default function OnboardingPage() {
       const status = await api.connectTelegram(businessId, botToken, token);
       setConnectedAs(status.username ?? null);
     });
+
+  // Telegram is optional — the owner can connect a bot later from Settings.
+  const finish = () => router.push("/");
 
   return (
     <main className="min-h-screen bg-canvas px-6 py-10">
@@ -279,9 +284,17 @@ export default function OnboardingPage() {
               <>
                 <p className="text-sm font-medium">{t("onboarding.connectTelegram")}</p>
                 {connectedAs ? (
-                  <p role="status" className="rounded-lg bg-success-soft p-3 text-sm text-success">
-                    {t("onboarding.connected", { username: connectedAs })}
-                  </p>
+                  <>
+                    <p
+                      role="status"
+                      className="rounded-lg bg-success-soft p-3 text-sm text-success"
+                    >
+                      {t("onboarding.connected", { username: connectedAs })}
+                    </p>
+                    <PrimaryButton onClick={finish} busy={false}>
+                      {t("onboarding.goToDashboard")}
+                    </PrimaryButton>
+                  </>
                 ) : (
                   <>
                     <Field label={t("onboarding.botToken")} id="botToken">
@@ -295,6 +308,13 @@ export default function OnboardingPage() {
                     <PrimaryButton onClick={submitTelegram} busy={busy}>
                       {t("onboarding.connect")}
                     </PrimaryButton>
+                    <button
+                      type="button"
+                      onClick={finish}
+                      className="w-full text-center text-sm font-semibold text-muted hover:text-ink"
+                    >
+                      {t("onboarding.skip")}
+                    </button>
                   </>
                 )}
               </>

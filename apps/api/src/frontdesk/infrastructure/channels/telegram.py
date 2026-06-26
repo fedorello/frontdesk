@@ -1,5 +1,6 @@
 """Telegram Bot API messaging adapter (outbound) + inbound payload parsing."""
 
+import logging
 from collections.abc import Mapping
 from datetime import UTC, datetime
 from typing import Any
@@ -9,6 +10,8 @@ import httpx
 from frontdesk.application.ports import InboundMessage, OutboundMessage
 from frontdesk.domain.enums import Channel
 from frontdesk.domain.models import Customer
+
+_logger = logging.getLogger("frontdesk.telegram")
 
 
 class TelegramMessaging:
@@ -65,23 +68,39 @@ _TELEGRAM_API = "https://api.telegram.org"
 async def telegram_get_me(
     token: str, client: httpx.AsyncClient, base: str = _TELEGRAM_API
 ) -> dict[str, Any] | None:
-    """Validate a bot token: returns the bot info (incl. username), or None if invalid."""
-    response = await client.get(f"{base.rstrip('/')}/bot{token}/getMe")
-    data = response.json()
+    """Validate a bot token: returns the bot info (incl. username), or None.
+
+    Returns None for an invalid token *or* an unreachable Telegram — connect treats
+    both as "couldn't validate" rather than crashing the request.
+    """
+    try:
+        response = await client.get(f"{base.rstrip('/')}/bot{token}/getMe")
+        data = response.json()
+    except httpx.HTTPError as exc:
+        _logger.warning("telegram getMe failed: %s", exc)
+        return None
     return data["result"] if data.get("ok") else None
 
 
 async def telegram_set_webhook(
     token: str, url: str, secret: str, client: httpx.AsyncClient, base: str = _TELEGRAM_API
 ) -> bool:
-    response = await client.post(
-        f"{base.rstrip('/')}/bot{token}/setWebhook", json={"url": url, "secret_token": secret}
-    )
-    return bool(response.json().get("ok"))
+    try:
+        response = await client.post(
+            f"{base.rstrip('/')}/bot{token}/setWebhook", json={"url": url, "secret_token": secret}
+        )
+        return bool(response.json().get("ok"))
+    except httpx.HTTPError as exc:
+        _logger.warning("telegram setWebhook failed: %s", exc)
+        return False
 
 
 async def telegram_delete_webhook(
     token: str, client: httpx.AsyncClient, base: str = _TELEGRAM_API
 ) -> bool:
-    response = await client.post(f"{base.rstrip('/')}/bot{token}/deleteWebhook")
-    return bool(response.json().get("ok"))
+    try:
+        response = await client.post(f"{base.rstrip('/')}/bot{token}/deleteWebhook")
+        return bool(response.json().get("ok"))
+    except httpx.HTTPError as exc:
+        _logger.warning("telegram deleteWebhook failed: %s", exc)
+        return False
