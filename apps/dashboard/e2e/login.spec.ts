@@ -28,7 +28,9 @@ test("a wrong password shows an error, not a crash", async ({ page }) => {
   await page.getByLabel("Password").fill("wrong");
   await page.getByRole("button", { name: "Log in" }).click();
 
-  await expect(page.getByText("invalid email or password")).toBeVisible();
+  // A clean, localized message — not the raw backend JSON.
+  await expect(page.getByText("Invalid email or password.")).toBeVisible();
+  await expect(page.getByText(/detail/)).toHaveCount(0);
 });
 
 test("a signed-out visitor reaches login from the dashboard button", async ({ page }) => {

@@ -81,9 +81,26 @@ async function request<T>(
     ...(body === undefined ? {} : { body: JSON.stringify(body) }),
   });
   if (!response.ok) {
-    throw new ApiError(response.status, await response.text());
+    throw new ApiError(response.status, await readDetail(response));
   }
   return (await response.json()) as T;
+}
+
+// FastAPI errors come as {"detail": "..."}; surface the plain detail, never raw JSON.
+async function readDetail(response: Response): Promise<string> {
+  try {
+    const body: unknown = await response.json();
+    if (
+      body &&
+      typeof body === "object" &&
+      typeof (body as { detail?: unknown }).detail === "string"
+    ) {
+      return (body as { detail: string }).detail;
+    }
+  } catch {
+    // not JSON — fall through to a generic message
+  }
+  return response.statusText;
 }
 
 export const api = {

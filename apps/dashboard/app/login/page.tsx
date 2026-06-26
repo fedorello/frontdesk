@@ -4,7 +4,8 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useState } from "react";
 
-import { api, ApiError } from "@/app/lib/api";
+import { api } from "@/app/lib/api";
+import { errorMessageKey } from "@/app/lib/errors";
 import { useI18n } from "@/app/lib/I18nProvider";
 import { LanguageSwitcher } from "@/app/lib/LanguageSwitcher";
 import { setSession } from "@/app/lib/session";
@@ -28,7 +29,7 @@ export default function LoginPage() {
       setSession({ token: result.token, businessId: result.business_id });
       router.push("/");
     } catch (caught) {
-      setError(caught instanceof ApiError ? caught.message : t("common.error"));
+      setError(t(errorMessageKey(caught)));
     } finally {
       setBusy(false);
     }

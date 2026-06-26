@@ -4,7 +4,8 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useState } from "react";
 
-import { api, ApiError } from "@/app/lib/api";
+import { api } from "@/app/lib/api";
+import { errorMessageKey } from "@/app/lib/errors";
 import type { MessageKey } from "@/app/lib/i18n";
 import { useI18n } from "@/app/lib/I18nProvider";
 import { LanguageSwitcher } from "@/app/lib/LanguageSwitcher";
@@ -56,7 +57,7 @@ export default function OnboardingPage() {
     try {
       await action();
     } catch (caught) {
-      setError(caught instanceof ApiError ? caught.message : t("common.error"));
+      setError(t(errorMessageKey(caught)));
     } finally {
       setBusy(false);
     }
