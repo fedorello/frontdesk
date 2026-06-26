@@ -24,6 +24,8 @@ class Settings(BaseSettings):
     secret_key: str = ""
     # Public base URL of this server — where Telegram bots' webhooks are registered.
     public_url: str = "http://localhost:8000"
+    # Telegram Bot API base — override for a self-hosted Bot API server or a local mock.
+    telegram_api_base: str = "https://api.telegram.org"
     # Daily message cap per business on the managed-default LLM (0 = unlimited). Own-key
     # businesses are never capped. Cost control for the platform-paid default (ADR-0009).
     managed_default_daily_limit: int = 0

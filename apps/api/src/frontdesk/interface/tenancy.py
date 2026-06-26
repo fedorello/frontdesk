@@ -59,12 +59,16 @@ def provider_from_config(
 
 
 def telegram_messaging_from_config(
-    config: TelegramBotConfig | None, client: httpx.AsyncClient
+    config: TelegramBotConfig | None,
+    client: httpx.AsyncClient,
+    base: str = "https://api.telegram.org",
 ) -> MessagingPort:
     """The business's own Telegram bot, or a logging fallback when not connected."""
     if config is None:
         return LoggingMessaging()
-    return TelegramMessaging(token=config.bot_token, bot_address=config.username, client=client)
+    return TelegramMessaging(
+        token=config.bot_token, bot_address=config.username, client=client, base_url=base
+    )
 
 
 class TenantTelegramMessaging:
@@ -73,10 +77,16 @@ class TenantTelegramMessaging:
     Used by the reminder worker: every reminder is sent from the right business's bot.
     """
 
-    def __init__(self, telegram_bots: TelegramBotRepository, client: httpx.AsyncClient) -> None:
+    def __init__(
+        self,
+        telegram_bots: TelegramBotRepository,
+        client: httpx.AsyncClient,
+        base: str = "https://api.telegram.org",
+    ) -> None:
         self._bots = telegram_bots
         self._client = client
+        self._base = base
 
     async def send(self, customer: Customer, message: OutboundMessage) -> None:
         bot = await self._bots.get(customer.business_id)
-        await telegram_messaging_from_config(bot, self._client).send(customer, message)
+        await telegram_messaging_from_config(bot, self._client, self._base).send(customer, message)

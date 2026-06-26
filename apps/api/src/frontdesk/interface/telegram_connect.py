@@ -45,9 +45,11 @@ def build_telegram_connect_router(
 ) -> APIRouter:
     router = APIRouter(dependencies=[Depends(guard)] if guard is not None else [])
 
+    base = settings.telegram_api_base
+
     @router.post("/api/businesses/{business_id}/telegram/connect")
     async def connect(business_id: str, body: ConnectInput) -> TelegramStatus:
-        me = await telegram_get_me(body.bot_token, client)
+        me = await telegram_get_me(body.bot_token, client, base)
         if me is None:
             raise HTTPException(422, "invalid bot token")
         username = me["username"]
@@ -56,7 +58,7 @@ def build_telegram_connect_router(
 
         await bindings.upsert(Channel.TELEGRAM, username, bid)
         webhook_url = f"{settings.public_url}/webhooks/telegram/{business_id}"
-        registered = await telegram_set_webhook(body.bot_token, webhook_url, secret, client)
+        registered = await telegram_set_webhook(body.bot_token, webhook_url, secret, client, base)
         await telegram_bots.upsert(
             TelegramBotConfig(bid, body.bot_token, secret, username, webhook_set=registered)
         )
@@ -66,7 +68,7 @@ def build_telegram_connect_router(
     async def disconnect(business_id: str) -> dict[str, bool]:
         bot = await telegram_bots.get(BusinessId(business_id))
         if bot is not None:
-            await telegram_delete_webhook(bot.bot_token, client)
+            await telegram_delete_webhook(bot.bot_token, client, base)
             await bindings.remove(Channel.TELEGRAM, bot.username)
         return {"disconnected": True}
 
@@ -83,7 +85,7 @@ def build_telegram_connect_router(
         bot = await telegram_bots.get(BusinessId(business_id))
         if bot is None:
             return {"connected": False, "alive": False}
-        me = await telegram_get_me(bot.bot_token, client)
+        me = await telegram_get_me(bot.bot_token, client, base)
         return {"connected": True, "alive": me is not None, "username": bot.username}
 
     return router

@@ -35,7 +35,8 @@ async def run() -> None:
         SqlAppointmentRepository(sessions),
         SqlCustomerRepository(sessions, ids),
         SqlServiceRepository(sessions),
-        TenantTelegramMessaging(telegram_bots, client),  # each reminder via its business's bot
+        # each reminder via its business's own bot
+        TenantTelegramMessaging(telegram_bots, client, settings.telegram_api_base),
     )
     worker = ReminderWorker(send, build_clock(settings))
 

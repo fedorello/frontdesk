@@ -140,3 +140,19 @@ def _capturing_messaging_client(
     handler: Callable[[httpx.Request], httpx.Response],
 ) -> httpx.AsyncClient:
     return httpx.AsyncClient(transport=httpx.MockTransport(handler))
+
+
+async def test_messaging_honors_a_custom_api_base() -> None:
+    captured: dict[str, str] = {}
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        captured["url"] = str(request.url)
+        return httpx.Response(200, json={"ok": True})
+
+    client = httpx.AsyncClient(transport=httpx.MockTransport(handler))
+    config = TelegramBotConfig(BusinessId("b"), "123:TOK", "sec", "ana_bot")
+    messaging = telegram_messaging_from_config(config, client, "http://mock-telegram:8081")
+    await messaging.send(
+        Customer(CustomerId("c"), BusinessId("b"), Channel.TELEGRAM, "555"), OutboundMessage("hi")
+    )
+    assert captured["url"] == "http://mock-telegram:8081/bot123:TOK/sendMessage"  # the override

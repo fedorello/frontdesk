@@ -62,22 +62,26 @@ def parse_telegram_inbound(
 _TELEGRAM_API = "https://api.telegram.org"
 
 
-async def telegram_get_me(token: str, client: httpx.AsyncClient) -> dict[str, Any] | None:
+async def telegram_get_me(
+    token: str, client: httpx.AsyncClient, base: str = _TELEGRAM_API
+) -> dict[str, Any] | None:
     """Validate a bot token: returns the bot info (incl. username), or None if invalid."""
-    response = await client.get(f"{_TELEGRAM_API}/bot{token}/getMe")
+    response = await client.get(f"{base.rstrip('/')}/bot{token}/getMe")
     data = response.json()
     return data["result"] if data.get("ok") else None
 
 
 async def telegram_set_webhook(
-    token: str, url: str, secret: str, client: httpx.AsyncClient
+    token: str, url: str, secret: str, client: httpx.AsyncClient, base: str = _TELEGRAM_API
 ) -> bool:
     response = await client.post(
-        f"{_TELEGRAM_API}/bot{token}/setWebhook", json={"url": url, "secret_token": secret}
+        f"{base.rstrip('/')}/bot{token}/setWebhook", json={"url": url, "secret_token": secret}
     )
     return bool(response.json().get("ok"))
 
 
-async def telegram_delete_webhook(token: str, client: httpx.AsyncClient) -> bool:
-    response = await client.post(f"{_TELEGRAM_API}/bot{token}/deleteWebhook")
+async def telegram_delete_webhook(
+    token: str, client: httpx.AsyncClient, base: str = _TELEGRAM_API
+) -> bool:
+    response = await client.post(f"{base.rstrip('/')}/bot{token}/deleteWebhook")
     return bool(response.json().get("ok"))

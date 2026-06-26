@@ -59,7 +59,7 @@ def build_telegram_router(
             return Response(status_code=200)
 
         llm_config = await llm_configs.get(bid)
-        messaging = telegram_messaging_from_config(bot, client)
+        messaging = telegram_messaging_from_config(bot, client, settings.telegram_api_base)
         on_managed_default = llm_config is None or llm_config.mode != "own"
         _logger.info(
             "inbound business=%s from=%s mode=%s text=%r",
