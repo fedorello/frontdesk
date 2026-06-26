@@ -23,6 +23,13 @@ How the Frontdesk docs are organized. Keep this index in sync.
 - [`plans/implementation-plan.md`](./plans/implementation-plan.md) — the phased,
   inside-out build with a status snapshot and a Definition of Done per phase.
 
+## SaaS direction (multi-tenant, Telegram-first, multilingual)
+
+- [`plans/saas-telegram-plan.md`](./plans/saas-telegram-plan.md) — the phased plan to
+  turn Frontdesk into a self-serve SaaS.
+- [`design/ux-brief.md`](./design/ux-brief.md) — the UI/UX brief for the dashboard
+  (what screens are needed; hand to a designer).
+
 ## Architecture Decision Records (`adr/`)
 
 - [0001 — Architecture foundations](./adr/0001-architecture-foundations.md) —
@@ -39,3 +46,5 @@ How the Frontdesk docs are organized. Keep this index in sync.
   one port, one adapter per vendor, HTTP (no SDK).
 - [0007 — The assistant is a tool-use agent](./adr/0007-assistant-as-tool-use-agent.md)
   — the model decides intent; the typed core decides what actually happens.
+- [0008 — Multi-tenant self-serve SaaS](./adr/0008-multi-tenant-self-serve-saas.md) —
+  per-tenant Telegram bots, self-serve onboarding, multilingual; Telegram-first.
