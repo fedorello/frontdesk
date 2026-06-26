@@ -28,8 +28,10 @@ from frontdesk.infrastructure.memory import (
     InMemoryConversationRepository,
     InMemoryCustomerRepository,
     InMemoryEventPublisher,
+    InMemoryLlmConfigRepository,
     InMemoryMessaging,
     InMemoryReminderStore,
+    InMemoryTelegramBotRepository,
     ScriptedLlmProvider,
 )
 from frontdesk.infrastructure.system import (
@@ -45,7 +47,9 @@ from tests.port_contracts import (
     check_calendar,
     check_conversation_repository,
     check_customer_repository,
+    check_llm_config_repository,
     check_reminder_store,
+    check_telegram_bot_repository,
     make_business,
     make_customer,
     make_resource,
@@ -160,3 +164,11 @@ async def test_auto_decision_gate() -> None:
 def test_message_role_used() -> None:
     # Exercise the Message DTO used across ports.
     assert Message(MessageRole.CUSTOMER, "hi", NOW).role is MessageRole.CUSTOMER
+
+
+async def test_telegram_bot_repository_fake() -> None:
+    await check_telegram_bot_repository(InMemoryTelegramBotRepository())
+
+
+async def test_llm_config_repository_fake() -> None:
+    await check_llm_config_repository(InMemoryLlmConfigRepository())

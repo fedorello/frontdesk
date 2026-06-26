@@ -14,8 +14,10 @@ from frontdesk.application.ports import (
     Decision,
     DomainEvent,
     IdGenerator,
+    LlmConfig,
     OutboundMessage,
     SensitiveAction,
+    TelegramBotConfig,
 )
 from frontdesk.domain.availability import ensure_bookable, free_slots
 from frontdesk.domain.enums import AppointmentStatus, Channel, ReminderStatus
@@ -38,6 +40,28 @@ from frontdesk.domain.models import (
     Service,
     TimeSlot,
 )
+
+
+class InMemoryTelegramBotRepository:
+    def __init__(self) -> None:
+        self._by_business: dict[BusinessId, TelegramBotConfig] = {}
+
+    async def get(self, business_id: BusinessId) -> TelegramBotConfig | None:
+        return self._by_business.get(business_id)
+
+    async def upsert(self, config: TelegramBotConfig) -> None:
+        self._by_business[config.business_id] = config
+
+
+class InMemoryLlmConfigRepository:
+    def __init__(self) -> None:
+        self._by_business: dict[BusinessId, LlmConfig] = {}
+
+    async def get(self, business_id: BusinessId) -> LlmConfig | None:
+        return self._by_business.get(business_id)
+
+    async def upsert(self, config: LlmConfig) -> None:
+        self._by_business[config.business_id] = config
 
 
 class InMemoryMessaging:

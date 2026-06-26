@@ -25,8 +25,11 @@ from frontdesk.infrastructure.postgres.adapters import (
     SqlCalendar,
     SqlConversationRepository,
     SqlCustomerRepository,
+    SqlLlmConfigRepository,
     SqlReminderStore,
+    SqlTelegramBotRepository,
 )
+from frontdesk.infrastructure.secrets import FernetCipher
 from frontdesk.infrastructure.system import FixedClock, SequentialIdGenerator
 from tests.port_contracts import (
     NOW,
@@ -35,7 +38,9 @@ from tests.port_contracts import (
     check_calendar,
     check_conversation_repository,
     check_customer_repository,
+    check_llm_config_repository,
     check_reminder_store,
+    check_telegram_bot_repository,
 )
 
 Factory = async_sessionmaker[AsyncSession]
@@ -64,6 +69,16 @@ async def test_reminder_store(sessionmaker: Factory) -> None:
 async def test_calendar(sessionmaker: Factory) -> None:
     calendar = SqlCalendar(sessionmaker, SequentialIdGenerator("ap"), FixedClock(NOW))
     await check_calendar(calendar)
+
+
+async def test_telegram_bot_repository(sessionmaker: Factory) -> None:
+    cipher = FernetCipher(FernetCipher.generate_key())
+    await check_telegram_bot_repository(SqlTelegramBotRepository(sessionmaker, cipher))
+
+
+async def test_llm_config_repository(sessionmaker: Factory) -> None:
+    cipher = FernetCipher(FernetCipher.generate_key())
+    await check_llm_config_repository(SqlLlmConfigRepository(sessionmaker, cipher))
 
 
 async def test_double_book_rejected_by_db_constraint(sessionmaker: Factory) -> None:

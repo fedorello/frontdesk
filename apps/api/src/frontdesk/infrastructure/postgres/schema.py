@@ -26,6 +26,28 @@ CREATE_STATEMENTS: tuple[str, ...] = (
         PRIMARY KEY (channel, address)
     )
     """,
+    # Per-business Telegram bot (token + webhook secret are encrypted; see ADR-0009).
+    """
+    CREATE TABLE telegram_bot (
+        business_id text PRIMARY KEY REFERENCES business(id),
+        bot_token text NOT NULL,
+        secret_token text NOT NULL,
+        username text,
+        webhook_set boolean NOT NULL DEFAULT false
+    )
+    """,
+    # Per-business LLM provider: the platform default, or the business's own key.
+    """
+    CREATE TABLE llm_config (
+        business_id text PRIMARY KEY REFERENCES business(id),
+        mode text NOT NULL DEFAULT 'default',
+        provider text,
+        model text,
+        base_url text,
+        api_key_ciphertext text,
+        api_key_hint text
+    )
+    """,
     """
     CREATE TABLE resource (
         id text PRIMARY KEY,
@@ -104,6 +126,8 @@ DROP_STATEMENTS: tuple[str, ...] = tuple(
         "customer",
         "service",
         "resource",
+        "llm_config",
+        "telegram_bot",
         "channel_binding",
         "business",
     )

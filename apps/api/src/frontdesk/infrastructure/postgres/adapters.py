@@ -9,7 +9,13 @@ from sqlalchemy import text
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
 
-from frontdesk.application.ports import Clock, IdGenerator
+from frontdesk.application.ports import (
+    Clock,
+    IdGenerator,
+    LlmConfig,
+    SecretCipher,
+    TelegramBotConfig,
+)
 from frontdesk.domain.availability import ensure_bookable, free_slots
 from frontdesk.domain.enums import AppointmentStatus, Channel, MessageRole, ReminderStatus
 from frontdesk.domain.errors import (
@@ -549,3 +555,114 @@ class SqlCalendar:
         if row is None:
             raise AppointmentNotFound(str(appointment_id))
         return _to_appointment(row)
+
+
+class SqlTelegramBotRepository:
+    """Stores a business's Telegram bot; the bot token is encrypted at rest."""
+
+    def __init__(
+        self, sessionmaker: async_sessionmaker[AsyncSession], cipher: SecretCipher
+    ) -> None:
+        self._sf = sessionmaker
+        self._cipher = cipher
+
+    async def get(self, business_id: BusinessId) -> TelegramBotConfig | None:
+        async with self._sf() as session:
+            row = (
+                (
+                    await session.execute(
+                        text("SELECT * FROM telegram_bot WHERE business_id = :bid"),
+                        {"bid": str(business_id)},
+                    )
+                )
+                .mappings()
+                .first()
+            )
+        if row is None:
+            return None
+        return TelegramBotConfig(
+            BusinessId(row["business_id"]),
+            self._cipher.decrypt(row["bot_token"]),
+            row["secret_token"],
+            row["username"],
+            row["webhook_set"],
+        )
+
+    async def upsert(self, config: TelegramBotConfig) -> None:
+        async with self._sf() as session:
+            await session.execute(
+                text(
+                    "INSERT INTO telegram_bot "
+                    "(business_id, bot_token, secret_token, username, webhook_set) "
+                    "VALUES (:bid, :tok, :sec, :usr, :web) "
+                    "ON CONFLICT (business_id) DO UPDATE SET "
+                    "bot_token = :tok, secret_token = :sec, username = :usr, webhook_set = :web"
+                ),
+                {
+                    "bid": str(config.business_id),
+                    "tok": self._cipher.encrypt(config.bot_token),
+                    "sec": config.secret_token,
+                    "usr": config.username,
+                    "web": config.webhook_set,
+                },
+            )
+            await session.commit()
+
+
+class SqlLlmConfigRepository:
+    """Stores a business's LLM provider; the API key is encrypted at rest."""
+
+    def __init__(
+        self, sessionmaker: async_sessionmaker[AsyncSession], cipher: SecretCipher
+    ) -> None:
+        self._sf = sessionmaker
+        self._cipher = cipher
+
+    async def get(self, business_id: BusinessId) -> LlmConfig | None:
+        async with self._sf() as session:
+            row = (
+                (
+                    await session.execute(
+                        text("SELECT * FROM llm_config WHERE business_id = :bid"),
+                        {"bid": str(business_id)},
+                    )
+                )
+                .mappings()
+                .first()
+            )
+        if row is None:
+            return None
+        ciphertext = row["api_key_ciphertext"]
+        return LlmConfig(
+            BusinessId(row["business_id"]),
+            row["mode"],
+            row["provider"],
+            row["model"],
+            row["base_url"],
+            self._cipher.decrypt(ciphertext) if ciphertext else None,
+            row["api_key_hint"],
+        )
+
+    async def upsert(self, config: LlmConfig) -> None:
+        ciphertext = self._cipher.encrypt(config.api_key) if config.api_key else None
+        async with self._sf() as session:
+            await session.execute(
+                text(
+                    "INSERT INTO llm_config (business_id, mode, provider, model, base_url, "
+                    "api_key_ciphertext, api_key_hint) "
+                    "VALUES (:bid, :mode, :prov, :model, :url, :cipher, :hint) "
+                    "ON CONFLICT (business_id) DO UPDATE SET "
+                    "mode = :mode, provider = :prov, model = :model, base_url = :url, "
+                    "api_key_ciphertext = :cipher, api_key_hint = :hint"
+                ),
+                {
+                    "bid": str(config.business_id),
+                    "mode": config.mode,
+                    "prov": config.provider,
+                    "model": config.model,
+                    "url": config.base_url,
+                    "cipher": ciphertext,
+                    "hint": config.api_key_hint,
+                },
+            )
+            await session.commit()

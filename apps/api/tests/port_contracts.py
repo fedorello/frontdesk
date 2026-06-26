@@ -15,7 +15,11 @@ from frontdesk.application.ports import (
     Calendar,
     ConversationRepository,
     CustomerRepository,
+    LlmConfig,
+    LlmConfigRepository,
     ReminderStore,
+    TelegramBotConfig,
+    TelegramBotRepository,
 )
 from frontdesk.domain.enums import AppointmentStatus, Channel, MessageRole
 from frontdesk.domain.errors import AppointmentNotFound, DomainError
@@ -127,3 +131,45 @@ async def check_conversation_repository(repo: ConversationRepository) -> None:
 async def check_appointment_repository(repo: AppointmentRepository) -> None:
     with pytest.raises(AppointmentNotFound):
         await repo.get(AppointmentId("missing"))
+
+
+async def check_telegram_bot_repository(repo: TelegramBotRepository) -> None:
+    biz = BusinessId("biz")
+    assert await repo.get(biz) is None
+
+    await repo.upsert(
+        TelegramBotConfig(biz, "123:ABCDEF", "wh-secret", "ana_bot", webhook_set=False)
+    )
+    stored = await repo.get(biz)
+    assert stored is not None
+    assert stored.bot_token == "123:ABCDEF"  # decrypted back from storage
+    assert stored.username == "ana_bot"
+    assert stored.webhook_set is False
+
+    await repo.upsert(
+        TelegramBotConfig(biz, "123:ABCDEF", "wh-secret", "ana_bot", webhook_set=True)
+    )
+    updated = await repo.get(biz)
+    assert updated is not None
+    assert updated.webhook_set is True  # upsert updates in place
+
+
+async def check_llm_config_repository(repo: LlmConfigRepository) -> None:
+    biz = BusinessId("biz")
+    assert await repo.get(biz) is None
+
+    await repo.upsert(
+        LlmConfig(biz, "own", "openai", "gpt-x", None, api_key="sk-secret-xyz", api_key_hint="xyz")
+    )
+    stored = await repo.get(biz)
+    assert stored is not None
+    assert stored.mode == "own"
+    assert stored.provider == "openai"
+    assert stored.api_key == "sk-secret-xyz"  # decrypted back
+    assert stored.api_key_hint == "xyz"
+
+    await repo.upsert(LlmConfig(biz, "default"))
+    reverted = await repo.get(biz)
+    assert reverted is not None
+    assert reverted.mode == "default"
+    assert reverted.api_key is None

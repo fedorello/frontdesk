@@ -202,6 +202,42 @@ class AppointmentRepository(Protocol):
     async def get(self, appointment_id: AppointmentId) -> Appointment: ...
 
 
+@dataclass(frozen=True, slots=True)
+class TelegramBotConfig:
+    business_id: BusinessId
+    bot_token: str
+    secret_token: str
+    username: str
+    webhook_set: bool = False
+
+
+class TelegramBotRepository(Protocol):
+    async def get(self, business_id: BusinessId) -> TelegramBotConfig | None: ...
+    async def upsert(self, config: TelegramBotConfig) -> None: ...
+
+
+@dataclass(frozen=True, slots=True)
+class LlmConfig:
+    """A business's LLM provider — the platform default, or its own key.
+
+    ``api_key`` is plaintext in memory; the SQL adapter encrypts it at rest and only
+    ever exposes ``api_key_hint`` (the last few characters). See ADR-0009.
+    """
+
+    business_id: BusinessId
+    mode: str  # "default" | "own"
+    provider: str | None = None
+    model: str | None = None
+    base_url: str | None = None
+    api_key: str | None = None
+    api_key_hint: str | None = None
+
+
+class LlmConfigRepository(Protocol):
+    async def get(self, business_id: BusinessId) -> LlmConfig | None: ...
+    async def upsert(self, config: LlmConfig) -> None: ...
+
+
 class AssistantObserver(Protocol):
     """Notified of the assistant's interim reasoning and each tool call.
 
