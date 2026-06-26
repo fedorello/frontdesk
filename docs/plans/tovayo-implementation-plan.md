@@ -92,7 +92,7 @@ Owner accounts (email + password / magic link), sessions, and **strict scoping**
 every write API and view to the owner's business. _(SaaS plan D.)_
 **DoD:** an owner can't read or edit another business; tested.
 
-### M5 — Dashboard: onboarding + management UI, internationalized _(depends on M2–M4; needs the designs)_
+### M5 — Dashboard: onboarding + management UI, internationalized 🟡 _(functional core done — [report](../reports/m5-report.md); live screens + designs pending)_
 Implement the [UX brief](../design/ux-brief.md): sign up / log in, the onboarding
 wizard (business → services → hours → knowledge → **choose AI** → **connect
 Telegram**), and the live Overview / Conversations / Calendar / Approvals / Settings.
