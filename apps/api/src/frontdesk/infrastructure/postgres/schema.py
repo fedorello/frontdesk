@@ -48,6 +48,15 @@ CREATE_STATEMENTS: tuple[str, ...] = (
         api_key_hint text
     )
     """,
+    # Owner accounts: one account owns one business (its scope).
+    """
+    CREATE TABLE account (
+        id text PRIMARY KEY,
+        email text NOT NULL UNIQUE,
+        password_hash text NOT NULL,
+        business_id text REFERENCES business(id)
+    )
+    """,
     """
     CREATE TABLE resource (
         id text PRIMARY KEY,
@@ -126,6 +135,7 @@ DROP_STATEMENTS: tuple[str, ...] = tuple(
         "customer",
         "service",
         "resource",
+        "account",
         "llm_config",
         "telegram_bot",
         "channel_binding",

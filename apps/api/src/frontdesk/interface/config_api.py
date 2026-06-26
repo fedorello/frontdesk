@@ -4,9 +4,10 @@ Lets an owner configure a bookable business entirely over HTTP — no SQL. The L
 provider lives in its own router (``business_config.py``).
 """
 
+from collections.abc import Awaitable, Callable
 from datetime import time
 
-from fastapi import APIRouter, HTTPException
+from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel
 
 from frontdesk.application.ports import (
@@ -17,6 +18,8 @@ from frontdesk.application.ports import (
 from frontdesk.domain.ids import BusinessId, ResourceId, ServiceId
 from frontdesk.domain.models import Business, KnowledgeItem, Resource, Service, WorkingHours
 from frontdesk.domain.money import Money
+
+Guard = Callable[..., Awaitable[None]] | None
 
 
 class KnowledgeItemIO(BaseModel):
@@ -70,8 +73,9 @@ def build_config_router(
     businesses: BusinessRepository,
     services: ServiceRepository,
     resources: ResourceRepository,
+    guard: Guard = None,
 ) -> APIRouter:
-    router = APIRouter()
+    router = APIRouter(dependencies=[Depends(guard)] if guard is not None else [])
 
     @router.put("/api/businesses/{business_id}")
     async def put_business(business_id: str, body: BusinessProfile) -> BusinessProfile:

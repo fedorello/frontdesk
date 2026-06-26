@@ -13,6 +13,7 @@ from typing import Protocol
 
 from frontdesk.domain.enums import Channel
 from frontdesk.domain.ids import (
+    AccountId,
     AppointmentId,
     BusinessId,
     CustomerId,
@@ -188,6 +189,20 @@ class BusinessRepository(Protocol):
 class ChannelBindingRepository(Protocol):
     async def upsert(self, channel: Channel, address: str, business_id: BusinessId) -> None: ...
     async def remove(self, channel: Channel, address: str) -> None: ...
+
+
+@dataclass(frozen=True, slots=True)
+class Account:
+    id: AccountId
+    email: str
+    password_hash: str
+    business_id: BusinessId | None = None
+
+
+class AccountRepository(Protocol):
+    async def by_email(self, email: str) -> Account | None: ...
+    async def get(self, account_id: AccountId) -> Account | None: ...
+    async def upsert(self, account: Account) -> None: ...
 
 
 class CustomerRepository(Protocol):

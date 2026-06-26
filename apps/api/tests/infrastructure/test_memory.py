@@ -22,6 +22,7 @@ from frontdesk.domain.ids import BusinessId, CustomerId
 from frontdesk.domain.models import Message
 from frontdesk.infrastructure.memory import (
     AutoDecisionGate,
+    InMemoryAccountRepository,
     InMemoryAppointmentRepository,
     InMemoryBusinessRepository,
     InMemoryCalendar,
@@ -44,6 +45,7 @@ from frontdesk.infrastructure.system import (
 )
 from tests.port_contracts import (
     NOW,
+    check_account_repository,
     check_appointment_repository,
     check_business_repository,
     check_business_write,
@@ -189,3 +191,7 @@ async def test_service_write_fake() -> None:
 
 async def test_resource_write_fake() -> None:
     await check_resource_write(InMemoryResourceRepository())
+
+
+async def test_account_repository_fake() -> None:
+    await check_account_repository(InMemoryAccountRepository())

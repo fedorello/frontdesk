@@ -87,7 +87,7 @@ key never appears in any response or log.
 (`setWebhook` + per-business secret); `Disconnect`. _(SaaS plan C.)_
 **DoD:** pasting a real BotFather token makes that bot answer and book, end to end.
 
-### M4 — Accounts, auth & isolation _(depends on M2)_
+### M4 — Accounts, auth & isolation ✅ _(done — [report](../reports/m4-report.md))_
 Owner accounts (email + password / magic link), sessions, and **strict scoping** of
 every write API and view to the owner's business. _(SaaS plan D.)_
 **DoD:** an owner can't read or edit another business; tested.

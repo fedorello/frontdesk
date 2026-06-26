@@ -27,6 +27,7 @@ from frontdesk.infrastructure.db import create_engine, make_session_factory
 from frontdesk.infrastructure.events import LoggingEventPublisher
 from frontdesk.infrastructure.memory import InMemoryIdempotency
 from frontdesk.infrastructure.postgres.adapters import (
+    SqlAccountRepository,
     SqlAppointmentRepository,
     SqlBusinessRepository,
     SqlCalendar,
@@ -44,6 +45,7 @@ from frontdesk.infrastructure.providers.openai import OpenAiProvider
 from frontdesk.infrastructure.secrets import FernetCipher
 from frontdesk.infrastructure.system import FixedClock, SystemClock, UuidIdGenerator
 from frontdesk.interface.approvals import build_approvals_router
+from frontdesk.interface.auth import build_auth_router, make_owner_guard
 from frontdesk.interface.business_config import build_llm_config_router
 from frontdesk.interface.chat import build_chat_router
 from frontdesk.interface.config_api import build_config_router
@@ -117,6 +119,8 @@ def create_production_app() -> FastAPI:
     cipher = build_cipher(settings)
     telegram_bots = SqlTelegramBotRepository(sessions, cipher)
     llm_configs = SqlLlmConfigRepository(sessions, cipher)
+    accounts = SqlAccountRepository(sessions)
+    guard = make_owner_guard(accounts, settings.secret_key)
 
     deps = AssistantDeps(
         build_provider(settings, client),
@@ -150,17 +154,19 @@ def create_production_app() -> FastAPI:
     app.include_router(build_chat_router(deps, settings.demo_to_address, clock))
     app.include_router(build_approvals_router(pending_approvals))
     app.include_router(build_telegram_router(deps, telegram_bots, llm_configs, settings, client))
-    app.include_router(build_llm_config_router(llm_configs))
+    app.include_router(build_auth_router(accounts, SqlBusinessRepository(sessions), ids, settings))
+    app.include_router(build_llm_config_router(llm_configs, guard))
     app.include_router(
         build_config_router(
             SqlBusinessRepository(sessions),
             SqlServiceRepository(sessions),
             SqlResourceRepository(sessions),
+            guard,
         )
     )
     app.include_router(
         build_telegram_connect_router(
-            telegram_bots, SqlChannelBindingRepository(sessions), settings, client
+            telegram_bots, SqlChannelBindingRepository(sessions), settings, client, guard
         )
     )
     return app

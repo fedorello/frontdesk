@@ -10,6 +10,7 @@ from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
 
 from frontdesk.application.ports import (
+    Account,
     Clock,
     IdGenerator,
     LlmConfig,
@@ -24,6 +25,7 @@ from frontdesk.domain.errors import (
     ServiceNotFound,
 )
 from frontdesk.domain.ids import (
+    AccountId,
     AppointmentId,
     BusinessId,
     CustomerId,
@@ -799,5 +801,63 @@ class SqlChannelBindingRepository:
             await session.execute(
                 text("DELETE FROM channel_binding WHERE channel = :ch AND address = :addr"),
                 {"ch": channel.value, "addr": address},
+            )
+            await session.commit()
+
+
+def _to_account(row: Row) -> Account:
+    return Account(
+        AccountId(row["id"]),
+        row["email"],
+        row["password_hash"],
+        BusinessId(row["business_id"]) if row["business_id"] else None,
+    )
+
+
+class SqlAccountRepository:
+    def __init__(self, sessionmaker: async_sessionmaker[AsyncSession]) -> None:
+        self._sf = sessionmaker
+
+    async def by_email(self, email: str) -> Account | None:
+        async with self._sf() as session:
+            row = (
+                (
+                    await session.execute(
+                        text("SELECT * FROM account WHERE email = :e"), {"e": email}
+                    )
+                )
+                .mappings()
+                .first()
+            )
+        return _to_account(row) if row else None
+
+    async def get(self, account_id: AccountId) -> Account | None:
+        async with self._sf() as session:
+            row = (
+                (
+                    await session.execute(
+                        text("SELECT * FROM account WHERE id = :id"), {"id": str(account_id)}
+                    )
+                )
+                .mappings()
+                .first()
+            )
+        return _to_account(row) if row else None
+
+    async def upsert(self, account: Account) -> None:
+        async with self._sf() as session:
+            await session.execute(
+                text(
+                    "INSERT INTO account (id, email, password_hash, business_id) "
+                    "VALUES (:id, :email, :ph, :bid) "
+                    "ON CONFLICT (id) DO UPDATE SET "
+                    "email = :email, password_hash = :ph, business_id = :bid"
+                ),
+                {
+                    "id": str(account.id),
+                    "email": account.email,
+                    "ph": account.password_hash,
+                    "bid": str(account.business_id) if account.business_id else None,
+                },
             )
             await session.commit()

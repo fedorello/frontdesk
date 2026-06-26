@@ -20,6 +20,7 @@ from frontdesk.domain.ids import (
 )
 from frontdesk.domain.models import Customer, Reminder, Service
 from frontdesk.infrastructure.postgres.adapters import (
+    SqlAccountRepository,
     SqlAppointmentRepository,
     SqlBusinessRepository,
     SqlCalendar,
@@ -35,6 +36,7 @@ from frontdesk.infrastructure.secrets import FernetCipher
 from frontdesk.infrastructure.system import FixedClock, SequentialIdGenerator
 from tests.port_contracts import (
     NOW,
+    check_account_repository,
     check_appointment_repository,
     check_business_repository,
     check_business_write,
@@ -177,3 +179,7 @@ async def test_service_write(sessionmaker: Factory) -> None:
 
 async def test_resource_write(sessionmaker: Factory) -> None:
     await check_resource_write(SqlResourceRepository(sessionmaker))
+
+
+async def test_account_repository(sessionmaker: Factory) -> None:
+    await check_account_repository(SqlAccountRepository(sessionmaker))

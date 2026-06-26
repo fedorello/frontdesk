@@ -4,13 +4,16 @@ The API key is **write-only** — accepted on input, stored encrypted, and never
 returned (only a 4-char hint). See ADR-0009.
 """
 
-from fastapi import APIRouter, HTTPException
+from collections.abc import Awaitable, Callable
+
+from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel
 
 from frontdesk.application.ports import LlmConfig, LlmConfigRepository
 from frontdesk.domain.ids import BusinessId
 
 _PROVIDERS = {"openai", "anthropic", "openrouter"}
+Guard = Callable[..., Awaitable[None]] | None
 
 
 class LlmConfigView(BaseModel):
@@ -39,8 +42,8 @@ def _view(config: LlmConfig) -> LlmConfigView:
     )
 
 
-def build_llm_config_router(llm_configs: LlmConfigRepository) -> APIRouter:
-    router = APIRouter()
+def build_llm_config_router(llm_configs: LlmConfigRepository, guard: Guard = None) -> APIRouter:
+    router = APIRouter(dependencies=[Depends(guard)] if guard is not None else [])
 
     @router.get("/api/businesses/{business_id}/llm")
     async def get_llm(business_id: str) -> LlmConfigView:

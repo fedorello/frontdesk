@@ -10,6 +10,8 @@ from datetime import UTC, datetime, time, timedelta
 import pytest
 
 from frontdesk.application.ports import (
+    Account,
+    AccountRepository,
     AppointmentRepository,
     BusinessRepository,
     Calendar,
@@ -26,6 +28,7 @@ from frontdesk.application.ports import (
 from frontdesk.domain.enums import AppointmentStatus, Channel, MessageRole
 from frontdesk.domain.errors import AppointmentNotFound, DomainError
 from frontdesk.domain.ids import (
+    AccountId,
     AppointmentId,
     BusinessId,
     CustomerId,
@@ -215,3 +218,18 @@ async def check_resource_write(repo: ResourceRepository) -> None:
     await repo.upsert(Resource(rid, BusinessId("biz"), "Suite", hours))
     updated = [r for r in await repo.for_business(BusinessId("biz")) if r.id == rid]
     assert updated[0].name == "Suite"  # upsert updates in place
+
+
+async def check_account_repository(repo: AccountRepository) -> None:
+    assert await repo.by_email("o@x.com") is None
+
+    await repo.upsert(Account(AccountId("acc-1"), "o@x.com", "hashed-pw", BusinessId("biz")))
+    by_email = await repo.by_email("o@x.com")
+    assert by_email is not None
+    assert by_email.id == AccountId("acc-1")
+    assert by_email.business_id == BusinessId("biz")
+
+    got = await repo.get(AccountId("acc-1"))
+    assert got is not None
+    assert got.email == "o@x.com"
+    assert got.password_hash == "hashed-pw"

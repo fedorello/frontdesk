@@ -6,8 +6,9 @@ it. The token is write-only — never returned. See ADR-0008 / ADR-0009.
 """
 
 import secrets
+from collections.abc import Awaitable, Callable
 
-from fastapi import APIRouter, HTTPException
+from fastapi import APIRouter, Depends, HTTPException
 from httpx import AsyncClient
 from pydantic import BaseModel
 
@@ -40,8 +41,9 @@ def build_telegram_connect_router(
     bindings: ChannelBindingRepository,
     settings: Settings,
     client: AsyncClient,
+    guard: Callable[..., Awaitable[None]] | None = None,
 ) -> APIRouter:
-    router = APIRouter()
+    router = APIRouter(dependencies=[Depends(guard)] if guard is not None else [])
 
     @router.post("/api/businesses/{business_id}/telegram/connect")
     async def connect(business_id: str, body: ConnectInput) -> TelegramStatus:

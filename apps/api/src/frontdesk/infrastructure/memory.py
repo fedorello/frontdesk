@@ -9,6 +9,7 @@ from dataclasses import replace
 from datetime import datetime, timedelta
 
 from frontdesk.application.ports import (
+    Account,
     Clock,
     Completion,
     Decision,
@@ -23,6 +24,7 @@ from frontdesk.domain.availability import ensure_bookable, free_slots
 from frontdesk.domain.enums import AppointmentStatus, Channel, ReminderStatus
 from frontdesk.domain.errors import AppointmentNotFound, DoubleBooking, ServiceNotFound
 from frontdesk.domain.ids import (
+    AccountId,
     AppointmentId,
     BusinessId,
     CustomerId,
@@ -135,6 +137,22 @@ class InMemoryBusinessRepository:
 
     async def upsert(self, business: Business) -> None:
         self._by_id[business.id] = business
+
+
+class InMemoryAccountRepository:
+    def __init__(self) -> None:
+        self._by_id: dict[AccountId, Account] = {}
+        self._by_email: dict[str, Account] = {}
+
+    async def by_email(self, email: str) -> Account | None:
+        return self._by_email.get(email)
+
+    async def get(self, account_id: AccountId) -> Account | None:
+        return self._by_id.get(account_id)
+
+    async def upsert(self, account: Account) -> None:
+        self._by_id[account.id] = account
+        self._by_email[account.email] = account
 
 
 class InMemoryChannelBindingRepository:

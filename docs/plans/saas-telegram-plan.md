@@ -13,7 +13,7 @@ green against the gate and is verified with a real run.
 | A | Per-tenant Telegram + tenant-aware outbound | ✅ Done — [report](../reports/m1-report.md) |
 | B | Business configuration write-API | ✅ Done — [report](../reports/m2-report.md) |
 | C | Telegram self-serve connect | ✅ Code-complete — [report](../reports/m3-report.md) |
-| D | Accounts, auth & tenant scoping | Not started |
+| D | Accounts, auth & tenant scoping | ✅ Done — [report](../reports/m4-report.md) |
 | E | Dashboard: onboarding + management UI (i18n) | Not started |
 | F | Multilingual depth & SaaS hardening | Not started |
 
