@@ -44,11 +44,12 @@ The **Conversations screen** is wired the same way: `GET
 /api/businesses/{id}/conversations` (guarded) + a live feed, covered by a Playwright
 e2e. Both live screens (calendar + conversations) now render real, auth-scoped data.
 
+The **Overview** home page is wired too: live booking + message counts from the
+appointments/conversations endpoints, internationalized, with a sign-in prompt.
+
 ## What remains in M5
 
-- **Overview screen**: still placeholder (counts/summary) — small, same pattern.
-- **Internationalize the remaining screens** (settings, approvals) —
-  designer-independent.
+- **Internationalize the settings/approvals screens** — designer-independent polish.
 - **The visual design** — awaiting the designer's mockups; the components are built to
   be restyled without changing the data/i18n layer.
 
@@ -57,7 +58,6 @@ e2e. Both live screens (calendar + conversations) now render real, auth-scoped d
 - [x] i18n in place from the first screen; language switcher; ≥2 languages proven
       (en + ru) in an e2e.
 - [x] Onboarding happy path implemented and covered by a Playwright e2e.
-- [x] The calendar **and** conversations show **real, auth-scoped data** (calendar
-      proven in a live run; both covered by e2e).
-- [ ] Overview screen shows real data (small, same pattern).
+- [x] Calendar, conversations, **and the Overview** show **real, auth-scoped data**
+      (calendar proven in a live run; all covered by e2e).
 - [ ] Designer's visual design applied (hand-off pending).
