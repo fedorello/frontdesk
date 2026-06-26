@@ -9,6 +9,7 @@ from datetime import datetime
 import httpx
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
+from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
 
 from frontdesk.application.appointments import (
     BookAppointment,
@@ -17,7 +18,14 @@ from frontdesk.application.appointments import (
     RescheduleAppointment,
 )
 from frontdesk.application.assistant import Assistant, AssistantDeps
-from frontdesk.application.ports import Clock, LlmProvider, MessagingPort, SecretCipher
+from frontdesk.application.ports import (
+    ApprovalGate,
+    Clock,
+    IdGenerator,
+    LlmProvider,
+    MessagingPort,
+    SecretCipher,
+)
 from frontdesk.core.settings import Settings
 from frontdesk.infrastructure.airlock_gate import AirlockApprovalGate, PendingApprovals
 from frontdesk.infrastructure.channels.composite import LoggingMessaging, RoutingMessaging
@@ -108,28 +116,24 @@ def build_messaging(settings: Settings, client: httpx.AsyncClient) -> MessagingP
     return RoutingMessaging(whatsapp=whatsapp, telegram=telegram, fallback=LoggingMessaging())
 
 
-def create_production_app() -> FastAPI:
-    settings = Settings()
-    configure_logging(settings.log_level, settings.log_file)
-    engine = create_engine(settings.database_url)
-    sessions = make_session_factory(engine)
-    clock = build_clock(settings)
-    ids = UuidIdGenerator()
-    client = httpx.AsyncClient(timeout=30)
+def build_assistant_deps(
+    settings: Settings,
+    sessions: async_sessionmaker[AsyncSession],
+    ids: IdGenerator,
+    clock: Clock,
+    client: httpx.AsyncClient,
+    gate: ApprovalGate,
+) -> AssistantDeps:
+    """Assemble the assistant's dependency graph — shared by the API and the poller.
 
+    `messaging` and `llm` are the global defaults; tenant transports replace them
+    per business at dispatch time.
+    """
     reminders = SqlReminderStore(sessions)
     calendar = SqlCalendar(sessions, ids, clock)
     events = LoggingEventPublisher()
     scheduler = ReminderScheduler(reminders, ids, clock)
-    pending_approvals = PendingApprovals()
-    cipher = build_cipher(settings)
-    telegram_bots = SqlTelegramBotRepository(sessions, cipher)
-    llm_configs = SqlLlmConfigRepository(sessions, cipher)
-    accounts = SqlAccountRepository(sessions)
-    usage = SqlUsageStore(sessions)
-    guard = make_owner_guard(accounts, settings.secret_key, settings.token_max_age_seconds)
-
-    deps = AssistantDeps(
+    return AssistantDeps(
         build_provider(settings, client),
         SqlBusinessRepository(sessions),
         SqlCustomerRepository(sessions, ids),
@@ -142,8 +146,31 @@ def create_production_app() -> FastAPI:
         CancelAppointment(calendar, reminders, events),
         build_messaging(settings, client),
         events,
-        AirlockApprovalGate(pending_approvals),  # dogfoods airlock-hitl (ADR-0005)
+        gate,
         clock,
+    )
+
+
+def create_production_app() -> FastAPI:
+    settings = Settings()
+    configure_logging(settings.log_level, settings.log_file)
+    engine = create_engine(settings.database_url)
+    sessions = make_session_factory(engine)
+    clock = build_clock(settings)
+    ids = UuidIdGenerator()
+    client = httpx.AsyncClient(timeout=30)
+
+    pending_approvals = PendingApprovals()
+    cipher = build_cipher(settings)
+    telegram_bots = SqlTelegramBotRepository(sessions, cipher)
+    llm_configs = SqlLlmConfigRepository(sessions, cipher)
+    accounts = SqlAccountRepository(sessions)
+    usage = SqlUsageStore(sessions)
+    guard = make_owner_guard(accounts, settings.secret_key, settings.token_max_age_seconds)
+
+    # Dogfoods airlock-hitl (ADR-0005): sensitive actions gated for human approval.
+    deps = build_assistant_deps(
+        settings, sessions, ids, clock, client, AirlockApprovalGate(pending_approvals)
     )
     config = WebhookConfig(
         whatsapp_app_secret=settings.whatsapp_app_secret,

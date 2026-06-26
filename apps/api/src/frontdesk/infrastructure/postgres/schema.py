@@ -33,7 +33,8 @@ CREATE_STATEMENTS: tuple[str, ...] = (
         bot_token text NOT NULL,
         secret_token text NOT NULL,
         username text,
-        webhook_set boolean NOT NULL DEFAULT false
+        webhook_set boolean NOT NULL DEFAULT false,
+        last_update_id bigint NOT NULL DEFAULT 0
     )
     """,
     # Per-business LLM provider: the platform default, or the business's own key.

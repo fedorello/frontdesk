@@ -79,6 +79,7 @@ omit = [
     "*/infrastructure/postgres/*",
     "*/interface/app.py",
     "*/interface/run_worker.py",
+    "*/interface/run_telegram_poller.py",
 ]
 
 # ----- Hexagonal import boundaries -----

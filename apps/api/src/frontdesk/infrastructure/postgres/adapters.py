@@ -715,6 +715,16 @@ class SqlTelegramBotRepository:
         self._sf = sessionmaker
         self._cipher = cipher
 
+    def _to_config(self, row: Row) -> TelegramBotConfig:
+        return TelegramBotConfig(
+            BusinessId(row["business_id"]),
+            self._cipher.decrypt(row["bot_token"]),
+            row["secret_token"],
+            row["username"],
+            row["webhook_set"],
+            row["last_update_id"],
+        )
+
     async def get(self, business_id: BusinessId) -> TelegramBotConfig | None:
         async with self._sf() as session:
             row = (
@@ -727,23 +737,21 @@ class SqlTelegramBotRepository:
                 .mappings()
                 .first()
             )
-        if row is None:
-            return None
-        return TelegramBotConfig(
-            BusinessId(row["business_id"]),
-            self._cipher.decrypt(row["bot_token"]),
-            row["secret_token"],
-            row["username"],
-            row["webhook_set"],
-        )
+        return self._to_config(row) if row else None
+
+    async def list_connected(self) -> list[TelegramBotConfig]:
+        async with self._sf() as session:
+            rows = (await session.execute(text("SELECT * FROM telegram_bot"))).mappings().all()
+        return [self._to_config(row) for row in rows]
 
     async def upsert(self, config: TelegramBotConfig) -> None:
+        # ON CONFLICT keeps last_update_id so a reconnect doesn't replay old updates.
         async with self._sf() as session:
             await session.execute(
                 text(
                     "INSERT INTO telegram_bot "
-                    "(business_id, bot_token, secret_token, username, webhook_set) "
-                    "VALUES (:bid, :tok, :sec, :usr, :web) "
+                    "(business_id, bot_token, secret_token, username, webhook_set, last_update_id) "
+                    "VALUES (:bid, :tok, :sec, :usr, :web, :luid) "
                     "ON CONFLICT (business_id) DO UPDATE SET "
                     "bot_token = :tok, secret_token = :sec, username = :usr, webhook_set = :web"
                 ),
@@ -753,7 +761,16 @@ class SqlTelegramBotRepository:
                     "sec": config.secret_token,
                     "usr": config.username,
                     "web": config.webhook_set,
+                    "luid": config.last_update_id,
                 },
+            )
+            await session.commit()
+
+    async def set_offset(self, business_id: BusinessId, last_update_id: int) -> None:
+        async with self._sf() as session:
+            await session.execute(
+                text("UPDATE telegram_bot SET last_update_id = :luid WHERE business_id = :bid"),
+                {"luid": last_update_id, "bid": str(business_id)},
             )
             await session.commit()
 

@@ -1,80 +1,40 @@
-"""The multi-tenant Telegram webhook routes each business to its own bot & model.
+"""The webhook transport routes each business to its own bot & model (isolation + quota).
 
-A single shared MockTransport plays the LLM (returns a reply) and Telegram
-(captures which bot token sent), so we can prove isolation: a message to business 1
-is answered by bot 1, a message to business 2 by bot 2.
+A shared MockTransport plays the LLM (a reply) and Telegram (captures which bot sent),
+proving a message to business 1 is answered by bot 1, business 2 by bot 2.
 """
-
-from datetime import time
 
 import httpx
 from fastapi import FastAPI
 
-from frontdesk.application.appointments import (
-    BookAppointment,
-    CancelAppointment,
-    ReminderScheduler,
-    RescheduleAppointment,
-)
-from frontdesk.application.assistant import AssistantDeps
 from frontdesk.application.ports import TelegramBotConfig
 from frontdesk.core.settings import Settings
 from frontdesk.domain.enums import Channel
-from frontdesk.domain.ids import BusinessId, ResourceId
-from frontdesk.domain.models import Business, Resource, WorkingHours
+from frontdesk.domain.ids import BusinessId
+from frontdesk.domain.models import Business
 from frontdesk.infrastructure.memory import (
-    AutoDecisionGate,
-    InMemoryAppointmentRepository,
     InMemoryBusinessRepository,
-    InMemoryCalendar,
-    InMemoryConversationRepository,
-    InMemoryCustomerRepository,
-    InMemoryEventPublisher,
     InMemoryLlmConfigRepository,
-    InMemoryMessaging,
-    InMemoryReminderStore,
-    InMemoryServiceRepository,
     InMemoryTelegramBotRepository,
     InMemoryUsageStore,
-    ScriptedLlmProvider,
 )
-from frontdesk.infrastructure.system import FixedClock, SequentialIdGenerator
 from frontdesk.interface.telegram_inbound import TelegramInbound
 from frontdesk.interface.telegram_webhook import build_telegram_router
-from tests.port_contracts import NOW
+from tests.assistant_deps import build_assistant_deps
 
 SETTINGS = Settings(llm_api_key="platform-key", llm_base_url="https://openrouter.ai/api/v1")
 UPDATE = {"message": {"message_id": 1, "date": 1782000000, "chat": {"id": 999}, "text": "hi"}}
 
 
-def _base_deps(businesses: InMemoryBusinessRepository) -> AssistantDeps:
-    business = Business(BusinessId("biz1"), "Ana", "UTC")
-    resource = Resource(
-        ResourceId("res"), BusinessId("biz1"), "Ana", (WorkingHours(0, time(9), time(17)),)
-    )
-    clock = FixedClock(NOW)
-    appointments = InMemoryAppointmentRepository()
-    calendar = InMemoryCalendar(
-        business, [resource], clock, SequentialIdGenerator("ap"), appointments
-    )
-    reminders = InMemoryReminderStore()
-    scheduler = ReminderScheduler(reminders, SequentialIdGenerator("rem"), clock)
-    events = InMemoryEventPublisher()
-    return AssistantDeps(
-        llm=ScriptedLlmProvider([]),  # replaced per business
-        businesses=businesses,
-        customers=InMemoryCustomerRepository(SequentialIdGenerator("cus")),
-        conversations=InMemoryConversationRepository(),
-        services=InMemoryServiceRepository([]),
-        appointments=appointments,
-        calendar=calendar,
-        book=BookAppointment(calendar, scheduler, events),
-        reschedule=RescheduleAppointment(calendar, scheduler),
-        cancel=CancelAppointment(calendar, reminders, events),
-        messaging=InMemoryMessaging(),  # replaced per business
-        events=events,
-        gate=AutoDecisionGate(approved=False),
-        clock=clock,
+def _inbound(
+    businesses: InMemoryBusinessRepository, client: httpx.AsyncClient, settings: Settings
+) -> TelegramInbound:
+    return TelegramInbound(
+        build_assistant_deps(businesses),
+        InMemoryLlmConfigRepository(),
+        InMemoryUsageStore(),
+        settings,
+        client,
     )
 
 
@@ -103,14 +63,7 @@ async def test_routes_each_business_to_its_own_bot() -> None:
     await bots.upsert(TelegramBotConfig(BusinessId("biz2"), "222:BBB", "sec2", "bob_bot"))
 
     app = FastAPI()
-    inbound = TelegramInbound(
-        _base_deps(businesses),
-        InMemoryLlmConfigRepository(),
-        InMemoryUsageStore(),
-        SETTINGS,
-        client,
-    )
-    app.include_router(build_telegram_router(inbound, bots))
+    app.include_router(build_telegram_router(_inbound(businesses, client, SETTINGS), bots))
 
     transport = httpx.ASGITransport(app=app)
     async with httpx.AsyncClient(transport=transport, base_url="http://test") as web:
@@ -139,9 +92,8 @@ async def test_routes_each_business_to_its_own_bot() -> None:
         403,
         404,
     )
-    # Isolation: business 1 replied via bot 111, business 2 via bot 222.
-    assert any("bot111:AAA/sendMessage" in u for u in sent)
-    assert any("bot222:BBB/sendMessage" in u for u in sent)
+    assert any("bot111:AAA/sendMessage" in u for u in sent)  # business 1 via bot 111
+    assert any("bot222:BBB/sendMessage" in u for u in sent)  # business 2 via bot 222
 
 
 async def test_managed_default_daily_limit_caps_messages() -> None:
@@ -173,14 +125,7 @@ async def test_managed_default_daily_limit_caps_messages() -> None:
     )
 
     app = FastAPI()
-    inbound = TelegramInbound(
-        _base_deps(businesses),
-        InMemoryLlmConfigRepository(),
-        InMemoryUsageStore(),
-        settings,
-        client,
-    )
-    app.include_router(build_telegram_router(inbound, bots))
+    app.include_router(build_telegram_router(_inbound(businesses, client, settings), bots))
     transport = httpx.ASGITransport(app=app)
     async with httpx.AsyncClient(transport=transport, base_url="http://test") as web:
         headers = {"x-telegram-bot-api-secret-token": "sec1"}

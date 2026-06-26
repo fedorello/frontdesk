@@ -97,6 +97,17 @@ services:
       migrate:
         condition: service_completed_successfully
 
+  # Telegram polling transport (telegram_mode=polling): no public URL needed (ADR-0010).
+  telegram-poller:
+    <<: *api
+    profiles: ["app"]
+    command: ["python", "-m", "frontdesk.interface.run_telegram_poller"]
+    depends_on:
+      postgres:
+        condition: service_healthy
+      migrate:
+        condition: service_completed_successfully
+
   dashboard:
     build: ../../apps/dashboard
     profiles: ["app"]

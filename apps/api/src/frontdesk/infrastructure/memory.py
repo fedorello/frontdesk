@@ -55,6 +55,14 @@ class InMemoryTelegramBotRepository:
     async def upsert(self, config: TelegramBotConfig) -> None:
         self._by_business[config.business_id] = config
 
+    async def list_connected(self) -> list[TelegramBotConfig]:
+        return list(self._by_business.values())
+
+    async def set_offset(self, business_id: BusinessId, last_update_id: int) -> None:
+        bot = self._by_business.get(business_id)
+        if bot is not None:
+            self._by_business[business_id] = replace(bot, last_update_id=last_update_id)
+
 
 class InMemoryLlmConfigRepository:
     def __init__(self) -> None:

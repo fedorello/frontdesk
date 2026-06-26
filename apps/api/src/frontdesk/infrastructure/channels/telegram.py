@@ -104,3 +104,28 @@ async def telegram_delete_webhook(
     except httpx.HTTPError as exc:
         _logger.warning("telegram deleteWebhook failed: %s", exc)
         return False
+
+
+async def telegram_get_updates(
+    token: str,
+    client: httpx.AsyncClient,
+    *,
+    offset: int,
+    timeout: int,
+    base: str = _TELEGRAM_API,
+) -> list[dict[str, Any]]:
+    """Long-poll for message updates after `offset`; returns [] on any error.
+
+    `timeout` is Telegram's long-poll hold time in seconds — the HTTP client timeout
+    must exceed it. Only `message` updates are requested.
+    """
+    try:
+        response = await client.get(
+            f"{base.rstrip('/')}/bot{token}/getUpdates",
+            params={"offset": offset, "timeout": timeout, "allowed_updates": '["message"]'},
+        )
+        data = response.json()
+    except httpx.HTTPError as exc:
+        _logger.warning("telegram getUpdates failed: %s", exc)
+        return []
+    return list(data["result"]) if data.get("ok") else []

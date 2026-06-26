@@ -166,6 +166,13 @@ async def check_telegram_bot_repository(repo: TelegramBotRepository) -> None:
     assert updated is not None
     assert updated.webhook_set is True  # upsert updates in place
 
+    assert any(b.business_id == biz for b in await repo.list_connected())  # the poller sees it
+
+    await repo.set_offset(biz, 42)
+    with_offset = await repo.get(biz)
+    assert with_offset is not None
+    assert with_offset.last_update_id == 42  # poll cursor persisted
+
 
 async def check_llm_config_repository(repo: LlmConfigRepository) -> None:
     biz = BusinessId("biz")

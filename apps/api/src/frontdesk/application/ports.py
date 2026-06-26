@@ -258,11 +258,14 @@ class TelegramBotConfig:
     secret_token: str
     username: str
     webhook_set: bool = False
+    last_update_id: int = 0  # the poller's getUpdates offset cursor
 
 
 class TelegramBotRepository(Protocol):
     async def get(self, business_id: BusinessId) -> TelegramBotConfig | None: ...
     async def upsert(self, config: TelegramBotConfig) -> None: ...
+    async def list_connected(self) -> list[TelegramBotConfig]: ...
+    async def set_offset(self, business_id: BusinessId, last_update_id: int) -> None: ...
 
 
 @dataclass(frozen=True, slots=True)

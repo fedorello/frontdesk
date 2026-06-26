@@ -1,9 +1,18 @@
 """Typed application configuration, read once from the environment."""
 
+from enum import StrEnum
+
 from pydantic import field_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 DEFAULT_TELEGRAM_API_BASE = "https://api.telegram.org"
+
+
+class TelegramMode(StrEnum):
+    """How the bot receives Telegram updates. See ADR-0010."""
+
+    POLLING = "polling"  # the poller long-polls getUpdates; no public URL needed
+    WEBHOOK = "webhook"  # Telegram pushes to the public URL
 
 
 class Settings(BaseSettings):
@@ -29,6 +38,10 @@ class Settings(BaseSettings):
     public_url: str = "http://localhost:8000"
     # Telegram Bot API base — override for a self-hosted Bot API server or a local mock.
     telegram_api_base: str = DEFAULT_TELEGRAM_API_BASE
+    # How the bot receives updates (ADR-0010): polling needs no public URL (self-host/dev).
+    telegram_mode: TelegramMode = TelegramMode.POLLING
+    telegram_poll_timeout_seconds: int = 25  # getUpdates long-poll hold time
+    telegram_idle_poll_seconds: int = 5  # sleep when no bots are connected
     # Daily message cap per business on the managed-default LLM (0 = unlimited). Own-key
     # businesses are never capped. Cost control for the platform-paid default (ADR-0009).
     managed_default_daily_limit: int = 0
