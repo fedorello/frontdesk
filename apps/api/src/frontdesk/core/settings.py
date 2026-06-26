@@ -20,6 +20,8 @@ class Settings(BaseSettings):
     database_url: str = "postgresql+asyncpg://frontdesk:frontdesk@localhost:5432/frontdesk"
     redis_url: str = "redis://localhost:6379/0"
     log_level: str = "INFO"
+    # Key (urlsafe base64, 32 bytes) for encrypting stored secrets at rest (ADR-0009).
+    secret_key: str = ""
 
     # The business the web chat demo talks to (matches the seeded channel binding).
     demo_to_address: str = "+BIZ"

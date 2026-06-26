@@ -130,6 +130,13 @@ class IdGenerator(Protocol):
     def new(self) -> str: ...
 
 
+class SecretCipher(Protocol):
+    """Encrypts secrets (API/bot keys) for storage at rest. See ADR-0009."""
+
+    def encrypt(self, plaintext: str) -> str: ...
+    def decrypt(self, token: str) -> str: ...
+
+
 class Idempotency(Protocol):
     async def seen(self, key: str) -> bool:
         """True if ``key`` was already processed; records it as processed."""
