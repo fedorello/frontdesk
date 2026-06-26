@@ -246,6 +246,12 @@ class InMemoryAppointmentRepository:
         except KeyError:
             raise AppointmentNotFound(str(appointment_id)) from None
 
+    async def for_business(self, business_id: BusinessId) -> list[Appointment]:
+        return sorted(
+            (a for a in self.appointments.values() if a.business_id == business_id),
+            key=lambda a: a.slot.starts_at,
+        )
+
 
 class InMemoryReminderStore:
     def __init__(self) -> None:

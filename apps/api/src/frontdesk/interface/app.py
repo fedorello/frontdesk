@@ -49,6 +49,7 @@ from frontdesk.interface.auth import build_auth_router, make_owner_guard
 from frontdesk.interface.business_config import build_llm_config_router
 from frontdesk.interface.chat import build_chat_router
 from frontdesk.interface.config_api import build_config_router
+from frontdesk.interface.read_api import build_read_router
 from frontdesk.interface.telegram_connect import build_telegram_connect_router
 from frontdesk.interface.telegram_webhook import build_telegram_router
 from frontdesk.interface.webhooks import WebhookConfig, create_app
@@ -168,5 +169,8 @@ def create_production_app() -> FastAPI:
         build_telegram_connect_router(
             telegram_bots, SqlChannelBindingRepository(sessions), settings, client, guard
         )
+    )
+    app.include_router(
+        build_read_router(SqlAppointmentRepository(sessions), SqlServiceRepository(sessions), guard)
     )
     return app

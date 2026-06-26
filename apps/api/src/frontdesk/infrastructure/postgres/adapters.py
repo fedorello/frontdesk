@@ -444,6 +444,22 @@ class SqlAppointmentRepository:
                 raise AppointmentNotFound(str(appointment_id))
             return _to_appointment(row)
 
+    async def for_business(self, business_id: BusinessId) -> list[Appointment]:
+        async with self._sf() as session:
+            rows = (
+                (
+                    await session.execute(
+                        text(
+                            "SELECT * FROM appointment WHERE business_id = :bid ORDER BY starts_at"
+                        ),
+                        {"bid": str(business_id)},
+                    )
+                )
+                .mappings()
+                .all()
+            )
+            return [_to_appointment(row) for row in rows]
+
 
 class SqlReminderStore:
     def __init__(self, sessionmaker: async_sessionmaker[AsyncSession]) -> None:

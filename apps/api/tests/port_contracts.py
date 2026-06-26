@@ -137,6 +137,7 @@ async def check_conversation_repository(repo: ConversationRepository) -> None:
 async def check_appointment_repository(repo: AppointmentRepository) -> None:
     with pytest.raises(AppointmentNotFound):
         await repo.get(AppointmentId("missing"))
+    assert await repo.for_business(BusinessId("biz")) == []  # empty business lists nothing
 
 
 async def check_telegram_bot_repository(repo: TelegramBotRepository) -> None:

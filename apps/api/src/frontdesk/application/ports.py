@@ -230,6 +230,7 @@ class ConversationRepository(Protocol):
 
 class AppointmentRepository(Protocol):
     async def get(self, appointment_id: AppointmentId) -> Appointment: ...
+    async def for_business(self, business_id: BusinessId) -> list[Appointment]: ...
 
 
 @dataclass(frozen=True, slots=True)
