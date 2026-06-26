@@ -1,3 +1,8 @@
 allowBuilds:
   sharp: true
   unrs-resolver: true
+
+# Keep pnpm's supply-chain age check on for everything, but trust our own
+# freshly-published Airlock package (it would otherwise fail until ~24h old).
+minimumReleaseAgeExclude:
+  - "@fedorello/airlock"

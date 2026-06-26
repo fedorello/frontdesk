@@ -2,6 +2,12 @@
 
 import type { Approval, ApprovalDecision } from "./types";
 
+function formatArgs(args: Record<string, unknown>): string {
+  return Object.entries(args)
+    .map(([key, value]) => `${key}: ${JSON.stringify(value)}`)
+    .join(", ");
+}
+
 export function ApprovalsList({
   approvals,
   onDecide,
@@ -18,15 +24,22 @@ export function ApprovalsList({
       {approvals.map((approval) => (
         <li
           key={approval.id}
-          className="flex items-center justify-between rounded-xl border border-zinc-200 p-4 dark:border-zinc-800"
+          className="flex items-center justify-between gap-4 rounded-xl border border-zinc-200 p-4 dark:border-zinc-800"
         >
-          <div>
-            <p className="font-medium">{approval.summary}</p>
-            <p className="text-xs text-zinc-500">
-              {approval.business} · {approval.requestedAt}
+          <div className="min-w-0">
+            <div className="flex items-center gap-2">
+              <span className="font-medium">{approval.summary}</span>
+              {approval.risk === "sensitive" ? (
+                <span className="rounded bg-amber-100 px-1.5 py-0.5 text-xs font-medium text-amber-700 dark:bg-amber-500/15 dark:text-amber-400">
+                  sensitive
+                </span>
+              ) : null}
+            </div>
+            <p className="mt-0.5 truncate font-mono text-xs text-zinc-500">
+              {approval.tool}({formatArgs(approval.args)})
             </p>
           </div>
-          <div className="flex gap-2">
+          <div className="flex shrink-0 gap-2">
             <button
               type="button"
               onClick={() => onDecide(approval.id, "approve")}

@@ -1,6 +1,6 @@
 # ADR-0005: Human-in-the-loop via Airlock
 
-**Status:** Accepted
+**Status:** Accepted — implemented (see below)
 
 ## Context
 
@@ -28,3 +28,20 @@ dashboard.
   (it's an adapter behind the `ApprovalGate` port).
 - A small amount of latency on sensitive actions, by design — the owner decides. The
   default tier list is conservative and configurable per business.
+
+## Implementation
+
+Both published packages are dogfooded:
+
+- **Backend** (`airlock-hitl`, PyPI): `infrastructure/airlock_gate.py`'s
+  `AirlockApprovalGate` implements the `ApprovalGate` port by turning a sensitive
+  action into an Airlock `Tool`/`ToolCall` and running it through Airlock's
+  `RiskBasedGatePolicy`; when it needs a human, an Airlock `ApprovalRequest` is
+  raised and queued. The production composition root wires this gate. `/api/approvals`
+  lists the pending requests and records decisions.
+- **Dashboard** (`@fedorello/airlock`, npm): the Approvals inbox types its data with
+  Airlock's exported `RiskTier`/approval contract and reads/decides against the API.
+
+Airlock's full agent runtime (the `Agent`/`AgentRunner` run loop) is intentionally
+not adopted — Frontdesk has its own assistant loop — so we reuse Airlock's gate
+policy and approval domain, not its runner.

@@ -11,6 +11,7 @@ class ApprovalView(BaseModel):
     summary: str
     tool: str
     args: dict[str, object]
+    risk: str  # airlock RiskTier (e.g. "sensitive")
 
 
 class DecisionInput(BaseModel):
@@ -28,6 +29,7 @@ def build_approvals_router(pending: PendingApprovals) -> APIRouter:
                 summary=item.summary,
                 tool=item.request.tool_call.name,
                 args=item.request.tool_call.args,
+                risk=item.request.risk.value,
             )
             for item in pending.pending()
         ]

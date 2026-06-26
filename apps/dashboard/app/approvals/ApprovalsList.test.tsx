@@ -5,7 +5,13 @@ import { ApprovalsList } from "./ApprovalsList";
 import type { Approval } from "./types";
 
 const APPROVALS: Approval[] = [
-  { id: "apr-1", business: "Ana's Studio", summary: "Refund for +59899…", requestedAt: "just now" },
+  {
+    id: "apr-1",
+    summary: "Refund for +59899…",
+    tool: "issue_refund",
+    args: { appointment_id: "ap-9" },
+    risk: "sensitive",
+  },
 ];
 
 describe("ApprovalsList", () => {
