@@ -19,12 +19,13 @@ from frontdesk.application.appointments import (
 from frontdesk.application.assistant import Assistant, AssistantDeps
 from frontdesk.application.ports import Clock, LlmProvider, MessagingPort
 from frontdesk.core.settings import Settings
+from frontdesk.infrastructure.airlock_gate import AirlockApprovalGate, PendingApprovals
 from frontdesk.infrastructure.channels.composite import LoggingMessaging, RoutingMessaging
 from frontdesk.infrastructure.channels.telegram import TelegramMessaging
 from frontdesk.infrastructure.channels.whatsapp import WhatsAppMessaging
 from frontdesk.infrastructure.db import create_engine, make_session_factory
 from frontdesk.infrastructure.events import LoggingEventPublisher
-from frontdesk.infrastructure.memory import AutoDecisionGate, InMemoryIdempotency
+from frontdesk.infrastructure.memory import InMemoryIdempotency
 from frontdesk.infrastructure.postgres.adapters import (
     SqlAppointmentRepository,
     SqlBusinessRepository,
@@ -37,6 +38,7 @@ from frontdesk.infrastructure.postgres.adapters import (
 from frontdesk.infrastructure.providers.anthropic import AnthropicProvider
 from frontdesk.infrastructure.providers.openai import OpenAiProvider
 from frontdesk.infrastructure.system import FixedClock, SystemClock, UuidIdGenerator
+from frontdesk.interface.approvals import build_approvals_router
 from frontdesk.interface.chat import build_chat_router
 from frontdesk.interface.webhooks import WebhookConfig, create_app
 
@@ -94,6 +96,7 @@ def create_production_app() -> FastAPI:
     calendar = SqlCalendar(sessions, ids, clock)
     events = LoggingEventPublisher()
     scheduler = ReminderScheduler(reminders, ids, clock)
+    pending_approvals = PendingApprovals()
 
     deps = AssistantDeps(
         build_provider(settings, client),
@@ -108,7 +111,7 @@ def create_production_app() -> FastAPI:
         CancelAppointment(calendar, reminders, events),
         build_messaging(settings, client),
         events,
-        AutoDecisionGate(approved=False),  # production-safe: every sensitive action is held
+        AirlockApprovalGate(pending_approvals),  # dogfoods airlock-hitl (ADR-0005)
         clock,
     )
     config = WebhookConfig(
@@ -125,4 +128,5 @@ def create_production_app() -> FastAPI:
         allow_headers=["*"],
     )
     app.include_router(build_chat_router(deps, settings.demo_to_address, clock))
+    app.include_router(build_approvals_router(pending_approvals))
     return app
