@@ -7,9 +7,9 @@ import { useI18n } from "@/app/lib/I18nProvider";
 import { getSession } from "@/app/lib/session";
 
 const STATUS_STYLES: Record<string, string> = {
-  confirmed: "text-emerald-600",
-  pending: "text-amber-600",
-  cancelled: "text-zinc-400 line-through",
+  confirmed: "text-success",
+  pending: "text-warning",
+  cancelled: "text-faint line-through",
 };
 
 function formatTime(iso: string): string {
@@ -40,23 +40,23 @@ export default function CalendarPage() {
     <main className="mx-auto w-full max-w-4xl flex-1 px-6 py-16">
       <h1 className="text-2xl font-semibold tracking-tight">{t("nav.calendar")}</h1>
 
-      {needsAuth && <p className="mt-6 text-sm text-zinc-500">{t("calendar.connectFirst")}</p>}
+      {needsAuth && <p className="mt-6 text-sm text-muted">{t("calendar.connectFirst")}</p>}
 
       {!needsAuth && appointments !== null && appointments.length === 0 && (
-        <p className="mt-6 text-sm text-zinc-500">{t("calendar.empty")}</p>
+        <p className="mt-6 text-sm text-muted">{t("calendar.empty")}</p>
       )}
 
       {appointments !== null && appointments.length > 0 && (
-        <ul className="mt-8 divide-y divide-zinc-200 dark:divide-zinc-800">
+        <ul className="mt-8 divide-y divide-line">
           {appointments.map((appointment, index) => (
             <li key={index} className="flex items-center justify-between py-3">
               <div>
                 <span className="font-medium tabular-nums">
                   {formatTime(appointment.starts_at)}
                 </span>
-                <span className="text-zinc-500"> · {appointment.service}</span>
+                <span className="text-muted"> · {appointment.service}</span>
               </div>
-              <span className={`text-sm ${STATUS_STYLES[appointment.status] ?? "text-zinc-500"}`}>
+              <span className={`text-sm ${STATUS_STYLES[appointment.status] ?? "text-muted"}`}>
                 {appointment.status}
               </span>
             </li>

@@ -54,9 +54,9 @@ export default function ChatPage() {
         <DemoNote />
       </div>
 
-      <div className="mt-6 flex-1 overflow-y-auto rounded-xl border border-zinc-200 p-4 dark:border-zinc-800">
+      <div className="mt-6 flex-1 overflow-y-auto rounded-xl border border-line bg-surface shadow-card p-4 ">
         <ChatThread messages={messages} />
-        {busy && <p className="mt-3 text-sm text-zinc-400">…thinking</p>}
+        {busy && <p className="mt-3 text-sm text-faint">…thinking</p>}
       </div>
 
       <form onSubmit={send} className="mt-4 flex gap-2">
@@ -65,12 +65,12 @@ export default function ChatPage() {
           onChange={(event) => setText(event.target.value)}
           placeholder="Can I book a haircut?"
           aria-label="Message"
-          className="flex-1 rounded-md border border-zinc-300 px-3 py-2 text-sm outline-none focus:border-zinc-500 dark:border-zinc-700 dark:bg-zinc-900"
+          className="flex-1 rounded-md border border-line-strong px-3 py-2 text-sm outline-none focus:border-zinc-500 dark:bg-accent"
         />
         <button
           type="submit"
           disabled={busy}
-          className="rounded-md bg-zinc-900 px-4 py-2 text-sm font-medium text-white disabled:opacity-50 dark:bg-white dark:text-zinc-900"
+          className="rounded-lg bg-accent px-4 py-2.5 text-sm font-bold text-accent-contrast disabled:opacity-50"
         >
           Send
         </button>

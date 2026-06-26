@@ -5,6 +5,7 @@ import { useState } from "react";
 import { api, ApiError } from "@/app/lib/api";
 import type { MessageKey } from "@/app/lib/i18n";
 import { useI18n } from "@/app/lib/I18nProvider";
+import { LanguageSwitcher } from "@/app/lib/LanguageSwitcher";
 import { setSession } from "@/app/lib/session";
 
 const STEPS: MessageKey[] = [
@@ -113,191 +114,205 @@ export default function OnboardingPage() {
     });
 
   return (
-    <main className="mx-auto w-full max-w-lg flex-1 px-6 py-12">
-      <h1 className="text-2xl font-semibold tracking-tight">{t("onboarding.title")}</h1>
+    <main className="min-h-screen bg-canvas px-6 py-10">
+      <div className="mx-auto w-full max-w-lg">
+        <div className="mb-6 flex items-center justify-between">
+          <div className="flex items-center gap-2.5">
+            <div className="flex h-8 w-8 items-center justify-center rounded-[9px] bg-accent text-sm font-extrabold text-accent-contrast">
+              t
+            </div>
+            <span className="font-bold tracking-tight">tovayo</span>
+          </div>
+          <LanguageSwitcher />
+        </div>
 
-      <ol className="mt-6 flex gap-2 text-xs" aria-label="steps">
-        {STEPS.map((key, index) => (
-          <li
-            key={key}
-            data-active={index === step}
-            className={
-              index === step
-                ? "rounded-full bg-zinc-900 px-3 py-1 text-white dark:bg-white dark:text-zinc-900"
-                : "rounded-full bg-zinc-100 px-3 py-1 text-zinc-500 dark:bg-zinc-800"
-            }
-          >
-            {t(key)}
-          </li>
-        ))}
-      </ol>
+        <div className="rounded-2xl border border-line bg-surface p-7 shadow-card">
+          <h1 className="text-2xl font-extrabold tracking-tight">{t("onboarding.title")}</h1>
 
-      {error && (
-        <p role="alert" className="mt-4 rounded-md bg-red-50 p-3 text-sm text-red-700">
-          {error}
-        </p>
-      )}
+          <ol className="mt-6 flex flex-wrap gap-2 text-xs" aria-label="steps">
+            {STEPS.map((key, index) => (
+              <li
+                key={key}
+                data-active={index === step}
+                className={
+                  index === step
+                    ? "rounded-full bg-accent px-3 py-1 font-semibold text-accent-contrast"
+                    : "rounded-full bg-surface-3 px-3 py-1 text-muted"
+                }
+              >
+                {t(key)}
+              </li>
+            ))}
+          </ol>
 
-      <div className="mt-6 space-y-4">
-        {step === 0 && (
-          <>
-            <Field label={t("onboarding.email")} id="email">
-              <input
-                id="email"
-                type="email"
-                value={email}
-                onChange={(e) => setEmail(e.target.value)}
-                className={inputClass}
-              />
-            </Field>
-            <Field label={t("onboarding.password")} id="password">
-              <input
-                id="password"
-                type="password"
-                value={password}
-                onChange={(e) => setPassword(e.target.value)}
-                className={inputClass}
-              />
-            </Field>
-            <Field label={t("onboarding.businessName")} id="businessName">
-              <input
-                id="businessName"
-                value={businessName}
-                onChange={(e) => setBusinessName(e.target.value)}
-                className={inputClass}
-              />
-            </Field>
-            <Field label={t("onboarding.timezone")} id="timezone">
-              <input
-                id="timezone"
-                value={timezone}
-                onChange={(e) => setTimezone(e.target.value)}
-                className={inputClass}
-              />
-            </Field>
-            <PrimaryButton onClick={submitAccount} busy={busy}>
-              {t("onboarding.signUp")}
-            </PrimaryButton>
-          </>
-        )}
+          {error && (
+            <p role="alert" className="mt-4 rounded-lg bg-danger-soft p-3 text-sm text-danger">
+              {error}
+            </p>
+          )}
 
-        {step === 1 && (
-          <>
-            <Field label={t("onboarding.serviceName")} id="serviceName">
-              <input
-                id="serviceName"
-                value={serviceName}
-                onChange={(e) => setServiceName(e.target.value)}
-                className={inputClass}
-              />
-            </Field>
-            <Field label={t("onboarding.duration")} id="duration">
-              <input
-                id="duration"
-                type="number"
-                value={duration}
-                onChange={(e) => setDuration(Number(e.target.value))}
-                className={inputClass}
-              />
-            </Field>
-            <PrimaryButton onClick={submitService} busy={busy}>
-              {t("common.next")}
-            </PrimaryButton>
-          </>
-        )}
-
-        {step === 2 && (
-          <>
-            <p className="text-sm font-medium">{t("onboarding.chooseAi")}</p>
-            <label className="flex items-center gap-2 text-sm">
-              <input
-                type="radio"
-                name="ai"
-                checked={aiMode === "default"}
-                onChange={() => setAiMode("default")}
-              />
-              {t("onboarding.defaultAi")}
-            </label>
-            <label className="flex items-center gap-2 text-sm">
-              <input
-                type="radio"
-                name="ai"
-                checked={aiMode === "own"}
-                onChange={() => setAiMode("own")}
-              />
-              {t("onboarding.ownAi")}
-            </label>
-            {aiMode === "own" && (
+          <div className="mt-6 space-y-4">
+            {step === 0 && (
               <>
-                <Field label="Provider" id="provider">
+                <Field label={t("onboarding.email")} id="email">
                   <input
-                    id="provider"
-                    value={provider}
-                    onChange={(e) => setProvider(e.target.value)}
+                    id="email"
+                    type="email"
+                    value={email}
+                    onChange={(e) => setEmail(e.target.value)}
                     className={inputClass}
                   />
                 </Field>
-                <Field label="Model" id="model">
+                <Field label={t("onboarding.password")} id="password">
                   <input
-                    id="model"
-                    value={model}
-                    onChange={(e) => setModel(e.target.value)}
-                    className={inputClass}
-                  />
-                </Field>
-                <Field label={t("onboarding.apiKey")} id="apiKey">
-                  <input
-                    id="apiKey"
+                    id="password"
                     type="password"
-                    value={apiKey}
-                    onChange={(e) => setApiKey(e.target.value)}
+                    value={password}
+                    onChange={(e) => setPassword(e.target.value)}
                     className={inputClass}
                   />
                 </Field>
-              </>
-            )}
-            <PrimaryButton onClick={submitAi} busy={busy}>
-              {t("common.next")}
-            </PrimaryButton>
-          </>
-        )}
-
-        {step === 3 && (
-          <>
-            <p className="text-sm font-medium">{t("onboarding.connectTelegram")}</p>
-            {connectedAs ? (
-              <p role="status" className="rounded-md bg-green-50 p-3 text-sm text-green-700">
-                {t("onboarding.connected", { username: connectedAs })}
-              </p>
-            ) : (
-              <>
-                <Field label={t("onboarding.botToken")} id="botToken">
+                <Field label={t("onboarding.businessName")} id="businessName">
                   <input
-                    id="botToken"
-                    value={botToken}
-                    onChange={(e) => setBotToken(e.target.value)}
+                    id="businessName"
+                    value={businessName}
+                    onChange={(e) => setBusinessName(e.target.value)}
                     className={inputClass}
                   />
                 </Field>
-                <PrimaryButton onClick={submitTelegram} busy={busy}>
-                  {t("onboarding.connect")}
+                <Field label={t("onboarding.timezone")} id="timezone">
+                  <input
+                    id="timezone"
+                    value={timezone}
+                    onChange={(e) => setTimezone(e.target.value)}
+                    className={inputClass}
+                  />
+                </Field>
+                <PrimaryButton onClick={submitAccount} busy={busy}>
+                  {t("onboarding.signUp")}
                 </PrimaryButton>
               </>
             )}
-          </>
-        )}
+
+            {step === 1 && (
+              <>
+                <Field label={t("onboarding.serviceName")} id="serviceName">
+                  <input
+                    id="serviceName"
+                    value={serviceName}
+                    onChange={(e) => setServiceName(e.target.value)}
+                    className={inputClass}
+                  />
+                </Field>
+                <Field label={t("onboarding.duration")} id="duration">
+                  <input
+                    id="duration"
+                    type="number"
+                    value={duration}
+                    onChange={(e) => setDuration(Number(e.target.value))}
+                    className={inputClass}
+                  />
+                </Field>
+                <PrimaryButton onClick={submitService} busy={busy}>
+                  {t("common.next")}
+                </PrimaryButton>
+              </>
+            )}
+
+            {step === 2 && (
+              <>
+                <p className="text-sm font-medium">{t("onboarding.chooseAi")}</p>
+                <label className="flex items-center gap-2 text-sm">
+                  <input
+                    type="radio"
+                    name="ai"
+                    checked={aiMode === "default"}
+                    onChange={() => setAiMode("default")}
+                  />
+                  {t("onboarding.defaultAi")}
+                </label>
+                <label className="flex items-center gap-2 text-sm">
+                  <input
+                    type="radio"
+                    name="ai"
+                    checked={aiMode === "own"}
+                    onChange={() => setAiMode("own")}
+                  />
+                  {t("onboarding.ownAi")}
+                </label>
+                {aiMode === "own" && (
+                  <>
+                    <Field label="Provider" id="provider">
+                      <input
+                        id="provider"
+                        value={provider}
+                        onChange={(e) => setProvider(e.target.value)}
+                        className={inputClass}
+                      />
+                    </Field>
+                    <Field label="Model" id="model">
+                      <input
+                        id="model"
+                        value={model}
+                        onChange={(e) => setModel(e.target.value)}
+                        className={inputClass}
+                      />
+                    </Field>
+                    <Field label={t("onboarding.apiKey")} id="apiKey">
+                      <input
+                        id="apiKey"
+                        type="password"
+                        value={apiKey}
+                        onChange={(e) => setApiKey(e.target.value)}
+                        className={inputClass}
+                      />
+                    </Field>
+                  </>
+                )}
+                <PrimaryButton onClick={submitAi} busy={busy}>
+                  {t("common.next")}
+                </PrimaryButton>
+              </>
+            )}
+
+            {step === 3 && (
+              <>
+                <p className="text-sm font-medium">{t("onboarding.connectTelegram")}</p>
+                {connectedAs ? (
+                  <p role="status" className="rounded-lg bg-success-soft p-3 text-sm text-success">
+                    {t("onboarding.connected", { username: connectedAs })}
+                  </p>
+                ) : (
+                  <>
+                    <Field label={t("onboarding.botToken")} id="botToken">
+                      <input
+                        id="botToken"
+                        value={botToken}
+                        onChange={(e) => setBotToken(e.target.value)}
+                        className={inputClass}
+                      />
+                    </Field>
+                    <PrimaryButton onClick={submitTelegram} busy={busy}>
+                      {t("onboarding.connect")}
+                    </PrimaryButton>
+                  </>
+                )}
+              </>
+            )}
+          </div>
+        </div>
       </div>
     </main>
   );
 }
 
 const inputClass =
-  "w-full rounded-md border border-zinc-300 bg-transparent px-3 py-2 text-sm dark:border-zinc-700";
+  "w-full rounded-lg border border-line-strong bg-surface px-3 py-2 text-sm text-ink outline-none focus:border-accent";
 
 function Field({ label, id, children }: { label: string; id: string; children: React.ReactNode }) {
   return (
     <label htmlFor={id} className="block space-y-1">
-      <span className="text-sm font-medium">{label}</span>
+      <span className="text-sm font-medium text-ink">{label}</span>
       {children}
     </label>
   );
@@ -318,7 +333,7 @@ function PrimaryButton({
       type="button"
       onClick={onClick}
       disabled={busy}
-      className="w-full rounded-md bg-zinc-900 px-4 py-2 text-sm font-medium text-white disabled:opacity-50 dark:bg-white dark:text-zinc-900"
+      className="w-full rounded-lg bg-accent px-4 py-2.5 text-sm font-bold text-accent-contrast disabled:opacity-50"
     >
       {busy ? t("common.saving") : children}
     </button>

@@ -16,22 +16,22 @@ export function Trace({ steps }: { steps?: TraceStep[] }) {
   if (!steps || steps.length === 0) return null;
 
   return (
-    <details className="mt-2 text-xs text-zinc-500">
+    <details className="mt-2 text-xs text-muted">
       <summary className="cursor-pointer list-none select-none hover:text-zinc-700 dark:hover:text-zinc-300">
         🧠 Agent reasoning · {steps.length} step{steps.length === 1 ? "" : "s"}
       </summary>
-      <ol className="mt-2 space-y-1.5 border-l border-zinc-300 pl-3 dark:border-zinc-700">
+      <ol className="mt-2 space-y-1.5 border-l border-line-strong pl-3 ">
         {steps.map((step, index) => (
           <li key={index}>
             {step.kind === "thought" ? (
               <span className="italic">{step.text}</span>
             ) : (
               <span>
-                <code className="rounded bg-zinc-200 px-1 font-mono text-zinc-800 dark:bg-zinc-800 dark:text-zinc-200">
+                <code className="rounded bg-zinc-200 px-1 font-mono text-zinc-800 dark:text-zinc-200">
                   {step.tool}({formatArgs(step.args)})
                 </code>
                 {step.result ? (
-                  <span className="text-zinc-400"> → {truncate(step.result)}</span>
+                  <span className="text-faint"> → {truncate(step.result)}</span>
                 ) : null}
               </span>
             )}

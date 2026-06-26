@@ -1,26 +1,95 @@
 @import "tailwindcss";
 
-:root {
-  --background: #ffffff;
-  --foreground: #171717;
+/* Design tokens — straight from design/Frontdesk.dc.html (light + dark). */
+:root,
+[data-theme="light"] {
+  --bg: #f7f8fa;
+  --surface: #ffffff;
+  --surface-2: #fbfcfd;
+  --surface-3: #f0f2f5;
+  --text: #0e1116;
+  --text-muted: #5a616e;
+  --text-faint: #99a0ac;
+  --border: #edeff2;
+  --border-strong: #dde0e6;
+  --accent: #2563eb;
+  --accent-strong: #1d4ed8;
+  --accent-soft: #e9f0fe;
+  --accent-contrast: #ffffff;
+  --pink: #e84393;
+  --pink-strong: #d62f80;
+  --pink-soft: #fde9f2;
+  --success: #1f9d6b;
+  --success-soft: #e4f6ee;
+  --warning: #c98712;
+  --warning-soft: #fbf1dd;
+  --danger: #e0414b;
+  --danger-soft: #fce8e9;
+  --shadow-sm: 0 1px 2px rgba(14, 17, 22, 0.05);
+  --shadow-card: 0 1px 3px rgba(14, 17, 22, 0.06), 0 10px 26px rgba(14, 17, 22, 0.04);
+  --shadow-pop: 0 8px 40px rgba(14, 17, 22, 0.1);
 }
 
+[data-theme="dark"] {
+  --bg: #0d0f13;
+  --surface: #161a20;
+  --surface-2: #1c2027;
+  --surface-3: #242932;
+  --text: #f3f5f8;
+  --text-muted: #a2a9b6;
+  --text-faint: #6d7480;
+  --border: #252a32;
+  --border-strong: #333944;
+  --accent: #4f8cff;
+  --accent-strong: #6fa3ff;
+  --accent-soft: #15233e;
+  --accent-contrast: #ffffff;
+  --pink: #f570ad;
+  --pink-strong: #ff86bd;
+  --pink-soft: #341e2b;
+  --success: #34c98a;
+  --success-soft: #16352a;
+  --warning: #e6b450;
+  --warning-soft: #38301c;
+  --danger: #ff6b71;
+  --danger-soft: #3a2326;
+  --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.4);
+  --shadow-card: 0 1px 3px rgba(0, 0, 0, 0.45), 0 12px 30px rgba(0, 0, 0, 0.4);
+  --shadow-pop: 0 10px 50px rgba(0, 0, 0, 0.55);
+}
+
+/* Expose the tokens as Tailwind utilities (bg-surface, text-muted, border-line, …). */
 @theme inline {
-  --color-background: var(--background);
-  --color-foreground: var(--foreground);
-  --font-sans: var(--font-geist-sans);
-  --font-mono: var(--font-geist-mono);
-}
-
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
-  }
+  --color-canvas: var(--bg);
+  --color-surface: var(--surface);
+  --color-surface-2: var(--surface-2);
+  --color-surface-3: var(--surface-3);
+  --color-ink: var(--text);
+  --color-muted: var(--text-muted);
+  --color-faint: var(--text-faint);
+  --color-line: var(--border);
+  --color-line-strong: var(--border-strong);
+  --color-accent: var(--accent);
+  --color-accent-strong: var(--accent-strong);
+  --color-accent-soft: var(--accent-soft);
+  --color-accent-contrast: var(--accent-contrast);
+  --color-pink: var(--pink);
+  --color-pink-strong: var(--pink-strong);
+  --color-pink-soft: var(--pink-soft);
+  --color-success: var(--success);
+  --color-success-soft: var(--success-soft);
+  --color-warning: var(--warning);
+  --color-warning-soft: var(--warning-soft);
+  --color-danger: var(--danger);
+  --color-danger-soft: var(--danger-soft);
+  --shadow-card: var(--shadow-card);
+  --shadow-pop: var(--shadow-pop);
+  --font-sans: var(--font-jakarta), system-ui, sans-serif;
 }
 
 body {
-  background: var(--background);
-  color: var(--foreground);
-  font-family: Arial, Helvetica, sans-serif;
+  background: var(--bg);
+  color: var(--text);
+  font-family: var(--font-jakarta), system-ui, sans-serif;
+  -webkit-font-smoothing: antialiased;
 }

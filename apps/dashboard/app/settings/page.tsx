@@ -9,7 +9,7 @@ import { getSession } from "@/app/lib/session";
 type Service = ServiceInput & { id: string };
 
 const inputClass =
-  "w-full rounded-md border border-zinc-300 bg-transparent px-3 py-2 text-sm dark:border-zinc-700";
+  "w-full rounded-lg border border-line-strong bg-surface px-3 py-2 text-sm text-ink outline-none focus:border-accent ";
 
 export default function SettingsPage() {
   const { t } = useI18n();
@@ -46,7 +46,7 @@ export default function SettingsPage() {
     return (
       <main className="mx-auto w-full max-w-4xl flex-1 px-6 py-16">
         <h1 className="text-2xl font-semibold tracking-tight">{t("nav.settings")}</h1>
-        <p className="mt-4 text-sm text-zinc-500">{t("calendar.connectFirst")}</p>
+        <p className="mt-4 text-sm text-muted">{t("calendar.connectFirst")}</p>
       </main>
     );
   }
@@ -78,7 +78,7 @@ export default function SettingsPage() {
     <main className="mx-auto w-full max-w-4xl flex-1 px-6 py-16">
       <h1 className="text-2xl font-semibold tracking-tight">{t("nav.settings")}</h1>
 
-      <section className="mt-8 rounded-xl border border-zinc-200 p-5 dark:border-zinc-800">
+      <section className="mt-8 rounded-xl border border-line bg-surface shadow-card p-5 ">
         <h2 className="font-medium">{t("settings.profile")}</h2>
         <div className="mt-3 space-y-3">
           <label className="block space-y-1">
@@ -102,14 +102,14 @@ export default function SettingsPage() {
           <button
             type="button"
             onClick={saveProfile}
-            className="rounded-md bg-zinc-900 px-4 py-2 text-sm font-medium text-white dark:bg-white dark:text-zinc-900"
+            className="rounded-lg bg-accent px-4 py-2 text-sm font-medium text-white "
           >
             {saved ? t("settings.saved") : t("settings.save")}
           </button>
         </div>
       </section>
 
-      <section className="mt-6 rounded-xl border border-zinc-200 p-5 dark:border-zinc-800">
+      <section className="mt-6 rounded-xl border border-line bg-surface shadow-card p-5 ">
         <h2 className="font-medium">{t("settings.servicesTitle")}</h2>
         <ul className="mt-3 space-y-2">
           {services.map((service) => (
@@ -120,7 +120,7 @@ export default function SettingsPage() {
               <button
                 type="button"
                 onClick={() => removeService(service.id)}
-                className="text-xs text-red-600 hover:underline"
+                className="text-xs text-danger hover:underline"
               >
                 {t("settings.remove")}
               </button>
@@ -140,22 +140,22 @@ export default function SettingsPage() {
             type="number"
             value={newDuration}
             onChange={(event) => setNewDuration(Number(event.target.value))}
-            className="w-24 rounded-md border border-zinc-300 bg-transparent px-3 py-2 text-sm dark:border-zinc-700"
+            className="w-24 rounded-lg border border-line-strong bg-surface px-3 py-2 text-sm text-ink outline-none focus:border-accent "
           />
           <button
             type="button"
             onClick={addService}
             disabled={newService === ""}
-            className="shrink-0 rounded-md border border-zinc-300 px-3 py-2 text-sm font-medium disabled:opacity-50 dark:border-zinc-700"
+            className="shrink-0 rounded-md border border-line-strong px-3 py-2 text-sm font-medium disabled:opacity-50 "
           >
             {t("onboarding.addService")}
           </button>
         </div>
       </section>
 
-      <section className="mt-6 rounded-xl border border-zinc-200 p-5 dark:border-zinc-800">
+      <section className="mt-6 rounded-xl border border-line bg-surface shadow-card p-5 ">
         <h2 className="font-medium">{t("settings.aiTitle")}</h2>
-        <p className="mt-2 text-sm text-zinc-500">
+        <p className="mt-2 text-sm text-muted">
           {aiMode === "own" ? t("onboarding.ownAi") : t("onboarding.defaultAi")}
         </p>
       </section>

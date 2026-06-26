@@ -44,7 +44,7 @@ export default function ApprovalsPage() {
   return (
     <main className="mx-auto w-full max-w-4xl flex-1 px-6 py-16">
       <h1 className="text-2xl font-semibold tracking-tight">{t("nav.approvals")}</h1>
-      <p className="mt-2 max-w-2xl text-sm text-zinc-500">
+      <p className="mt-2 max-w-2xl text-sm text-muted">
         Sensitive actions the assistant flagged, gated by{" "}
         <span className="font-medium">airlock</span>. Nothing happens until you approve —
         that&apos;s the whole point of the gate.
@@ -53,7 +53,7 @@ export default function ApprovalsPage() {
         {reachable ? (
           <ApprovalsList approvals={approvals} onDecide={(id, decision) => decide(id, decision)} />
         ) : (
-          <p className="text-sm text-zinc-500">
+          <p className="text-sm text-muted">
             Can&apos;t reach the API on :8000 — start it with <code>make stack-up</code>.
           </p>
         )}

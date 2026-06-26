@@ -7,12 +7,13 @@ import { api } from "@/app/lib/api";
 import type { MessageKey } from "@/app/lib/i18n";
 import { useI18n } from "@/app/lib/I18nProvider";
 import { getSession } from "@/app/lib/session";
+import { Icon, type IconName } from "@/components/icons";
 
-const LINKS: { href: string; key: MessageKey }[] = [
-  { href: "/calendar", key: "nav.calendar" },
-  { href: "/conversations", key: "nav.conversations" },
-  { href: "/settings", key: "nav.settings" },
-  { href: "/approvals", key: "nav.approvals" },
+const LINKS: { href: string; key: MessageKey; icon: IconName }[] = [
+  { href: "/calendar", key: "nav.calendar", icon: "calendar" },
+  { href: "/conversations", key: "nav.conversations", icon: "conversations" },
+  { href: "/settings", key: "nav.settings", icon: "settings" },
+  { href: "/approvals", key: "nav.approvals", icon: "approvals" },
 ];
 
 export default function Home() {
@@ -38,39 +39,65 @@ export default function Home() {
   }, []);
 
   return (
-    <main className="mx-auto w-full max-w-4xl flex-1 px-6 py-16">
-      <h1 className="text-2xl font-semibold tracking-tight">{t("nav.overview")}</h1>
-
-      {needsAuth && <p className="mt-4 text-sm text-zinc-500">{t("calendar.connectFirst")}</p>}
+    <main className="mx-auto w-full max-w-5xl px-6 py-8 sm:px-8">
+      {needsAuth && <p className="text-sm text-muted">{t("calendar.connectFirst")}</p>}
 
       {counts !== null && (
-        <div className="mt-8 grid gap-4 sm:grid-cols-2">
-          <Stat label={t("overview.bookings")} value={counts.bookings} />
-          <Stat label={t("overview.messages")} value={counts.messages} />
+        <div className="grid gap-4 sm:grid-cols-2">
+          <StatCard
+            icon="calendar"
+            tone="accent"
+            label={t("overview.bookings")}
+            value={counts.bookings}
+          />
+          <StatCard
+            icon="conversations"
+            tone="pink"
+            label={t("overview.messages")}
+            value={counts.messages}
+          />
         </div>
       )}
 
-      <ul className="mt-10 grid gap-4 sm:grid-cols-2">
+      <div className="mt-6 grid gap-4 sm:grid-cols-2">
         {LINKS.map((link) => (
-          <li key={link.href}>
-            <Link
-              href={link.href}
-              className="block rounded-xl border border-zinc-200 p-5 hover:border-zinc-300 hover:bg-zinc-50 dark:border-zinc-800 dark:hover:bg-zinc-900"
-            >
-              <h2 className="font-medium">{t(link.key)}</h2>
-            </Link>
-          </li>
+          <Link
+            key={link.href}
+            href={link.href}
+            className="group flex items-center gap-4 rounded-2xl border border-line bg-surface p-5 shadow-card transition-shadow hover:shadow-pop"
+          >
+            <span className="flex h-11 w-11 items-center justify-center rounded-xl bg-surface-3 text-muted group-hover:text-accent">
+              <Icon name={link.icon} />
+            </span>
+            <span className="font-semibold">{t(link.key)}</span>
+          </Link>
         ))}
-      </ul>
+      </div>
     </main>
   );
 }
 
-function Stat({ label, value }: { label: string; value: number }) {
+function StatCard({
+  icon,
+  tone,
+  label,
+  value,
+}: {
+  icon: IconName;
+  tone: "accent" | "pink";
+  label: string;
+  value: number;
+}) {
+  const chip = tone === "accent" ? "bg-accent-soft text-accent" : "bg-pink-soft text-pink";
   return (
-    <div className="rounded-xl border border-zinc-200 p-5 dark:border-zinc-800">
-      <div className="text-3xl font-semibold tabular-nums">{value}</div>
-      <div className="mt-1 text-sm text-zinc-500">{label}</div>
+    <div className="flex items-center gap-4 rounded-2xl border border-line bg-surface p-5 shadow-card">
+      <span className={`flex h-12 w-12 items-center justify-center rounded-xl ${chip}`}>
+        <Icon name={icon} size={22} />
+      </span>
+      <div>
+        <div className="text-3xl font-extrabold tabular-nums leading-none">{value}</div>
+        <div className="mt-1.5 text-sm text-muted">{label}</div>
+      </div>
     </div>
   );
 }
