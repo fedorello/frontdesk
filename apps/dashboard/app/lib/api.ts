@@ -18,6 +18,12 @@ export interface AuthResult {
   business_id: string;
 }
 
+export interface WorkingHours {
+  weekday: number; // Monday = 0
+  opens: string; // "HH:MM:SS"
+  closes: string;
+}
+
 export interface BusinessProfile {
   name: string;
   timezone: string;
@@ -25,6 +31,7 @@ export interface BusinessProfile {
   buffer_minutes?: number;
   knowledge?: { question: string; answer: string }[];
   description?: string;
+  address?: string;
 }
 
 export interface ServiceInput {
@@ -34,12 +41,7 @@ export interface ServiceInput {
   currency?: string | null;
   resource_ids?: string[];
   description?: string;
-}
-
-export interface WorkingHours {
-  weekday: number;
-  opens: string;
-  closes: string;
+  working_hours?: WorkingHours[];
 }
 
 export interface LlmConfigInput {

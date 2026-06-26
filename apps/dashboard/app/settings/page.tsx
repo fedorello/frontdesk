@@ -2,14 +2,13 @@
 
 import { useEffect, useState } from "react";
 
-import { api, type ServiceInput, type TelegramStatus } from "@/app/lib/api";
+import { api, type TelegramStatus } from "@/app/lib/api";
 import { errorMessageKey } from "@/app/lib/errors";
 import { useI18n } from "@/app/lib/I18nProvider";
 import { getSession } from "@/app/lib/session";
 import { TIME_ZONES } from "@/app/lib/timezones";
+import { ServiceCard, type Service } from "@/components/ServiceCard";
 import { EmptyState } from "@/components/ui/EmptyState";
-
-type Service = ServiceInput & { id: string };
 
 const inputClass =
   "w-full rounded-lg border border-line-strong bg-surface px-3 py-2 text-sm text-ink outline-none focus:border-accent ";
@@ -20,11 +19,9 @@ export default function SettingsPage() {
   const [name, setName] = useState("");
   const [timezone, setTimezone] = useState("UTC");
   const [description, setDescription] = useState("");
+  const [address, setAddress] = useState("");
   const [services, setServices] = useState<Service[]>([]);
   const [aiMode, setAiMode] = useState("default");
-  const [newService, setNewService] = useState("");
-  const [newDuration, setNewDuration] = useState(60);
-  const [newServiceDesc, setNewServiceDesc] = useState("");
   const [saved, setSaved] = useState(false);
   const [saveError, setSaveError] = useState<string | null>(null);
   const [telegram, setTelegram] = useState<TelegramStatus | null>(null);
@@ -48,6 +45,7 @@ export default function SettingsPage() {
         setName(profile.name);
         setTimezone(profile.timezone);
         setDescription(profile.description ?? "");
+        setAddress(profile.address ?? "");
       }
       setServices(list);
       setAiMode(llm.mode);
@@ -66,7 +64,11 @@ export default function SettingsPage() {
   const saveProfile = async () => {
     setSaveError(null);
     try {
-      await api.putBusiness(session.businessId, { name, timezone, description }, session.token);
+      await api.putBusiness(
+        session.businessId,
+        { name, timezone, description, address },
+        session.token,
+      );
       setSaved(true);
       setTimeout(() => setSaved(false), 1500);
     } catch (caught) {
@@ -74,28 +76,24 @@ export default function SettingsPage() {
     }
   };
 
-  const addService = async () => {
-    const id = `svc-${services.length + 1}-${newService.toLowerCase().replace(/\s+/g, "-")}`;
-    const service: Service = {
-      id,
-      name: newService,
-      duration_minutes: newDuration,
-      description: newServiceDesc,
-    };
+  const saveService = async (service: Service) => {
     await api.putService(
       session.businessId,
-      id,
+      service.id,
       { ...service, resource_ids: ["main"] },
       session.token,
     );
-    setServices([...services, service]);
-    setNewService("");
-    setNewServiceDesc("");
+    setServices((current) => current.map((s) => (s.id === service.id ? service : s)));
+  };
+
+  const addService = () => {
+    const id = `svc-${crypto.randomUUID()}`;
+    setServices([...services, { id, name: "", duration_minutes: 60, working_hours: [] }]);
   };
 
   const removeService = async (id: string) => {
     await api.deleteService(session.businessId, id, session.token);
-    setServices(services.filter((service) => service.id !== id));
+    setServices((current) => current.filter((service) => service.id !== id));
   };
 
   const connectBot = async () => {
@@ -142,6 +140,16 @@ export default function SettingsPage() {
             </select>
           </label>
           <label className="block space-y-1">
+            <span className="text-sm font-medium">{t("settings.address")}</span>
+            <input
+              aria-label={t("settings.address")}
+              value={address}
+              onChange={(event) => setAddress(event.target.value)}
+              placeholder={t("settings.addressHint")}
+              className={inputClass}
+            />
+          </label>
+          <label className="block space-y-1">
             <span className="text-sm font-medium">{t("settings.businessDescription")}</span>
             <textarea
               aria-label={t("settings.businessDescription")}
@@ -169,62 +177,30 @@ export default function SettingsPage() {
       </section>
 
       <section className="rounded-2xl border border-line bg-surface p-5 shadow-card">
-        <h2 className="font-bold">{t("settings.servicesTitle")}</h2>
-        <ul className="mt-3 space-y-2">
+        <div className="flex items-center justify-between">
+          <h2 className="font-bold">{t("settings.servicesTitle")}</h2>
+          <button
+            type="button"
+            onClick={addService}
+            className="rounded-lg bg-accent px-3 py-1.5 text-sm font-bold text-accent-contrast"
+          >
+            + {t("onboarding.addService")}
+          </button>
+        </div>
+        <p className="mt-1 text-sm text-muted">{t("settings.servicesHint")}</p>
+        <div className="mt-4 space-y-3">
+          {services.length === 0 && (
+            <p className="text-sm text-muted">{t("settings.noServices")}</p>
+          )}
           {services.map((service) => (
-            <li key={service.id} className="flex items-start justify-between gap-3 text-sm">
-              <span className="min-w-0">
-                <span className="font-medium">
-                  {service.name} · {service.duration_minutes} min
-                </span>
-                {service.description && (
-                  <span className="block text-xs text-muted">{service.description}</span>
-                )}
-              </span>
-              <button
-                type="button"
-                onClick={() => removeService(service.id)}
-                className="shrink-0 text-xs text-danger hover:underline"
-              >
-                {t("settings.remove")}
-              </button>
-            </li>
+            <ServiceCard
+              key={service.id}
+              service={service}
+              onSave={saveService}
+              onRemove={removeService}
+              startOpen={service.name === ""}
+            />
           ))}
-        </ul>
-        <div className="mt-4 space-y-2">
-          <div className="flex gap-2">
-            <input
-              aria-label={t("onboarding.serviceName")}
-              value={newService}
-              onChange={(event) => setNewService(event.target.value)}
-              placeholder={t("onboarding.serviceName")}
-              className={inputClass}
-            />
-            <input
-              aria-label={t("onboarding.duration")}
-              type="number"
-              value={newDuration}
-              onChange={(event) => setNewDuration(Number(event.target.value))}
-              className="w-24 rounded-lg border border-line-strong bg-surface px-3 py-2 text-sm text-ink outline-none focus:border-accent "
-            />
-          </div>
-          <div className="flex gap-2">
-            <input
-              aria-label={t("settings.serviceDescription")}
-              value={newServiceDesc}
-              onChange={(event) => setNewServiceDesc(event.target.value)}
-              placeholder={t("settings.serviceDescription")}
-              className={inputClass}
-            />
-            <button
-              type="button"
-              onClick={addService}
-              disabled={newService === ""}
-              className="shrink-0 rounded-md border border-line-strong px-3 py-2 text-sm font-medium disabled:opacity-50 "
-            >
-              {t("onboarding.addService")}
-            </button>
-          </div>
         </div>
       </section>
 
