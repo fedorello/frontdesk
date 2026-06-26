@@ -40,11 +40,14 @@ mockups will skin.
   — `[("Haircut", "09:00", "pending")]`; **401 without a token**. This is exactly the
   data the calendar screen renders.
 
+The **Conversations screen** is wired the same way: `GET
+/api/businesses/{id}/conversations` (guarded) + a live feed, covered by a Playwright
+e2e. Both live screens (calendar + conversations) now render real, auth-scoped data.
+
 ## What remains in M5
 
-- **Conversations / Overview screens**: still placeholder — need a conversations read
-  endpoint, then wiring (same pattern as the calendar).
-- **Internationalize the remaining screens** (settings, approvals, conversations) —
+- **Overview screen**: still placeholder (counts/summary) — small, same pattern.
+- **Internationalize the remaining screens** (settings, approvals) —
   designer-independent.
 - **The visual design** — awaiting the designer's mockups; the components are built to
   be restyled without changing the data/i18n layer.
@@ -54,6 +57,7 @@ mockups will skin.
 - [x] i18n in place from the first screen; language switcher; ≥2 languages proven
       (en + ru) in an e2e.
 - [x] Onboarding happy path implemented and covered by a Playwright e2e.
-- [x] The calendar shows **real, auth-scoped bookings** (proven in a live run).
-- [ ] Conversations / Overview show real data (needs a conversations read endpoint).
+- [x] The calendar **and** conversations show **real, auth-scoped data** (calendar
+      proven in a live run; both covered by e2e).
+- [ ] Overview screen shows real data (small, same pattern).
 - [ ] Designer's visual design applied (hand-off pending).
