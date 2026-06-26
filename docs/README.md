@@ -2,6 +2,16 @@
 
 How the Frontdesk docs are organized. Keep this index in sync.
 
+## Using it
+
+- [`usage.md`](./usage.md) — **start here**: what it does, how it works, and how to
+  run, try, configure, and extend it.
+- [`configuration.md`](./configuration.md) — every `FRONTDESK_*` environment
+  variable, with defaults.
+- [`api.md`](./api.md) — the HTTP API: web chat, approvals inbox, channel webhooks.
+
+## How it's built
+
 - [`stack.md`](./stack.md) — the technology stack and pinned versions (verified
   2026-06-25).
 - [`architecture/overview.md`](./architecture/overview.md) — the full architecture:

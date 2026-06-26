@@ -111,8 +111,16 @@ make stack-down    # stop and wipe the volume
 ```
 
 The LLM is model-agnostic — any OpenAI-compatible or Anthropic endpoint; the demo
-defaults to `deepseek/deepseek-v4-flash` via OpenRouter. The architecture, ADRs,
-and a per-phase build report live in [`docs/`](./docs).
+defaults to `deepseek/deepseek-v4-flash` via OpenRouter.
+
+## Documentation
+
+- **[Usage guide](./docs/usage.md)** — what it does, how it works, and how to run,
+  try, configure, and extend it. Start here.
+- **[Configuration](./docs/configuration.md)** — every `FRONTDESK_*` setting.
+- **[HTTP API](./docs/api.md)** — web chat, approvals inbox, channel webhooks.
+- **[Architecture](./docs/architecture/overview.md)** · **[ADRs](./docs/adr/)** ·
+  **[full docs index](./docs/README.md)**.
 
 ## Status
 
