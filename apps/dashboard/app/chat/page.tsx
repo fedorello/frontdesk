@@ -2,6 +2,8 @@
 
 import { type FormEvent, useState } from "react";
 
+import { DemoNote } from "@/components/DemoNote";
+
 import { ChatThread } from "./ChatThread";
 import type { ChatMessage } from "./types";
 
@@ -48,10 +50,9 @@ export default function ChatPage() {
   return (
     <main className="mx-auto flex w-full max-w-2xl flex-1 flex-col px-6 py-10">
       <h1 className="text-2xl font-semibold tracking-tight">Try the assistant</h1>
-      <p className="mt-2 text-sm text-zinc-500">
-        This talks to the real agent — it checks availability and books into the database, just like
-        a customer messaging on WhatsApp.
-      </p>
+      <div className="mt-4">
+        <DemoNote />
+      </div>
 
       <div className="mt-6 flex-1 overflow-y-auto rounded-xl border border-zinc-200 p-4 dark:border-zinc-800">
         <ChatThread messages={messages} />
