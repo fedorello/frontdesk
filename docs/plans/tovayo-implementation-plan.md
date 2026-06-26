@@ -102,7 +102,7 @@ strings). _(SaaS plan E.)_
 conversations/bookings — from the UI, in ≥2 languages; dashboard gate green + a
 Playwright e2e of the onboarding happy path.
 
-### M6 — Multilingual depth & SaaS hardening
+### M6 — Multilingual depth & SaaS hardening 🟡 _(in progress — [report](../reports/m6-report.md); multilingual + cost-control done)_
 Per-business default language on first contact and reminders; verify the assistant
 answers each customer in their own language; translate the dashboard (en/es/ru/zh);
 RTL-ready. Hardening: **quotas/rate limits on the managed default** (cost control),

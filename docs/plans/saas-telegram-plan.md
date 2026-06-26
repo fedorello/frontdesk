@@ -15,7 +15,7 @@ green against the gate and is verified with a real run.
 | C | Telegram self-serve connect | ✅ Code-complete — [report](../reports/m3-report.md) |
 | D | Accounts, auth & tenant scoping | ✅ Done — [report](../reports/m4-report.md) |
 | E | Dashboard: onboarding + management UI (i18n) | 🟡 Functional core — [report](../reports/m5-report.md) |
-| F | Multilingual depth & SaaS hardening | Not started |
+| F | Multilingual depth & SaaS hardening | 🟡 In progress — [report](../reports/m6-report.md) |
 
 ---
 
