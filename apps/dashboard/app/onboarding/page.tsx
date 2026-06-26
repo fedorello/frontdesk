@@ -5,6 +5,7 @@ import { useState } from "react";
 import { api, ApiError } from "@/app/lib/api";
 import type { MessageKey } from "@/app/lib/i18n";
 import { useI18n } from "@/app/lib/I18nProvider";
+import { setSession } from "@/app/lib/session";
 
 const STEPS: MessageKey[] = [
   "onboarding.step.account",
@@ -67,6 +68,7 @@ export default function OnboardingPage() {
       });
       setToken(result.token);
       setBusinessId(result.business_id);
+      setSession({ token: result.token, businessId: result.business_id });
       setStep(1);
     });
 

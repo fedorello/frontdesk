@@ -52,6 +52,13 @@ export interface TelegramStatus {
   username?: string | null;
 }
 
+export interface AppointmentView {
+  service: string;
+  starts_at: string;
+  ends_at: string;
+  status: string;
+}
+
 async function request<T>(
   method: string,
   path: string,
@@ -109,4 +116,7 @@ export const api = {
 
   telegramStatus: (id: string, token: string): Promise<TelegramStatus> =>
     request("GET", `/api/businesses/${id}/telegram`, undefined, token),
+
+  appointments: (id: string, token: string): Promise<AppointmentView[]> =>
+    request("GET", `/api/businesses/${id}/appointments`, undefined, token),
 };

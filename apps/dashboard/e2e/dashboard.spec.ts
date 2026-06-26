@@ -1,10 +1,27 @@
 import { expect, test } from "@playwright/test";
 
-test("the calendar shows today's appointments", async ({ page }) => {
+test("the calendar shows the business's live bookings", async ({ page }) => {
+  await page.route("**/api/businesses/**/appointments", (route) =>
+    route.fulfill({
+      json: [
+        {
+          service: "Haircut",
+          starts_at: "2026-06-26T13:00:00+00:00",
+          ends_at: "2026-06-26T14:00:00+00:00",
+          status: "confirmed",
+        },
+      ],
+    }),
+  );
+  await page.addInitScript(() => {
+    window.localStorage.setItem("tovayo.session", JSON.stringify({ token: "t", businessId: "b" }));
+  });
+
   await page.goto("/calendar");
 
   await expect(page.getByRole("heading", { name: "Calendar" })).toBeVisible();
-  await expect(page.getByText("Haircut").first()).toBeVisible();
+  await expect(page.getByText("Haircut")).toBeVisible(); // from the live endpoint
+  await expect(page.getByText("13:00")).toBeVisible();
 });
 
 test("approving a pending action clears it from the inbox", async ({ page }) => {
