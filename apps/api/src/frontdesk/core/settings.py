@@ -32,6 +32,7 @@ class Settings(BaseSettings):
     llm_api_key: str = ""
     llm_model: str = "deepseek/deepseek-v4-flash"
     llm_base_url: str = "https://openrouter.ai/api/v1"
+    llm_max_tokens: int = 2048  # enough for a reasoning model to think AND emit the tool call
 
     # WhatsApp Cloud API.
     whatsapp_token: str = ""

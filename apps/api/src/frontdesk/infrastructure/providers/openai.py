@@ -34,17 +34,22 @@ class OpenAiProvider:
         model: str,
         client: httpx.AsyncClient,
         base_url: str = "https://api.openai.com/v1",
+        max_tokens: int = 2048,
     ) -> None:
         self._key = api_key
         self._model = model
         self._client = client
         self._base = base_url.rstrip("/")
+        # Reasoning models spend tokens thinking before the tool call; a small
+        # budget truncates (finish_reason="length") before the call is emitted.
+        self._max_tokens = max_tokens
 
     async def complete(
         self, *, system: str, messages: Sequence[Message], tools: Sequence[ToolSpec]
     ) -> Completion:
         payload: dict[str, object] = {
             "model": self._model,
+            "max_tokens": self._max_tokens,
             "messages": [
                 {"role": "system", "content": system},
                 *(_to_message(message) for message in messages),

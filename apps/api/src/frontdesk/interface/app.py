@@ -52,13 +52,17 @@ def build_clock(settings: Settings) -> Clock:
 def build_provider(settings: Settings, client: httpx.AsyncClient) -> LlmProvider:
     if settings.llm_provider == "anthropic":
         return AnthropicProvider(
-            api_key=settings.llm_api_key, model=settings.llm_model, client=client
+            api_key=settings.llm_api_key,
+            model=settings.llm_model,
+            client=client,
+            max_tokens=settings.llm_max_tokens,
         )
     return OpenAiProvider(
         api_key=settings.llm_api_key,
         model=settings.llm_model,
         client=client,
         base_url=settings.llm_base_url,
+        max_tokens=settings.llm_max_tokens,
     )
 
 

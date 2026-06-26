@@ -38,6 +38,7 @@ async def test_openai_builds_request_and_parses_tool_call() -> None:
         body = json.loads(request.content)
         assert request.headers["authorization"] == "Bearer secret"
         assert body["model"] == "gpt"
+        assert body["max_tokens"] == 2048  # reasoning models need room before the tool call
         assert body["messages"][0] == {"role": "system", "content": "be brief"}
         assert body["messages"][1] == {"role": "user", "content": "hi"}
         assert body["tools"][0]["function"]["name"] == "book"

@@ -37,7 +37,7 @@ class AnthropicProvider:
         model: str,
         client: httpx.AsyncClient,
         base_url: str = "https://api.anthropic.com",
-        max_tokens: int = 1024,
+        max_tokens: int = 2048,
     ) -> None:
         self._key = api_key
         self._model = model
