@@ -5,6 +5,7 @@ import { useEffect, useState } from "react";
 import { api, type ServiceInput } from "@/app/lib/api";
 import { useI18n } from "@/app/lib/I18nProvider";
 import { getSession } from "@/app/lib/session";
+import { EmptyState } from "@/components/ui/EmptyState";
 
 type Service = ServiceInput & { id: string };
 
@@ -44,9 +45,8 @@ export default function SettingsPage() {
 
   if (session === null) {
     return (
-      <main className="mx-auto w-full max-w-4xl flex-1 px-6 py-16">
-        <h1 className="text-2xl font-semibold tracking-tight">{t("nav.settings")}</h1>
-        <p className="mt-4 text-sm text-muted">{t("calendar.connectFirst")}</p>
+      <main className="mx-auto w-full max-w-4xl px-6 py-8 sm:px-8">
+        <EmptyState icon="settings" title={t("calendar.connectFirst")} />
       </main>
     );
   }
@@ -75,11 +75,9 @@ export default function SettingsPage() {
   };
 
   return (
-    <main className="mx-auto w-full max-w-4xl flex-1 px-6 py-16">
-      <h1 className="text-2xl font-semibold tracking-tight">{t("nav.settings")}</h1>
-
-      <section className="mt-8 rounded-xl border border-line bg-surface shadow-card p-5 ">
-        <h2 className="font-medium">{t("settings.profile")}</h2>
+    <main className="mx-auto w-full max-w-4xl space-y-5 px-6 py-8 sm:px-8">
+      <section className="rounded-2xl border border-line bg-surface p-5 shadow-card">
+        <h2 className="font-bold">{t("settings.profile")}</h2>
         <div className="mt-3 space-y-3">
           <label className="block space-y-1">
             <span className="text-sm font-medium">{t("onboarding.businessName")}</span>
@@ -102,15 +100,15 @@ export default function SettingsPage() {
           <button
             type="button"
             onClick={saveProfile}
-            className="rounded-lg bg-accent px-4 py-2 text-sm font-medium text-white "
+            className="rounded-lg bg-accent px-4 py-2.5 text-sm font-bold text-accent-contrast"
           >
             {saved ? t("settings.saved") : t("settings.save")}
           </button>
         </div>
       </section>
 
-      <section className="mt-6 rounded-xl border border-line bg-surface shadow-card p-5 ">
-        <h2 className="font-medium">{t("settings.servicesTitle")}</h2>
+      <section className="rounded-2xl border border-line bg-surface p-5 shadow-card">
+        <h2 className="font-bold">{t("settings.servicesTitle")}</h2>
         <ul className="mt-3 space-y-2">
           {services.map((service) => (
             <li key={service.id} className="flex items-center justify-between text-sm">
@@ -153,8 +151,8 @@ export default function SettingsPage() {
         </div>
       </section>
 
-      <section className="mt-6 rounded-xl border border-line bg-surface shadow-card p-5 ">
-        <h2 className="font-medium">{t("settings.aiTitle")}</h2>
+      <section className="rounded-2xl border border-line bg-surface p-5 shadow-card">
+        <h2 className="font-bold">{t("settings.aiTitle")}</h2>
         <p className="mt-2 text-sm text-muted">
           {aiMode === "own" ? t("onboarding.ownAi") : t("onboarding.defaultAi")}
         </p>

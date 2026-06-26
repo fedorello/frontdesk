@@ -22,7 +22,7 @@ export function Topbar() {
 
   return (
     <header className="flex shrink-0 items-center gap-4 border-b border-line bg-surface px-5 py-3.5 sm:px-8">
-      <div className="text-[19px] font-bold tracking-tight">{t(titleKey)}</div>
+      <h1 className="text-[19px] font-bold tracking-tight">{t(titleKey)}</h1>
       <div className="ml-3 hidden max-w-sm flex-1 items-center gap-2 rounded-xl bg-surface-3 px-3.5 py-2.5 md:flex">
         <span className="text-faint">
           <Icon name="search" size={16} />
