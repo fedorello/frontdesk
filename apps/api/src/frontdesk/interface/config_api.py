@@ -21,11 +21,18 @@ from frontdesk.domain.models import Business, KnowledgeItem, Resource, Service, 
 from frontdesk.domain.money import Money
 
 Guard = Callable[..., Awaitable[None]] | None
+_ISO_4217_LENGTH = 3  # currency codes are three letters, e.g. USD, EUR, UYU
 
 
 class KnowledgeItemIO(BaseModel):
     question: str
     answer: str
+
+
+class WorkingHoursIO(BaseModel):
+    weekday: int  # Monday = 0
+    opens: str  # "HH:MM:SS"
+    closes: str
 
 
 class BusinessProfile(BaseModel):
@@ -35,6 +42,7 @@ class BusinessProfile(BaseModel):
     buffer_minutes: int = 0
     knowledge: list[KnowledgeItemIO] = []
     description: str = ""
+    address: str = ""
 
     @field_validator("timezone")
     @classmethod
@@ -55,21 +63,41 @@ class ServiceIO(BaseModel):
     currency: str | None = None
     resource_ids: list[str] = []
     description: str = ""
+    working_hours: list[WorkingHoursIO] = []
+
+    @field_validator("currency")
+    @classmethod
+    def _valid_currency(cls, value: str | None) -> str | None:
+        # ISO 4217 alpha code, or absent. The UI offers a fixed list; this guards the API.
+        if not value:
+            return None
+        code = value.strip().upper()
+        if len(code) != _ISO_4217_LENGTH or not code.isalpha():
+            raise ValueError(f"invalid currency: {value}")
+        return code
 
 
 class ServiceView(ServiceIO):
     id: str
 
 
-class WorkingHoursIO(BaseModel):
-    weekday: int
-    opens: str  # "HH:MM:SS"
-    closes: str
-
-
 class ResourceIO(BaseModel):
     name: str
     working_hours: list[WorkingHoursIO] = []
+
+
+def _to_hours(items: list[WorkingHoursIO]) -> tuple[WorkingHours, ...]:
+    return tuple(
+        WorkingHours(h.weekday, time.fromisoformat(h.opens), time.fromisoformat(h.closes))
+        for h in items
+    )
+
+
+def _hours_io(hours: tuple[WorkingHours, ...]) -> list[WorkingHoursIO]:
+    return [
+        WorkingHoursIO(weekday=h.weekday, opens=h.opens.isoformat(), closes=h.closes.isoformat())
+        for h in hours
+    ]
 
 
 def _service_view(service: Service) -> ServiceView:
@@ -81,6 +109,7 @@ def _service_view(service: Service) -> ServiceView:
         currency=service.price.currency if service.price else None,
         resource_ids=[str(r) for r in service.resource_ids],
         description=service.description,
+        working_hours=_hours_io(service.working_hours),
     )
 
 
@@ -103,6 +132,7 @@ def build_config_router(
                 buffer_minutes=body.buffer_minutes,
                 knowledge=tuple(KnowledgeItem(k.question, k.answer) for k in body.knowledge),
                 description=body.description,
+                address=body.address,
             )
         )
         return body
@@ -121,6 +151,7 @@ def build_config_router(
                 KnowledgeItemIO(question=k.question, answer=k.answer) for k in business.knowledge
             ],
             description=business.description,
+            address=business.address,
         )
 
     @router.get("/api/businesses/{business_id}/services")
@@ -142,6 +173,7 @@ def build_config_router(
             price,
             tuple(ResourceId(r) for r in body.resource_ids),
             description=body.description,
+            working_hours=_to_hours(body.working_hours),
         )
         await services.upsert(service)
         return _service_view(service)
@@ -154,15 +186,7 @@ def build_config_router(
     @router.get("/api/businesses/{business_id}/resources")
     async def list_resources(business_id: str) -> list[ResourceIO]:
         return [
-            ResourceIO(
-                name=r.name,
-                working_hours=[
-                    WorkingHoursIO(
-                        weekday=h.weekday, opens=h.opens.isoformat(), closes=h.closes.isoformat()
-                    )
-                    for h in r.working_hours
-                ],
-            )
+            ResourceIO(name=r.name, working_hours=_hours_io(r.working_hours))
             for r in await resources.for_business(BusinessId(business_id))
         ]
 
@@ -173,12 +197,7 @@ def build_config_router(
                 ResourceId(resource_id),
                 BusinessId(business_id),
                 body.name,
-                tuple(
-                    WorkingHours(
-                        h.weekday, time.fromisoformat(h.opens), time.fromisoformat(h.closes)
-                    )
-                    for h in body.working_hours
-                ),
+                _to_hours(body.working_hours),
             )
         )
         return body

@@ -16,7 +16,8 @@ CREATE_STATEMENTS: tuple[str, ...] = (
         lead_time_minutes integer NOT NULL DEFAULT 0,
         buffer_minutes integer NOT NULL DEFAULT 0,
         knowledge jsonb NOT NULL DEFAULT '[]',
-        description text NOT NULL DEFAULT ''
+        description text NOT NULL DEFAULT '',
+        address text NOT NULL DEFAULT ''
     )
     """,
     """
@@ -85,7 +86,8 @@ CREATE_STATEMENTS: tuple[str, ...] = (
         price_cents integer,
         currency text,
         resource_ids jsonb NOT NULL DEFAULT '[]',
-        description text NOT NULL DEFAULT ''
+        description text NOT NULL DEFAULT '',
+        working_hours jsonb NOT NULL DEFAULT '[]'
     )
     """,
     """

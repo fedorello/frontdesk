@@ -36,8 +36,9 @@ def build_assistant_deps(businesses: InMemoryBusinessRepository) -> AssistantDep
     )
     clock = FixedClock(NOW)
     appointments = InMemoryAppointmentRepository()
+    services = InMemoryServiceRepository([])
     calendar = InMemoryCalendar(
-        business, [resource], clock, SequentialIdGenerator("ap"), appointments
+        business, [resource], clock, SequentialIdGenerator("ap"), appointments, services
     )
     reminders = InMemoryReminderStore()
     scheduler = ReminderScheduler(reminders, SequentialIdGenerator("rem"), clock)
@@ -47,7 +48,7 @@ def build_assistant_deps(businesses: InMemoryBusinessRepository) -> AssistantDep
         businesses=businesses,
         customers=InMemoryCustomerRepository(SequentialIdGenerator("cus")),
         conversations=InMemoryConversationRepository(),
-        services=InMemoryServiceRepository([]),
+        services=services,
         appointments=appointments,
         calendar=calendar,
         book=BookAppointment(calendar, scheduler, events),

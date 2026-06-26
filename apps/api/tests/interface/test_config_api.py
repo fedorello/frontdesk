@@ -49,6 +49,16 @@ async def test_invalid_timezone_is_rejected() -> None:
         assert bad.status_code == 422  # not a real IANA key — would crash availability math
 
 
+async def test_business_address_roundtrips() -> None:
+    async with _client() as client:
+        await client.put(
+            "/api/businesses/ana",
+            json={"name": "Ana", "timezone": "UTC", "address": "12 Rivera St, Montevideo"},
+        )
+        got = (await client.get("/api/businesses/ana")).json()
+        assert got["address"] == "12 Rivera St, Montevideo"
+
+
 async def test_services_crud() -> None:
     async with _client() as client:
         await client.put(
@@ -58,16 +68,30 @@ async def test_services_crud() -> None:
                 "duration_minutes": 60,
                 "resource_ids": ["res"],
                 "description": "Wash, cut and style.",
+                "price_cents": 80000,
+                "currency": "uyu",  # lower-case is normalised
+                "working_hours": [{"weekday": 1, "opens": "10:00:00", "closes": "15:00:00"}],
             },
         )
         listed = (await client.get("/api/businesses/ana/services")).json()
         assert len(listed) == 1
         assert listed[0]["id"] == "svc1"
-        assert listed[0]["name"] == "Haircut"
         assert listed[0]["description"] == "Wash, cut and style."  # round-trips
+        assert listed[0]["price_cents"] == 80000
+        assert listed[0]["currency"] == "UYU"  # normalised to ISO 4217
+        assert listed[0]["working_hours"][0]["weekday"] == 1  # schedule round-trips
 
         await client.delete("/api/businesses/ana/services/svc1")
         assert (await client.get("/api/businesses/ana/services")).json() == []
+
+
+async def test_invalid_currency_is_rejected() -> None:
+    async with _client() as client:
+        bad = await client.put(
+            "/api/businesses/ana/services/svc1",
+            json={"name": "Cut", "duration_minutes": 30, "currency": "dollars"},
+        )
+        assert bad.status_code == 422  # not an ISO 4217 code
 
 
 async def test_resources_and_hours() -> None:

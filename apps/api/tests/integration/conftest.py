@@ -42,9 +42,12 @@ async def sessionmaker() -> AsyncIterator[async_sessionmaker[AsyncSession]]:
         )
         await conn.execute(
             text(
-                "INSERT INTO service (id, business_id, name, duration_minutes, resource_ids) "
-                "VALUES ('svc', 'biz', 'Haircut', 60, CAST('[\"res\"]' AS jsonb))"
-            )
+                "INSERT INTO service "
+                "(id, business_id, name, duration_minutes, resource_ids, working_hours) "
+                "VALUES ('svc', 'biz', 'Haircut', 60, CAST('[\"res\"]' AS jsonb), "
+                "CAST(:wh AS jsonb))"
+            ),
+            {"wh": _HOURS},
         )
         await conn.execute(
             text(

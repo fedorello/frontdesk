@@ -8,14 +8,16 @@ from datetime import UTC, date, datetime, timedelta
 from zoneinfo import ZoneInfo
 
 from .errors import LeadTimeViolation, SlotUnavailable
-from .models import Business, Resource, TimeSlot
+from .models import Business, TimeSlot, WorkingHours
 
 
-def _windows_for_day(resource: Resource, day_local: date, tz: ZoneInfo) -> list[TimeSlot]:
-    """The resource's working windows on ``day_local``, as UTC time ranges."""
+def _windows_for_day(
+    working_hours: Sequence[WorkingHours], day_local: date, tz: ZoneInfo
+) -> list[TimeSlot]:
+    """The schedule's working windows on ``day_local``, as UTC time ranges."""
     windows: list[TimeSlot] = []
     weekday = day_local.weekday()  # Monday = 0
-    for hours in resource.working_hours:
+    for hours in working_hours:
         if hours.weekday != weekday:
             continue
         opens = datetime.combine(day_local, hours.opens, tzinfo=tz).astimezone(UTC)
@@ -34,10 +36,12 @@ def _conflicts(slot: TimeSlot, busy: Sequence[TimeSlot], buffer_minutes: int) ->
     return False
 
 
-def _within_working_hours(slot: TimeSlot, resource: Resource, tz: ZoneInfo) -> bool:
-    """True if ``slot`` fits entirely inside one of the resource's windows."""
+def _within_working_hours(
+    slot: TimeSlot, working_hours: Sequence[WorkingHours], tz: ZoneInfo
+) -> bool:
+    """True if ``slot`` fits entirely inside one of the schedule's windows."""
     local_day = slot.starts_at.astimezone(tz).date()
-    for window in _windows_for_day(resource, local_day, tz):
+    for window in _windows_for_day(working_hours, local_day, tz):
         if window.starts_at <= slot.starts_at and slot.ends_at <= window.ends_at:
             return True
     return False
@@ -46,7 +50,7 @@ def _within_working_hours(slot: TimeSlot, resource: Resource, tz: ZoneInfo) -> b
 def free_slots(
     *,
     business: Business,
-    resource: Resource,
+    working_hours: Sequence[WorkingHours],
     busy: Sequence[TimeSlot],
     duration_minutes: int,
     now: datetime,
@@ -57,7 +61,7 @@ def free_slots(
 ) -> list[TimeSlot]:
     """Free slots of ``duration_minutes``, near ``around``, within the next ``days``.
 
-    Respects the resource's working hours, the business buffer between
+    Respects ``working_hours`` (the service's schedule), the business buffer between
     appointments, and the lead time before now. ``now`` and ``around`` are UTC.
     """
     tz = ZoneInfo(business.timezone)
@@ -68,7 +72,7 @@ def free_slots(
     found: list[TimeSlot] = []
     start_day = earliest.astimezone(tz).date()
     for offset in range(days):
-        for window in _windows_for_day(resource, start_day + timedelta(days=offset), tz):
+        for window in _windows_for_day(working_hours, start_day + timedelta(days=offset), tz):
             candidate = window.starts_at
             if candidate < earliest:
                 steps = math.ceil((earliest - window.starts_at) / step)
@@ -86,7 +90,7 @@ def free_slots(
 def ensure_bookable(
     *,
     business: Business,
-    resource: Resource,
+    working_hours: Sequence[WorkingHours],
     busy: Sequence[TimeSlot],
     slot: TimeSlot,
     now: datetime,
@@ -95,7 +99,7 @@ def ensure_bookable(
     if slot.starts_at < now + timedelta(minutes=business.lead_time_minutes):
         raise LeadTimeViolation("slot is inside the lead time")
     tz = ZoneInfo(business.timezone)
-    if not _within_working_hours(slot, resource, tz):
+    if not _within_working_hours(slot, working_hours, tz):
         raise SlotUnavailable("slot is outside working hours")
     if _conflicts(slot, busy, business.buffer_minutes):
         raise SlotUnavailable("slot overlaps an existing appointment")

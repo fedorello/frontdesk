@@ -30,7 +30,7 @@ def test_free_slots_from_window_start() -> None:
 
     slots = free_slots(
         business=_business(),
-        resource=_resource(),
+        working_hours=_resource().working_hours,
         busy=[],
         duration_minutes=60,
         now=now,
@@ -45,7 +45,7 @@ def test_free_slots_from_window_start() -> None:
 def test_free_slots_align_to_step_grid() -> None:
     slots = free_slots(
         business=_business(lead=0),
-        resource=_resource(),
+        working_hours=_resource().working_hours,
         busy=[],
         duration_minutes=60,
         now=_at(8),
@@ -61,7 +61,7 @@ def test_free_slots_skip_busy_and_buffer() -> None:
 
     no_buffer = free_slots(
         business=_business(),
-        resource=_resource(),
+        working_hours=_resource().working_hours,
         busy=busy,
         duration_minutes=60,
         now=_at(8),
@@ -72,7 +72,7 @@ def test_free_slots_skip_busy_and_buffer() -> None:
 
     with_buffer = free_slots(
         business=_business(buffer=30),
-        resource=_resource(),
+        working_hours=_resource().working_hours,
         busy=busy,
         duration_minutes=60,
         now=_at(8),
@@ -85,7 +85,7 @@ def test_free_slots_skip_busy_and_buffer() -> None:
 def test_free_slots_respects_lead_time() -> None:
     slots = free_slots(
         business=_business(lead=120),
-        resource=_resource(),
+        working_hours=_resource().working_hours,
         busy=[],
         duration_minutes=60,
         now=_at(8),
@@ -99,7 +99,7 @@ def test_free_slots_respects_lead_time() -> None:
 def test_free_slots_empty_without_working_hours() -> None:
     slots = free_slots(
         business=_business(),
-        resource=_resource(hours=False),
+        working_hours=_resource(hours=False).working_hours,
         busy=[],
         duration_minutes=60,
         now=_at(8),
@@ -113,7 +113,7 @@ def test_free_slots_converts_business_timezone() -> None:
     # Montevideo is UTC-3: 09:00 local opening is 12:00 UTC.
     slots = free_slots(
         business=_business(tz="America/Montevideo", lead=0),
-        resource=_resource(),
+        working_hours=_resource().working_hours,
         busy=[],
         duration_minutes=60,
         now=_at(0),
@@ -127,7 +127,7 @@ def test_free_slots_converts_business_timezone() -> None:
 def test_ensure_bookable_accepts_a_valid_slot() -> None:
     ensure_bookable(
         business=_business(),
-        resource=_resource(),
+        working_hours=_resource().working_hours,
         busy=[],
         slot=TimeSlot(_at(11), _at(12)),
         now=_at(8),
@@ -138,7 +138,7 @@ def test_ensure_bookable_rejects_inside_lead_time() -> None:
     with pytest.raises(LeadTimeViolation):
         ensure_bookable(
             business=_business(lead=60),
-            resource=_resource(),
+            working_hours=_resource().working_hours,
             busy=[],
             slot=TimeSlot(_at(8, 30), _at(9, 30)),
             now=_at(8),
@@ -149,7 +149,7 @@ def test_ensure_bookable_rejects_outside_working_hours() -> None:
     with pytest.raises(SlotUnavailable, match="working hours"):
         ensure_bookable(
             business=_business(),
-            resource=_resource(),
+            working_hours=_resource().working_hours,
             busy=[],
             slot=TimeSlot(_at(18), _at(19)),  # after 17:00 close
             now=_at(8),
@@ -160,7 +160,7 @@ def test_ensure_bookable_rejects_taken_slot() -> None:
     with pytest.raises(SlotUnavailable, match="overlaps"):
         ensure_bookable(
             business=_business(buffer=15),
-            resource=_resource(),
+            working_hours=_resource().working_hours,
             busy=[TimeSlot(_at(11), _at(12))],
             slot=TimeSlot(_at(12), _at(13)),  # within the 15-min buffer of 11-12
             now=_at(8),
@@ -169,15 +169,10 @@ def test_ensure_bookable_rejects_taken_slot() -> None:
 
 def test_free_slots_across_multiple_days() -> None:
     # A short window that's fully busy today should yield tomorrow's slot.
-    resource = Resource(
-        ResourceId("r"),
-        BusinessId("b"),
-        "Ana",
-        tuple(WorkingHours(day, time(9), time(10)) for day in range(7)),
-    )
+    hours = tuple(WorkingHours(day, time(9), time(10)) for day in range(7))
     slots = free_slots(
         business=_business(lead=0),
-        resource=resource,
+        working_hours=hours,
         busy=[TimeSlot(_at(9), _at(10))],  # today's only slot is taken
         duration_minutes=60,
         now=_at(8),

@@ -1,7 +1,7 @@
 """The SQL adapters pass the shared port contracts on a real Postgres, plus the
 database-level guarantees (the exclusion constraint and SKIP LOCKED)."""
 
-from datetime import UTC, datetime, timedelta
+from datetime import UTC, datetime, time, timedelta
 
 import pytest
 from sqlalchemy import text
@@ -18,7 +18,7 @@ from frontdesk.domain.ids import (
     ResourceId,
     ServiceId,
 )
-from frontdesk.domain.models import Customer, Reminder, Service
+from frontdesk.domain.models import Customer, Reminder, Service, WorkingHours
 from frontdesk.infrastructure.postgres.adapters import (
     SqlAccountRepository,
     SqlAppointmentRepository,
@@ -153,7 +153,12 @@ async def test_claim_due_skips_locked_rows(sessionmaker: Factory) -> None:
 
 def _service() -> Service:
     return Service(
-        ServiceId("svc"), BusinessId("biz"), "Haircut", 60, resource_ids=(ResourceId("res"),)
+        ServiceId("svc"),
+        BusinessId("biz"),
+        "Haircut",
+        60,
+        resource_ids=(ResourceId("res"),),
+        working_hours=tuple(WorkingHours(day, time(9), time(17)) for day in range(7)),
     )
 
 

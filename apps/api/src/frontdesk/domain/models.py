@@ -71,6 +71,7 @@ class Service:
     price: Money | None = None
     resource_ids: tuple[ResourceId, ...] = ()
     description: str = ""  # what the service is — given to the assistant and shown to owners
+    working_hours: tuple[WorkingHours, ...] = ()  # the weekly schedule this service is bookable in
 
     def __post_init__(self) -> None:
         if self.duration_minutes <= 0:
@@ -94,6 +95,7 @@ class Business:
     buffer_minutes: int = 0
     knowledge: tuple[KnowledgeItem, ...] = ()
     description: str = ""  # one free-text "about us" injected into every assistant prompt
+    address: str = ""  # where the business is — shown to customers and given to the assistant
 
     def __post_init__(self) -> None:
         if self.lead_time_minutes < 0:

@@ -77,20 +77,25 @@ def build_world(script: Sequence[Completion], *, gate_approves: bool = False) ->
         tuple(WorkingHours(day, time(9), time(17)) for day in range(7)),
     )
     service = Service(
-        ServiceId("svc"), BusinessId("biz"), "Haircut", 60, resource_ids=(ResourceId("res"),)
+        ServiceId("svc"),
+        BusinessId("biz"),
+        "Haircut",
+        60,
+        resource_ids=(ResourceId("res"),),
+        working_hours=tuple(WorkingHours(day, time(9), time(17)) for day in range(7)),
     )
 
     clock = FixedClock(NOW)
     appointments = InMemoryAppointmentRepository()
+    services = InMemoryServiceRepository([service])
     calendar = InMemoryCalendar(
-        business, [resource], clock, SequentialIdGenerator("ap"), appointments
+        business, [resource], clock, SequentialIdGenerator("ap"), appointments, services
     )
     reminders = InMemoryReminderStore()
     scheduler = ReminderScheduler(reminders, SequentialIdGenerator("rem"), clock)
     events = InMemoryEventPublisher()
     messaging = InMemoryMessaging()
     customers = InMemoryCustomerRepository(SequentialIdGenerator("cus"))
-    services = InMemoryServiceRepository([service])
 
     book = BookAppointment(calendar, scheduler, events)
     reschedule = RescheduleAppointment(calendar, scheduler)

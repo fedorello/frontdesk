@@ -47,6 +47,7 @@ from frontdesk.domain.models import (
     Service,
     WorkingHours,
 )
+from frontdesk.domain.money import Money
 
 NOW = datetime(2026, 6, 26, 12, 0, tzinfo=UTC)  # a Friday, 09:00 Montevideo
 
@@ -61,8 +62,14 @@ def make_resource() -> Resource:
 
 
 def make_service() -> Service:
+    hours = tuple(WorkingHours(day, time(9), time(17)) for day in range(7))
     return Service(
-        ServiceId("svc"), BusinessId("biz"), "Haircut", 60, resource_ids=(ResourceId("res"),)
+        ServiceId("svc"),
+        BusinessId("biz"),
+        "Haircut",
+        60,
+        resource_ids=(ResourceId("res"),),
+        working_hours=hours,
     )
 
 
@@ -205,6 +212,7 @@ async def check_business_write(repo: BusinessRepository) -> None:
             "UTC",
             knowledge=(KnowledgeItem("q", "a"),),
             description="A new place.",
+            address="12 Rivera St, Montevideo",
         )
     )
     found = await repo.find(BusinessId("new-biz"))
@@ -212,6 +220,7 @@ async def check_business_write(repo: BusinessRepository) -> None:
     assert found.name == "New"
     assert found.knowledge[0].answer == "a"
     assert found.description == "A new place."  # round-trips through storage
+    assert found.address == "12 Rivera St, Montevideo"  # round-trips through storage
 
     await repo.upsert(Business(BusinessId("new-biz"), "Renamed", "UTC"))
     renamed = await repo.find(BusinessId("new-biz"))
@@ -227,12 +236,16 @@ async def check_service_write(repo: ServiceRepository) -> None:
             BusinessId("biz"),
             "Massage",
             30,
+            price=Money(80000, "UYU"),
             resource_ids=(ResourceId("res"),),
             description="A relaxing massage.",
+            working_hours=(WorkingHours(1, time(10), time(15)),),
         )
     )
     stored = next(s for s in await repo.for_business(BusinessId("biz")) if s.id == sid)
     assert stored.description == "A relaxing massage."  # round-trips through storage
+    assert stored.price == Money(80000, "UYU")  # price + currency round-trip
+    assert stored.working_hours == (WorkingHours(1, time(10), time(15)),)  # schedule round-trips
 
     await repo.remove(sid)
     assert all(s.id != sid for s in await repo.for_business(BusinessId("biz")))

@@ -62,6 +62,7 @@ from tests.port_contracts import (
     make_business,
     make_customer,
     make_resource,
+    make_service,
 )
 
 # --- The stateful fakes pass the shared port-contract suite ---
@@ -74,7 +75,12 @@ async def test_reminder_store_contract() -> None:
 async def test_calendar_contract() -> None:
     store = InMemoryAppointmentRepository()
     calendar = InMemoryCalendar(
-        make_business(), [make_resource()], FixedClock(NOW), SequentialIdGenerator(), store
+        make_business(),
+        [make_resource()],
+        FixedClock(NOW),
+        SequentialIdGenerator(),
+        store,
+        InMemoryServiceRepository([make_service()]),
     )
     await check_calendar(calendar)
 

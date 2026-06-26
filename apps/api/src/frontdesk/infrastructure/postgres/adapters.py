@@ -67,15 +67,33 @@ def _to_business(row: Row) -> Business:
         buffer_minutes=row["buffer_minutes"],
         knowledge=knowledge,
         description=row["description"],
+        address=row["address"],
+    )
+
+
+def _to_hours(value: object) -> tuple[WorkingHours, ...]:
+    return tuple(
+        WorkingHours(h["weekday"], time.fromisoformat(h["opens"]), time.fromisoformat(h["closes"]))
+        for h in _json(value)
+    )
+
+
+def _hours_json(working_hours: Sequence[WorkingHours]) -> str:
+    return json.dumps(
+        [
+            {"weekday": h.weekday, "opens": h.opens.isoformat(), "closes": h.closes.isoformat()}
+            for h in working_hours
+        ]
     )
 
 
 def _to_resource(row: Row) -> Resource:
-    hours = tuple(
-        WorkingHours(h["weekday"], time.fromisoformat(h["opens"]), time.fromisoformat(h["closes"]))
-        for h in _json(row["working_hours"])
+    return Resource(
+        ResourceId(row["id"]),
+        BusinessId(row["business_id"]),
+        row["name"],
+        _to_hours(row["working_hours"]),
     )
-    return Resource(ResourceId(row["id"]), BusinessId(row["business_id"]), row["name"], hours)
 
 
 def _to_service(row: Row) -> Service:
@@ -93,6 +111,7 @@ def _to_service(row: Row) -> Service:
         price,
         resource_ids,
         description=row["description"],
+        working_hours=_to_hours(row["working_hours"]),
     )
 
 
@@ -188,11 +207,11 @@ class SqlBusinessRepository:
             await session.execute(
                 text(
                     "INSERT INTO business (id, name, timezone, lead_time_minutes, buffer_minutes, "
-                    "knowledge, description) "
-                    "VALUES (:id, :name, :tz, :lead, :buf, CAST(:kb AS jsonb), :desc) "
+                    "knowledge, description, address) "
+                    "VALUES (:id, :name, :tz, :lead, :buf, CAST(:kb AS jsonb), :desc, :addr) "
                     "ON CONFLICT (id) DO UPDATE SET name = :name, timezone = :tz, "
                     "lead_time_minutes = :lead, buffer_minutes = :buf, "
-                    "knowledge = CAST(:kb AS jsonb), description = :desc"
+                    "knowledge = CAST(:kb AS jsonb), description = :desc, address = :addr"
                 ),
                 {
                     "id": str(business.id),
@@ -202,6 +221,7 @@ class SqlBusinessRepository:
                     "buf": business.buffer_minutes,
                     "kb": knowledge,
                     "desc": business.description,
+                    "addr": business.address,
                 },
             )
             await session.commit()
@@ -263,11 +283,12 @@ class SqlServiceRepository:
             await session.execute(
                 text(
                     "INSERT INTO service (id, business_id, name, duration_minutes, price_cents, "
-                    "currency, resource_ids, description) "
-                    "VALUES (:id, :bid, :name, :dur, :cents, :cur, CAST(:rids AS jsonb), :desc) "
+                    "currency, resource_ids, description, working_hours) "
+                    "VALUES (:id, :bid, :name, :dur, :cents, :cur, CAST(:rids AS jsonb), :desc, "
+                    "CAST(:wh AS jsonb)) "
                     "ON CONFLICT (id) DO UPDATE SET name = :name, duration_minutes = :dur, "
                     "price_cents = :cents, currency = :cur, resource_ids = CAST(:rids AS jsonb), "
-                    "description = :desc"
+                    "description = :desc, working_hours = CAST(:wh AS jsonb)"
                 ),
                 {
                     "id": str(service.id),
@@ -278,6 +299,7 @@ class SqlServiceRepository:
                     "cur": service.price.currency if service.price else None,
                     "rids": rids,
                     "desc": service.description,
+                    "wh": _hours_json(service.working_hours),
                 },
             )
             await session.commit()
@@ -309,12 +331,7 @@ class SqlResourceRepository:
             return [_to_resource(row) for row in rows]
 
     async def upsert(self, resource: Resource) -> None:
-        hours = json.dumps(
-            [
-                {"weekday": h.weekday, "opens": h.opens.isoformat(), "closes": h.closes.isoformat()}
-                for h in resource.working_hours
-            ]
-        )
+        hours = _hours_json(resource.working_hours)
         async with self._sf() as session:
             await session.execute(
                 text(
@@ -572,18 +589,18 @@ class SqlCalendar:
         assert row is not None
         return _to_business(row)
 
-    async def _load_resource(self, session: AsyncSession, resource_id: str) -> Resource:
+    async def _load_service(self, session: AsyncSession, service_id: str) -> Service:
         row = (
             (
                 await session.execute(
-                    text("SELECT * FROM resource WHERE id = :id"), {"id": resource_id}
+                    text("SELECT * FROM service WHERE id = :id"), {"id": service_id}
                 )
             )
             .mappings()
             .first()
         )
         assert row is not None
-        return _to_resource(row)
+        return _to_service(row)
 
     async def _busy(
         self, session: AsyncSession, resource_id: str, *, ignore: str | None = None
@@ -604,11 +621,10 @@ class SqlCalendar:
     ) -> list[TimeSlot]:
         async with self._sf() as session:
             business = await self._load_business(session, str(service.business_id))
-            resource = await self._load_resource(session, str(service.resource_ids[0]))
-            busy = await self._busy(session, str(resource.id))
+            busy = await self._busy(session, str(service.resource_ids[0]))
         return free_slots(
             business=business,
-            resource=resource,
+            working_hours=service.working_hours,
             busy=busy,
             duration_minutes=service.duration_minutes,
             now=self._clock.now(),
@@ -621,7 +637,6 @@ class SqlCalendar:
     ) -> Appointment:
         async with self._sf() as session:
             business = await self._load_business(session, str(service.business_id))
-            resource = await self._load_resource(session, str(resource_id))
             # Buffer + working-hours + lead are application rules; the DB exclusion
             # constraint is the race-safe guarantee against exact overlaps.
             busy = await self._busy(session, str(resource_id))
@@ -630,7 +645,11 @@ class SqlCalendar:
                 if slot.overlaps(TimeSlot(taken.starts_at - buffer, taken.ends_at + buffer)):
                     raise DoubleBooking("the resource is already booked for that time")
             ensure_bookable(
-                business=business, resource=resource, busy=[], slot=slot, now=self._clock.now()
+                business=business,
+                working_hours=service.working_hours,
+                busy=[],
+                slot=slot,
+                now=self._clock.now(),
             )
             appointment = Appointment(
                 AppointmentId(self._ids.new()),
@@ -672,14 +691,18 @@ class SqlCalendar:
         async with self._sf() as session:
             current = await self._get(session, appointment_id)
             business = await self._load_business(session, str(current.business_id))
-            resource = await self._load_resource(session, str(current.resource_id))
+            service = await self._load_service(session, str(current.service_id))
             busy = await self._busy(session, str(current.resource_id), ignore=str(appointment_id))
             buffer = timedelta(minutes=business.buffer_minutes)
             for taken in busy:
                 if slot.overlaps(TimeSlot(taken.starts_at - buffer, taken.ends_at + buffer)):
                     raise DoubleBooking("the resource is already booked for that time")
             ensure_bookable(
-                business=business, resource=resource, busy=[], slot=slot, now=self._clock.now()
+                business=business,
+                working_hours=service.working_hours,
+                busy=[],
+                slot=slot,
+                now=self._clock.now(),
             )
             await session.execute(
                 text("UPDATE appointment SET starts_at = :start, ends_at = :end WHERE id = :id"),
