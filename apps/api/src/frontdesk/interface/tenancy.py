@@ -1,0 +1,59 @@
+"""Per-business resolution of the LLM provider and the outbound messaging adapter.
+
+Given a business's stored config, build the right adapter — its **own** provider/bot,
+or the platform **default**. Pure (config in, adapter out), so it's unit-testable;
+the webhook and worker fetch the config from the repositories and call these.
+See ADR-0008 / ADR-0009.
+"""
+
+import httpx
+
+from frontdesk.application.ports import LlmConfig, LlmProvider, MessagingPort, TelegramBotConfig
+from frontdesk.core.settings import Settings
+from frontdesk.infrastructure.channels.composite import LoggingMessaging
+from frontdesk.infrastructure.channels.telegram import TelegramMessaging
+from frontdesk.infrastructure.providers.anthropic import AnthropicProvider
+from frontdesk.infrastructure.providers.openai import OpenAiProvider
+
+_OPENAI_BASE = "https://api.openai.com/v1"
+_OPENROUTER_BASE = "https://openrouter.ai/api/v1"
+
+
+def provider_from_config(
+    config: LlmConfig | None, settings: Settings, client: httpx.AsyncClient
+) -> LlmProvider:
+    """The business's own provider, or the platform default when unset/`default`."""
+    if config is None or config.mode != "own":
+        return OpenAiProvider(
+            api_key=settings.llm_api_key,
+            model=settings.llm_model,
+            client=client,
+            base_url=settings.llm_base_url,
+            max_tokens=settings.llm_max_tokens,
+        )
+    if config.provider == "anthropic":
+        return AnthropicProvider(
+            api_key=config.api_key or "",
+            model=config.model or "",
+            client=client,
+            max_tokens=settings.llm_max_tokens,
+        )
+    base_url = config.base_url or (
+        _OPENROUTER_BASE if config.provider == "openrouter" else _OPENAI_BASE
+    )
+    return OpenAiProvider(
+        api_key=config.api_key or "",
+        model=config.model or "",
+        client=client,
+        base_url=base_url,
+        max_tokens=settings.llm_max_tokens,
+    )
+
+
+def telegram_messaging_from_config(
+    config: TelegramBotConfig | None, client: httpx.AsyncClient
+) -> MessagingPort:
+    """The business's own Telegram bot, or a logging fallback when not connected."""
+    if config is None:
+        return LoggingMessaging()
+    return TelegramMessaging(token=config.bot_token, bot_address=config.username, client=client)
