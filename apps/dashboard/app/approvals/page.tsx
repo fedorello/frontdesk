@@ -2,12 +2,15 @@
 
 import { useCallback, useEffect, useState } from "react";
 
+import { useI18n } from "@/app/lib/I18nProvider";
+
 import { ApprovalsList } from "./ApprovalsList";
 import type { Approval, ApprovalDecision } from "./types";
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:8000";
 
 export default function ApprovalsPage() {
+  const { t } = useI18n();
   const [approvals, setApprovals] = useState<Approval[]>([]);
   const [reachable, setReachable] = useState(true);
 
@@ -40,7 +43,7 @@ export default function ApprovalsPage() {
 
   return (
     <main className="mx-auto w-full max-w-4xl flex-1 px-6 py-16">
-      <h1 className="text-2xl font-semibold tracking-tight">Approvals</h1>
+      <h1 className="text-2xl font-semibold tracking-tight">{t("nav.approvals")}</h1>
       <p className="mt-2 max-w-2xl text-sm text-zinc-500">
         Sensitive actions the assistant flagged, gated by{" "}
         <span className="font-medium">airlock</span>. Nothing happens until you approve —
