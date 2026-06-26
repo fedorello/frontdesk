@@ -29,21 +29,31 @@ mockups will skin.
   @ana_bot") drives the real UI with the API mocked at the network boundary; a second
   test switches the wizard to **Russian** via the language switcher. **4 e2e pass.**
 
+## Live data — calendar wired
+
+- A `GET /api/businesses/{id}/appointments` read endpoint (scoped by the M4 guard,
+  resolves service names) + a client session store; the **calendar screen now renders
+  the owner's real bookings** (i18n empty / sign-in states).
+- **Live run** (`logs/m5/live-run.log`, full stack): Ana **signs up via the dashboard
+  API**, configures her business over the API with her token, a customer **books via
+  the assistant**, and `GET …/appointments` with Ana's token returns the real booking
+  — `[("Haircut", "09:00", "pending")]`; **401 without a token**. This is exactly the
+  data the calendar screen renders.
+
 ## What remains in M5
 
-- **Live-data screens**: Conversations / Calendar / Overview currently render
-  placeholder data. Wiring them to real data needs **read endpoints** (`GET
-  /api/businesses/{id}/conversations`, `…/appointments`, scoped by the M4 guard) —
-  backend work, then the screens.
-- **Internationalize the remaining existing screens** (settings, approvals,
-  conversations, calendar) — designer-independent, straightforward.
-- **The visual design** — awaiting the designer's mockups; these components are built
-  to be restyled without changing the data/i18n layer.
+- **Conversations / Overview screens**: still placeholder — need a conversations read
+  endpoint, then wiring (same pattern as the calendar).
+- **Internationalize the remaining screens** (settings, approvals, conversations) —
+  designer-independent.
+- **The visual design** — awaiting the designer's mockups; the components are built to
+  be restyled without changing the data/i18n layer.
 
 ## Definition of Done
 
 - [x] i18n in place from the first screen; language switcher; ≥2 languages proven
       (en + ru) in an e2e.
 - [x] Onboarding happy path implemented and covered by a Playwright e2e.
-- [ ] All management screens show **real** scoped data (needs read endpoints).
+- [x] The calendar shows **real, auth-scoped bookings** (proven in a live run).
+- [ ] Conversations / Overview show real data (needs a conversations read endpoint).
 - [ ] Designer's visual design applied (hand-off pending).
