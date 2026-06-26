@@ -82,7 +82,7 @@ _(SaaS plan B.)_
 **DoD:** a business is fully configurable via API; own-key and default both run; the
 key never appears in any response or log.
 
-### M3 — Telegram self-serve connect
+### M3 — Telegram self-serve connect ✅ _(code-complete — [report](../reports/m3-report.md))_
 `Connect`: validate a bot token (`getMe`), store it encrypted, register the webhook
 (`setWebhook` + per-business secret); `Disconnect`. _(SaaS plan C.)_
 **DoD:** pasting a real BotFather token makes that bot answer and book, end to end.

@@ -776,3 +776,28 @@ class SqlLlmConfigRepository:
                 },
             )
             await session.commit()
+
+
+class SqlChannelBindingRepository:
+    def __init__(self, sessionmaker: async_sessionmaker[AsyncSession]) -> None:
+        self._sf = sessionmaker
+
+    async def upsert(self, channel: Channel, address: str, business_id: BusinessId) -> None:
+        async with self._sf() as session:
+            await session.execute(
+                text(
+                    "INSERT INTO channel_binding (channel, address, business_id) "
+                    "VALUES (:ch, :addr, :bid) "
+                    "ON CONFLICT (channel, address) DO UPDATE SET business_id = :bid"
+                ),
+                {"ch": channel.value, "addr": address, "bid": str(business_id)},
+            )
+            await session.commit()
+
+    async def remove(self, channel: Channel, address: str) -> None:
+        async with self._sf() as session:
+            await session.execute(
+                text("DELETE FROM channel_binding WHERE channel = :ch AND address = :addr"),
+                {"ch": channel.value, "addr": address},
+            )
+            await session.commit()

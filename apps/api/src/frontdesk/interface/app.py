@@ -30,6 +30,7 @@ from frontdesk.infrastructure.postgres.adapters import (
     SqlAppointmentRepository,
     SqlBusinessRepository,
     SqlCalendar,
+    SqlChannelBindingRepository,
     SqlConversationRepository,
     SqlCustomerRepository,
     SqlLlmConfigRepository,
@@ -46,6 +47,7 @@ from frontdesk.interface.approvals import build_approvals_router
 from frontdesk.interface.business_config import build_llm_config_router
 from frontdesk.interface.chat import build_chat_router
 from frontdesk.interface.config_api import build_config_router
+from frontdesk.interface.telegram_connect import build_telegram_connect_router
 from frontdesk.interface.telegram_webhook import build_telegram_router
 from frontdesk.interface.webhooks import WebhookConfig, create_app
 
@@ -154,6 +156,11 @@ def create_production_app() -> FastAPI:
             SqlBusinessRepository(sessions),
             SqlServiceRepository(sessions),
             SqlResourceRepository(sessions),
+        )
+    )
+    app.include_router(
+        build_telegram_connect_router(
+            telegram_bots, SqlChannelBindingRepository(sessions), settings, client
         )
     )
     return app

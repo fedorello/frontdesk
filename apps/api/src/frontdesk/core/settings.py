@@ -22,6 +22,8 @@ class Settings(BaseSettings):
     log_level: str = "INFO"
     # Key (urlsafe base64, 32 bytes) for encrypting stored secrets at rest (ADR-0009).
     secret_key: str = ""
+    # Public base URL of this server — where Telegram bots' webhooks are registered.
+    public_url: str = "http://localhost:8000"
 
     # The business the web chat demo talks to (matches the seeded channel binding).
     demo_to_address: str = "+BIZ"

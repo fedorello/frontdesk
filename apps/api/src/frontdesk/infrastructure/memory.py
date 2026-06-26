@@ -137,6 +137,19 @@ class InMemoryBusinessRepository:
         self._by_id[business.id] = business
 
 
+class InMemoryChannelBindingRepository:
+    """Writes bindings into a business repo so ``for_channel`` resolves them."""
+
+    def __init__(self, business_repo: InMemoryBusinessRepository) -> None:
+        self._repo = business_repo
+
+    async def upsert(self, channel: Channel, address: str, business_id: BusinessId) -> None:
+        self._repo._bindings[(channel, address)] = business_id
+
+    async def remove(self, channel: Channel, address: str) -> None:
+        self._repo._bindings.pop((channel, address), None)
+
+
 class InMemoryCustomerRepository:
     def __init__(self, ids: IdGenerator) -> None:
         self._ids = ids
