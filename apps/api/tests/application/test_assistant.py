@@ -1,5 +1,7 @@
 """The assistant loop: the answer, booking, and escalation flows end-to-end."""
 
+from datetime import UTC, datetime
+
 from frontdesk.application.assistant import ESCALATION_FALLBACK, MAX_STEPS, _system_prompt
 from frontdesk.application.ports import (
     AppointmentBooked,
@@ -12,8 +14,10 @@ from frontdesk.application.ports import (
 )
 from frontdesk.domain.enums import AppointmentStatus, Channel
 from frontdesk.domain.ids import AppointmentId
-from frontdesk.domain.models import IntakeAnswer, IntakeField
+from frontdesk.domain.models import IntakeAnswer, IntakeField, TimeSlot
 from tests.application.world import NOW, build_world, inbound, make_customer
+
+_SLOT = TimeSlot(datetime(2026, 6, 26, 15, tzinfo=UTC), datetime(2026, 6, 26, 16, tzinfo=UTC))
 
 
 def _tool(call_id: str, name: str, args: dict[str, object]) -> Completion:
@@ -204,3 +208,40 @@ async def test_booking_collects_intake_then_sends_a_receipt() -> None:
     # The appointment persisted the intake answer.
     appointment = next(iter(world.appointments.appointments.values()))
     assert appointment.intake == (IntakeAnswer("Birth date", "1990-01-01"),)
+
+
+async def test_find_my_appointments_lists_the_customers_upcoming_with_real_ids() -> None:
+    world = build_world([])
+    customer = await world.customers.upsert(world.business.id, Channel.WHATSAPP, "+CUST")
+    appointment = await world.book(world.service, world.service.resource_ids[0], customer, _SLOT)
+
+    result = await world.assistant._find_appointments(world.business, customer, {})
+
+    assert str(appointment.id) in result  # the real id, so the model never has to guess
+    assert "Haircut" in result
+
+
+async def test_reschedule_unknown_id_steers_to_lookup() -> None:
+    world = build_world([])
+
+    result = await world.assistant._do_reschedule(
+        world.business,
+        make_customer(),
+        {"appointment_id": "made-up", "start": "2026-06-26T15:00:00+00:00"},
+    )
+
+    assert "find_my_appointments" in result  # don't guess — look it up
+
+
+async def test_cancel_anothers_appointment_is_refused() -> None:
+    world = build_world([])
+    owner = await world.customers.upsert(world.business.id, Channel.WHATSAPP, "+OWNER")
+    intruder = await world.customers.upsert(world.business.id, Channel.WHATSAPP, "+INTRUDER")
+    appointment = await world.book(world.service, world.service.resource_ids[0], owner, _SLOT)
+
+    result = await world.assistant._do_cancel(
+        world.business, intruder, {"appointment_id": str(appointment.id)}
+    )
+
+    assert "different customer" in result
+    assert world.appointments.appointments[appointment.id].status != AppointmentStatus.CANCELLED

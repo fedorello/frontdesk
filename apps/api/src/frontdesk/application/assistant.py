@@ -37,7 +37,7 @@ from frontdesk.application.ports import (
     ToolCall,
     ToolSpec,
 )
-from frontdesk.domain.enums import MessageRole
+from frontdesk.domain.enums import AppointmentStatus, MessageRole
 from frontdesk.domain.errors import DomainError
 from frontdesk.domain.ids import AppointmentId
 from frontdesk.domain.models import (
@@ -51,6 +51,15 @@ from frontdesk.domain.models import (
 
 MAX_STEPS = 6
 SLOT_FORMAT = "%a %d %b %H:%M"  # rendered in the business's local time zone
+# Tool results (fed back to the model) that steer it away from guessing appointment ids.
+_NO_SUCH_APPOINTMENT = (
+    "No appointment with that id exists. Call find_my_appointments to get the customer's real "
+    "appointment ids — never guess or recall an id from earlier in the chat."
+)
+_NOT_THEIRS = (
+    "That appointment belongs to a different customer. Use find_my_appointments to find this "
+    "customer's own appointments."
+)
 
 # Sent verbatim to the customer (not via the model), so it carries the business's language.
 ESCALATION_FALLBACK = {
@@ -105,8 +114,14 @@ TOOL_SPECS: tuple[ToolSpec, ...] = (
         },
     ),
     ToolSpec(
+        "find_my_appointments",
+        "List THIS customer's upcoming appointments with their exact ids — call this before "
+        "any reschedule or cancel to get the real id (never guess one).",
+        {"type": "object", "properties": {}},
+    ),
+    ToolSpec(
         "reschedule",
-        "Move an appointment to a new start time (ISO).",
+        "Move an appointment to a new start time (ISO). Use an id from find_my_appointments.",
         {
             "type": "object",
             "properties": {"appointment_id": {"type": "string"}, "start": {"type": "string"}},
@@ -280,6 +295,9 @@ def _system_prompt(business: Business, services: Sequence[Service], now: datetim
         "reuse or recall a list of times from earlier in the chat: an earlier list is stale the "
         "moment anything is booked. If a booking fails, the tool returns the current free slots — "
         "offer exactly those."
+        "\n\nTo reschedule or cancel, you MUST first call find_my_appointments to get the "
+        "customer's exact appointment id — never guess an id or recall one from earlier in the "
+        "chat. If they have no upcoming appointment, say so and offer to book a new one."
         f"\n\nThe time shown before each '(start=...)' is the FINAL local time in the business's "
         f"zone ({business.timezone}) — show exactly that time to the customer. Never ask the "
         "customer what time zone they are in, and never offer to convert times for them."
@@ -298,6 +316,7 @@ class Assistant:
         self._handlers: dict[str, ToolHandler] = {
             "answer_question": self._answer,
             "find_availability": self._find,
+            "find_my_appointments": self._find_appointments,
             "book": self._do_book,
             "reschedule": self._do_reschedule,
             "cancel": self._do_cancel,
@@ -374,6 +393,31 @@ class Assistant:
             return "There are no free slots in that window."
         return "Free slots: " + _format_slots(slots, ZoneInfo(business.timezone))
 
+    async def _find_appointments(
+        self, business: Business, customer: Customer, args: dict[str, object]
+    ) -> str:
+        tz = ZoneInfo(business.timezone)
+        now = self._d.clock.now()
+        mine = sorted(
+            (
+                appointment
+                for appointment in await self._d.appointments.for_business(business.id)
+                if appointment.customer_id == customer.id
+                and appointment.status != AppointmentStatus.CANCELLED
+                and appointment.slot.starts_at >= now
+            ),
+            key=lambda a: a.slot.starts_at,
+        )
+        if not mine:
+            return "The customer has no upcoming appointments."
+        lines = []
+        for appointment in mine:
+            service = await self._d.services.get(appointment.service_id)
+            lines.append(
+                f"- id={appointment.id} | {service.name} | {_when(appointment.slot.starts_at, tz)}"
+            )
+        return "The customer's upcoming appointments:\n" + "\n".join(lines)
+
     async def _do_book(
         self, business: Business, customer: Customer, args: dict[str, object]
     ) -> str:
@@ -418,11 +462,13 @@ class Assistant:
         appointment_id = AppointmentId(_arg(args, "appointment_id"))
         try:
             appointment = await self._d.appointments.get(appointment_id)
+            if appointment.customer_id != customer.id:
+                return _NOT_THEIRS
             service = await self._d.services.get(appointment.service_id)
             slot = TimeSlot(start, start + timedelta(minutes=service.duration_minutes))
             moved = await self._d.reschedule(appointment_id, slot)
-        except DomainError as error:
-            return f"I couldn't reschedule: {error}"
+        except DomainError:
+            return _NO_SUCH_APPOINTMENT
         return f"Moved to {_when(moved.slot.starts_at, ZoneInfo(business.timezone))}."
 
     async def _do_cancel(
@@ -430,9 +476,12 @@ class Assistant:
     ) -> str:
         appointment_id = AppointmentId(_arg(args, "appointment_id"))
         try:
+            appointment = await self._d.appointments.get(appointment_id)
+            if appointment.customer_id != customer.id:
+                return _NOT_THEIRS
             await self._d.cancel(appointment_id)
-        except DomainError as error:
-            return f"I couldn't cancel: {error}"
+        except DomainError:
+            return _NO_SUCH_APPOINTMENT
         return "Your appointment is cancelled."
 
     async def _escalate(
