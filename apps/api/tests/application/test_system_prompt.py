@@ -89,8 +89,21 @@ def test_escalation_fallback_follows_business_locale() -> None:
     assert _escalation(Business(BusinessId("b"), "Ana", "UTC")) == ESCALATION_FALLBACK["en"]
 
 
-def test_prompt_states_the_current_date_in_business_tz() -> None:
-    # NOW is Sat 27 Jun 2026 17:00 UTC = 14:00 Montevideo, so the model sees "Saturday".
+def test_prompt_states_the_current_date_and_offset() -> None:
+    # NOW is Sat 27 Jun 2026 17:00 UTC = 14:00 Montevideo (UTC-3).
     business = Business(BusinessId("b"), "Ana", "America/Montevideo")
     prompt = _system_prompt(business, [], NOW)
     assert "Saturday, 27 June 2026, 14:00" in prompt  # grounds relative dates like "Sunday"
+    assert "UTC-3" in prompt  # explicit offset so the model has no doubt
+
+
+def test_utc_offset_formatting() -> None:
+    from datetime import timedelta, timezone
+
+    from frontdesk.application.assistant import _utc_offset
+
+    assert _utc_offset(datetime(2026, 6, 27, tzinfo=timezone(timedelta(hours=-3)))) == "UTC-3"
+    assert _utc_offset(datetime(2026, 6, 27, tzinfo=UTC)) == "UTC+0"
+    assert _utc_offset(datetime(2026, 6, 27, tzinfo=timezone(timedelta(hours=5, minutes=30)))) == (
+        "UTC+5:30"
+    )

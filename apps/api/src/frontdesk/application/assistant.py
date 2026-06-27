@@ -177,6 +177,13 @@ def _when(moment: datetime, tz: ZoneInfo) -> str:
     return moment.astimezone(tz).strftime(SLOT_FORMAT)
 
 
+def _utc_offset(moment: datetime) -> str:
+    """The offset of an aware datetime as 'UTC-3' / 'UTC+5:30'."""
+    minutes = int((moment.utcoffset() or timedelta()).total_seconds() // 60)
+    hours, mins = divmod(abs(minutes), 60)
+    return f"UTC{'+' if minutes >= 0 else '-'}{hours}" + (f":{mins:02d}" if mins else "")
+
+
 # Sent verbatim to the customer when a booking is created — localized by business.locale.
 _RECEIPT = {
     "en": ("✅ Booking confirmed", "Your details:"),
@@ -253,9 +260,10 @@ def _system_prompt(business: Business, services: Sequence[Service], now: datetim
     about = f"\n\nAbout {business.name}:\n{business.description}" if business.description else ""
     local_now = now.astimezone(ZoneInfo(business.timezone))
     now_line = (
-        f"\n\nRight now it is {local_now.strftime('%A, %d %B %Y, %H:%M')} in the business's time "
-        f"zone ({business.timezone}). Use this to turn relative dates like 'today', 'tomorrow', "
-        "or a weekday name into exact ISO datetimes for find_availability and book."
+        f"\n\nThe current date and time is {local_now.strftime('%A, %d %B %Y, %H:%M')} in the "
+        f"business's time zone ({business.timezone}, {_utc_offset(local_now)}). Use this exact "
+        "date, weekday, time and UTC offset to turn relative dates like 'today', 'tomorrow', or a "
+        "weekday name into exact ISO datetimes for find_availability and book."
     )
     return (
         f"You are the front desk for {business.name}. Be brief and warm, and reply in the "
