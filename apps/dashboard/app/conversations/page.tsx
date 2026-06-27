@@ -26,6 +26,7 @@ export default function ConversationsPage() {
 
 type LoadState = "loading" | "anon" | "ready";
 const THREAD_PAGE = 20; // messages shown per "load older" step
+const POLL_MS = 4000; // refresh interval for live incoming messages
 
 interface Thread {
   customer: string; // channel address (the fallback label / id)
@@ -100,6 +101,20 @@ function ConversationsContent() {
     if (session === null) return;
     setMessages(await api.conversations(session.businessId, session.token).catch(() => []));
   };
+
+  // Poll so incoming customer messages appear live — essential while the owner is handling
+  // a chat (the assistant is muted, so nothing else refreshes the thread).
+  useEffect(() => {
+    const id = setInterval(() => {
+      const session = getSession();
+      if (session === null) return;
+      void api
+        .conversations(session.businessId, session.token)
+        .then(setMessages)
+        .catch(() => {});
+    }, POLL_MS);
+    return () => clearInterval(id);
+  }, []);
 
   const threads = toThreads(messages);
   const selectedThread = selected ? threads.find((thread) => thread.customer === selected) : null;
@@ -261,13 +276,22 @@ function ThreadDetail({
   const scrollRef = useRef<HTMLDivElement>(null);
   const bottomRef = useRef<HTMLDivElement>(null);
   const keepScroll = useRef(0);
+  const firstRender = useRef(true);
 
   const shown = messages.slice(Math.max(0, messages.length - visible));
   const hasOlder = visible < messages.length;
 
-  // Open the thread / a new message arrives → jump to the latest (the point of interest).
+  // Open the thread → jump to the latest. A new message (e.g. from polling) → follow it only
+  // if the owner is already near the bottom, so reading older history isn't interrupted.
   useEffect(() => {
-    bottomRef.current?.scrollIntoView?.({ block: "end" }); // optional: jsdom has no scrollIntoView
+    const element = scrollRef.current;
+    const nearBottom = element
+      ? element.scrollHeight - element.scrollTop - element.clientHeight < 150
+      : true;
+    if (firstRender.current || nearBottom) {
+      bottomRef.current?.scrollIntoView?.({ block: "end" }); // jsdom has no scrollIntoView
+    }
+    firstRender.current = false;
   }, [customerId, messages.length]);
 
   // "Load older" prepends above; keep the viewport anchored so it doesn't jump.
