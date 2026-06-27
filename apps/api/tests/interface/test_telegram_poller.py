@@ -88,7 +88,7 @@ async def test_poll_dispatches_a_message_and_advances_the_offset() -> None:
     await poller._poll_bot(bot)
     await _drain(poller)
 
-    assert WAIT["en"][0] in sent  # a placeholder was shown first
+    assert any(WAIT["en"][0] in m for m in sent)  # a placeholder was shown first
     assert any("Hello!" in m for m in sent)  # then the real reply (under the AI prefix)
     after = await bots.get(BusinessId("biz1"))
     assert after is not None
@@ -276,8 +276,8 @@ async def test_second_message_while_busy_gets_the_busy_phrase() -> None:
     release.set()
     await asyncio.wait_for(task1, timeout=2)
 
-    assert WAIT["en"][0] in sent  # the first got a placeholder
-    assert BUSY["en"][0] in sent  # the second got the busy line
+    assert any(WAIT["en"][0] in m for m in sent)  # the first got a placeholder
+    assert any(BUSY["en"][0] in m for m in sent)  # the second got the busy line
 
 
 async def test_placeholder_uses_the_business_locale() -> None:
@@ -306,4 +306,6 @@ async def test_placeholder_uses_the_business_locale() -> None:
 
     await inbound.handle(bot, message)
 
-    assert WAIT["ru"][0] in sent  # the filler phrase follows the business's chosen language
+    assert any(
+        WAIT["ru"][0] in m for m in sent
+    )  # the filler phrase follows the business's chosen language

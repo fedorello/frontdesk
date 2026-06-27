@@ -85,8 +85,13 @@ _AI_PREFIX = {
 }
 
 
+def ai_prefix_for(locale: str) -> str:
+    """The localized '[AI assistant]: ' tag shown on every message the AI sends."""
+    return _AI_PREFIX.get(locale, _AI_PREFIX["en"])
+
+
 def _ai_prefix(business: Business) -> str:
-    return _AI_PREFIX.get(business.locale, _AI_PREFIX["en"])
+    return ai_prefix_for(business.locale)
 
 
 ToolHandler = Callable[["Business", "Customer", dict[str, object]], Awaitable[str]]

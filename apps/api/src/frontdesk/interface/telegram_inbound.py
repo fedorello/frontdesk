@@ -12,7 +12,7 @@ from dataclasses import replace
 
 import httpx
 
-from frontdesk.application.assistant import Assistant, AssistantDeps
+from frontdesk.application.assistant import Assistant, AssistantDeps, ai_prefix_for
 from frontdesk.application.ports import (
     InboundMessage,
     LlmConfigRepository,
@@ -69,14 +69,15 @@ class TelegramInbound:
     async def handle(self, bot: TelegramBotConfig, inbound: InboundMessage) -> None:
         key = f"{bot.business_id}:{inbound.from_address}"
         locale = await self._locale(bot)
+        prefix = ai_prefix_for(locale)  # these filler lines are the AI talking too
         if key in self._busy:
             # A new message arrived while the previous one is still being answered.
-            await self._say(bot, inbound.from_address, self._random.choice(BUSY[locale]))
+            await self._say(bot, inbound.from_address, prefix + self._random.choice(BUSY[locale]))
             return
 
         self._busy.add(key)
         placeholder_id = await self._say(
-            bot, inbound.from_address, self._random.choice(WAIT[locale])
+            bot, inbound.from_address, prefix + self._random.choice(WAIT[locale])
         )
         try:
             await self._run(bot, inbound, locale)
@@ -113,7 +114,8 @@ class TelegramInbound:
             quota_customer = Customer(
                 CustomerId("quota"), business_id, inbound.channel, inbound.from_address
             )
-            await messaging.send(quota_customer, OutboundMessage(_QUOTA_MESSAGE[locale]))
+            quota_text = ai_prefix_for(locale) + _QUOTA_MESSAGE[locale]
+            await messaging.send(quota_customer, OutboundMessage(quota_text))
             return
 
         assistant = Assistant(
