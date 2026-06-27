@@ -111,9 +111,35 @@ describe("Conversations page", () => {
 
     fireEvent.click(await screen.findByText("Mara"));
     fireEvent.change(screen.getByLabelText("Reply"), { target: { value: "On my way" } });
-    fireEvent.click(screen.getByRole("button", { name: "Send" }));
+    fireEvent.click(screen.getByRole("button", { name: /Send/ }));
 
     await waitFor(() => expect(sendOwnerMessage).toHaveBeenCalledWith("b", "c1", "On my way", "t"));
+  });
+
+  it("sends on Cmd/Ctrl+Enter from the composer", async () => {
+    signIn();
+    conversations.mockResolvedValue([
+      {
+        customer: "Mara",
+        customer_id: "c1",
+        handled: false,
+        role: "customer",
+        text: "Can I book?",
+        at: "2026-06-26T14:58:00+00:00",
+      },
+    ]);
+    getBusiness.mockResolvedValue({ name: "B", timezone: "UTC" });
+    sendOwnerMessage.mockResolvedValue({ handled: true });
+    renderPage();
+
+    fireEvent.click(await screen.findByText("Mara"));
+    const composer = screen.getByLabelText("Reply");
+    fireEvent.change(composer, { target: { value: "Two minutes" } });
+    fireEvent.keyDown(composer, { key: "Enter", metaKey: true });
+
+    await waitFor(() =>
+      expect(sendOwnerMessage).toHaveBeenCalledWith("b", "c1", "Two minutes", "t"),
+    );
   });
 
   it("filters the thread list by the ?q search param", async () => {

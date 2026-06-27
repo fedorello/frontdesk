@@ -1,7 +1,7 @@
 "use client";
 
 import { useSearchParams } from "next/navigation";
-import { Suspense, useEffect, useLayoutEffect, useRef, useState } from "react";
+import { type KeyboardEvent, Suspense, useEffect, useLayoutEffect, useRef, useState } from "react";
 
 import { api, type MessageView } from "@/app/lib/api";
 import { formatDay, formatTime } from "@/app/lib/format";
@@ -285,6 +285,16 @@ function ThreadDetail({
     });
   };
 
+  // Cmd+Enter on macOS, Ctrl+Enter elsewhere — both arrive as metaKey/ctrlKey + Enter.
+  const onComposerKeyDown = (event: KeyboardEvent) => {
+    if (event.key === "Enter" && (event.metaKey || event.ctrlKey)) {
+      event.preventDefault();
+      send();
+    }
+  };
+  const isMac = typeof navigator !== "undefined" && /Mac/i.test(navigator.platform);
+  const sendShortcut = isMac ? "⌘↵" : "Ctrl+↵";
+
   return (
     <div className="flex min-h-0 flex-1 flex-col">
       <div className="flex shrink-0 items-center justify-between gap-3 pb-3">
@@ -363,6 +373,7 @@ function ThreadDetail({
           aria-label={t("conversations.reply")}
           value={draft}
           onChange={(event) => setDraft(event.target.value)}
+          onKeyDown={onComposerKeyDown}
           placeholder={t("conversations.replyPlaceholder")}
           rows={2}
           className={composerClass}
@@ -373,9 +384,12 @@ function ThreadDetail({
             type="button"
             onClick={send}
             disabled={busy || draft.trim() === ""}
-            className="shrink-0 rounded-lg bg-accent px-4 py-2 text-sm font-bold text-accent-contrast disabled:opacity-50"
+            className="flex shrink-0 items-center gap-2 rounded-lg bg-accent px-4 py-2 text-sm font-bold text-accent-contrast disabled:opacity-50"
           >
             {t("conversations.send")}
+            <kbd className="rounded bg-black/15 px-1.5 py-0.5 font-sans text-[11px] font-medium">
+              {sendShortcut}
+            </kbd>
           </button>
         </div>
       </div>
