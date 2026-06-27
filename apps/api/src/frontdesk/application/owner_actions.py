@@ -5,9 +5,9 @@ plain, localized message on the business's own Telegram bot. Tenant-scoped throu
 """
 
 from datetime import datetime, timedelta
-from zoneinfo import ZoneInfo
 
 from frontdesk.application.appointments import CancelAppointment, RescheduleAppointment
+from frontdesk.application.datetime_format import format_when
 from frontdesk.application.ports import (
     AppointmentRepository,
     BusinessRepository,
@@ -18,8 +18,6 @@ from frontdesk.application.ports import (
 from frontdesk.domain.errors import TenantMismatch
 from frontdesk.domain.ids import AppointmentId, BusinessId
 from frontdesk.domain.models import Appointment, Business, Service, TimeSlot
-
-_WHEN_FORMAT = "%a %d %b %H:%M"  # rendered in the business's local time zone
 
 # (header, reason line) per locale; the reason line is dropped when no reason is given.
 _CANCEL_NOTICE = {
@@ -37,13 +35,9 @@ _RESCHEDULE_NOTICE = {
 }
 
 
-def _when(slot: TimeSlot, business: Business) -> str:
-    return slot.starts_at.astimezone(ZoneInfo(business.timezone)).strftime(_WHEN_FORMAT)
-
-
 def cancel_notice(business: Business, service: Service, slot: TimeSlot, reason: str) -> str:
     header, reason_line = _CANCEL_NOTICE.get(business.locale, _CANCEL_NOTICE["en"])
-    text = header.format(service=service.name, when=_when(slot, business))
+    text = header.format(service=service.name, when=format_when(slot.starts_at, business))
     if reason.strip():
         text += "\n" + reason_line.format(reason=reason.strip())
     return text
@@ -51,7 +45,7 @@ def cancel_notice(business: Business, service: Service, slot: TimeSlot, reason: 
 
 def reschedule_notice(business: Business, service: Service, slot: TimeSlot) -> str:
     template = _RESCHEDULE_NOTICE.get(business.locale, _RESCHEDULE_NOTICE["en"])
-    return template.format(service=service.name, when=_when(slot, business))
+    return template.format(service=service.name, when=format_when(slot.starts_at, business))
 
 
 class OwnerCancelAppointment:

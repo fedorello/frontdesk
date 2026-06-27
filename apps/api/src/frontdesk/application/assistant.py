@@ -15,6 +15,7 @@ from frontdesk.application.appointments import (
     CancelAppointment,
     RescheduleAppointment,
 )
+from frontdesk.application.datetime_format import format_when
 from frontdesk.application.ports import (
     AppointmentRepository,
     ApprovalGate,
@@ -209,11 +210,11 @@ _RECEIPT = {
 
 
 def _booking_receipt(
-    business: Business, service: Service, when: str, intake: Sequence[IntakeAnswer]
+    business: Business, service: Service, moment: datetime, intake: Sequence[IntakeAnswer]
 ) -> str:
     """A deterministic confirmation: what was booked, when, and the captured answers."""
     booked, details = _RECEIPT.get(business.locale, _RECEIPT["en"])
-    lines = [booked, f"**{service.name}**", f"📅 {when}"]
+    lines = [booked, f"**{service.name}**", f"📅 {format_when(moment, business)}"]
     if intake:
         lines += ["", details, *(f"• {answer.name}: {answer.value}" for answer in intake)]
     return "\n".join(lines)
@@ -446,7 +447,7 @@ class Assistant:
             )
         when = _when(slot.starts_at, tz)
         await self._d.messaging.send(
-            customer, OutboundMessage(_booking_receipt(business, service, when, intake))
+            customer, OutboundMessage(_booking_receipt(business, service, slot.starts_at, intake))
         )
         return (
             f"Booked {service.name} for {when} (ref {appointment.id}). A confirmation with the "
