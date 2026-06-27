@@ -24,6 +24,17 @@ export interface WorkingHours {
   closes: string;
 }
 
+export interface IntakeField {
+  name: string;
+  description?: string;
+  ask?: string;
+}
+
+export interface IntakeAnswer {
+  name: string;
+  value: string;
+}
+
 export interface BusinessProfile {
   name: string;
   timezone: string;
@@ -45,6 +56,7 @@ export interface ServiceInput {
   description?: string;
   working_hours?: WorkingHours[];
   max_advance_days?: number;
+  intake_fields?: IntakeField[];
 }
 
 export interface LlmConfigInput {
@@ -64,6 +76,7 @@ export interface AppointmentView {
   starts_at: string;
   ends_at: string;
   status: string;
+  intake?: IntakeAnswer[];
 }
 
 export interface MessageView {

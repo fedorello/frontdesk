@@ -41,11 +41,14 @@ describe("Calendar page", () => {
         starts_at: "2026-06-26T13:30:00+00:00",
         ends_at: "2026-06-26T14:00:00+00:00",
         status: "confirmed",
+        intake: [{ name: "Birth date", value: "1990-01-01" }],
       },
     ]);
     renderCalendar();
     expect(await screen.findByText("Manicure")).toBeInTheDocument();
     expect(screen.getByText("13:30")).toBeInTheDocument();
     expect(screen.getByText("confirmed")).toBeInTheDocument();
+    expect(screen.getByText("Birth date:")).toBeInTheDocument(); // captured intake shown
+    expect(screen.getByText("1990-01-01")).toBeInTheDocument();
   });
 });

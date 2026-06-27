@@ -9,6 +9,7 @@ import { MAX_DESCRIPTION } from "@/app/lib/limits";
 
 import { AutoTextarea } from "./AutoTextarea";
 import { CharCount } from "./CharCount";
+import { IntakeFieldsEditor } from "./IntakeFieldsEditor";
 import { WeeklyHoursEditor } from "./WeeklyHoursEditor";
 
 export type Service = ServiceInput & { id: string };
@@ -43,6 +44,7 @@ export function ServiceCard({
   const [currency, setCurrency] = useState(service.currency || "USD");
   const [hours, setHours] = useState(service.working_hours ?? []);
   const [maxAdvanceDays, setMaxAdvanceDays] = useState(service.max_advance_days ?? 30);
+  const [intakeFields, setIntakeFields] = useState(service.intake_fields ?? []);
   const [saving, setSaving] = useState(false);
 
   const save = async () => {
@@ -57,6 +59,7 @@ export function ServiceCard({
         currency,
         working_hours: hours,
         max_advance_days: maxAdvanceDays,
+        intake_fields: intakeFields.filter((item) => item.name.trim() !== ""),
       });
       setOpen(false);
     } finally {
@@ -185,6 +188,12 @@ export function ServiceCard({
             />
             <span className="text-xs text-muted">{t("settings.maxAdvanceDaysHint")}</span>
           </label>
+
+          <div className="space-y-2">
+            <span className="text-sm font-medium">{t("settings.intakeTitle")}</span>
+            <p className="text-xs text-muted">{t("settings.intakeHint")}</p>
+            <IntakeFieldsEditor value={intakeFields} onChange={setIntakeFields} />
+          </div>
 
           <button
             type="button"

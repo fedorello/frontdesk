@@ -84,8 +84,18 @@ function AppointmentCard({
         </span>
         <span className="text-xs text-faint">{minutes}m</span>
       </div>
-      <div className="flex flex-1 flex-col justify-center">
+      <div className="flex min-w-0 flex-1 flex-col justify-center">
         <span className="font-semibold">{appointment.service}</span>
+        {appointment.intake && appointment.intake.length > 0 && (
+          <dl className="mt-1.5 space-y-0.5">
+            {appointment.intake.map((answer, index) => (
+              <div key={index} className="flex gap-1.5 text-xs">
+                <dt className="shrink-0 text-muted">{answer.name}:</dt>
+                <dd className="truncate text-ink">{answer.value}</dd>
+              </div>
+            ))}
+          </dl>
+        )}
       </div>
       <div className="flex items-center">
         <StatusPill status={appointment.status} />
