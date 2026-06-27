@@ -107,3 +107,19 @@ def test_utc_offset_formatting() -> None:
     assert _utc_offset(datetime(2026, 6, 27, tzinfo=timezone(timedelta(hours=5, minutes=30)))) == (
         "UTC+5:30"
     )
+
+
+def test_prompt_names_the_owner_and_explains_owner_turns() -> None:
+    business = Business(BusinessId("b"), "Ana", "America/Montevideo", owner_name="Alex")
+    prompt = _system_prompt(business, [], NOW)
+    assert "Alex" in prompt  # the model knows the owner's name
+    assert "[owner Alex]" in prompt  # ...and how their turns are tagged in the history
+    assert "human owner" in prompt
+
+
+def test_owner_tag_uses_the_name_when_set() -> None:
+    from frontdesk.application.assistant import _owner_tag
+
+    named = Business(BusinessId("b"), "A", "UTC", owner_name="Alex")
+    assert _owner_tag(named) == "[owner Alex] "
+    assert _owner_tag(Business(BusinessId("b"), "A", "UTC")) == "[owner] "

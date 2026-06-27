@@ -111,6 +111,8 @@ class ScriptedLlmProvider:
     def __init__(self, completions: Sequence[Completion]) -> None:
         self._completions = list(completions)
         self.calls = 0
+        self.last_system = ""  # captured for assertions on the prompt
+        self.last_messages: list[Message] = []  # captured for assertions on the history
 
     async def complete(
         self,
@@ -119,6 +121,8 @@ class ScriptedLlmProvider:
         messages: Sequence[Message],
         tools: Sequence[object],
     ) -> Completion:
+        self.last_system = system
+        self.last_messages = list(messages)
         if self.calls >= len(self._completions):
             raise IndexError("scripted provider exhausted")
         completion = self._completions[self.calls]

@@ -12,9 +12,10 @@ from frontdesk.application.ports import (
     MessageReceived,
     ToolCall,
 )
-from frontdesk.domain.enums import AppointmentStatus, Channel
+from frontdesk.domain.enums import AppointmentStatus, Channel, MessageRole
 from frontdesk.domain.ids import AppointmentId
-from frontdesk.domain.models import IntakeAnswer, IntakeField, TimeSlot
+from frontdesk.domain.models import IntakeAnswer, IntakeField, Message, TimeSlot
+from frontdesk.infrastructure.memory import ScriptedLlmProvider
 from tests.application.world import NOW, build_world, inbound, make_customer
 
 _SLOT = TimeSlot(datetime(2026, 6, 26, 15, tzinfo=UTC), datetime(2026, 6, 26, 16, tzinfo=UTC))
@@ -269,3 +270,16 @@ async def test_assistant_stays_silent_when_the_owner_has_taken_over() -> None:
     await world.assistant.handle(inbound("hello?"))
 
     assert world.messaging.sent == []  # the human is handling it; the AI is muted
+
+
+async def test_owner_turns_reach_the_model_tagged_as_the_human_owner() -> None:
+    world = build_world([Completion("Continuing where you left off!")])
+    customer = await world.customers.upsert(world.business.id, Channel.WHATSAPP, "+CUST")
+    await world.deps.conversations.append(customer, Message(MessageRole.OWNER, "On my way!", NOW))
+
+    await world.assistant.handle(inbound("hi again"))
+
+    llm = world.deps.llm
+    assert isinstance(llm, ScriptedLlmProvider)
+    texts = [message.text for message in llm.last_messages]
+    assert "[owner] On my way!" in texts  # the model sees it as the owner, not its own reply

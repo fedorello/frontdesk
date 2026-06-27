@@ -6,7 +6,7 @@ and escalates when unsure. See ADR-0007.
 """
 
 from collections.abc import Awaitable, Callable, Sequence
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 from datetime import UTC, datetime, timedelta
 from zoneinfo import ZoneInfo
 
@@ -273,6 +273,24 @@ def _location_line(business: Business) -> str:
     return ""
 
 
+def _owner_tag(business: Business) -> str:
+    """The marker prepended to owner turns in the history the model reads."""
+    name = business.owner_name.strip()
+    return f"[owner {name}] " if name else "[owner] "
+
+
+def _owner_line(business: Business) -> str:
+    """Tell the model who the human owner is, and how to read their turns in the history."""
+    name = business.owner_name.strip()
+    who = f", {name}," if name else ""
+    return (
+        f"\n\nThe business has a human owner{who} who can step into a chat to reply in person. "
+        f"A message in the history that starts with '{_owner_tag(business).strip()}' was written "
+        "by the owner, NOT by you — treat it as the owner speaking to the customer, and continue "
+        "naturally from where they left off (do not repeat or contradict them)."
+    )
+
+
 def _intake_block(services: Sequence[Service]) -> str:
     blocks = []
     for service in services:
@@ -307,7 +325,7 @@ def _system_prompt(business: Business, services: Sequence[Service], now: datetim
         "You may use light Markdown — **bold**, *italic*, `code`, bullet lists with '- ', and "
         "[links](https://...). It renders natively in the customer's messenger. Keep it simple: "
         "prefer short bullet lists over tables, and avoid headings."
-        f"{about}{_location_line(business)}\n\n"
+        f"{about}{_location_line(business)}{_owner_line(business)}\n\n"
         "These are the ONLY services we offer. Never offer, suggest, or search for anything "
         f"not on this list — if a customer asks for something else, say we don't offer it:\n{menu}"
         "\n\nFree times change after EVERY booking, reschedule, or cancellation — and as time "
@@ -368,7 +386,16 @@ class Assistant:
         )
 
     async def _run(self, business: Business, customer: Customer) -> str:
-        messages = list(await self._d.conversations.history(customer))
+        history = await self._d.conversations.history(customer)
+        # Mark the owner's hand-written turns so the model treats them as the human owner,
+        # not as its own past replies (owner turns map to the assistant role for the LLM).
+        tag = _owner_tag(business)
+        messages = [
+            replace(message, text=tag + message.text)
+            if message.role is MessageRole.OWNER
+            else message
+            for message in history
+        ]
         system = _system_prompt(
             business, await self._d.services.for_business(business.id), self._d.clock.now()
         )
