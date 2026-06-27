@@ -90,7 +90,8 @@ CREATE_STATEMENTS: tuple[str, ...] = (
         resource_ids jsonb NOT NULL DEFAULT '[]',
         description text NOT NULL DEFAULT '',
         working_hours jsonb NOT NULL DEFAULT '[]',
-        max_advance_days integer NOT NULL DEFAULT 30
+        max_advance_days integer NOT NULL DEFAULT 30,
+        intake_fields jsonb NOT NULL DEFAULT '[]'
     )
     """,
     """
@@ -125,6 +126,7 @@ CREATE_STATEMENTS: tuple[str, ...] = (
         starts_at timestamptz NOT NULL,
         ends_at timestamptz NOT NULL,
         status text NOT NULL DEFAULT 'pending',
+        intake jsonb NOT NULL DEFAULT '[]',
         CONSTRAINT no_double_book EXCLUDE USING gist (
             resource_id WITH =, tstzrange(starts_at, ends_at) WITH &&
         ) WHERE (status <> 'cancelled')

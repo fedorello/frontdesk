@@ -38,6 +38,7 @@ from frontdesk.domain.models import (
     Appointment,
     Business,
     Customer,
+    IntakeAnswer,
     Message,
     Reminder,
     Resource,
@@ -377,7 +378,12 @@ class InMemoryCalendar:
         )
 
     async def book(
-        self, service: Service, resource_id: ResourceId, customer: Customer, slot: TimeSlot
+        self,
+        service: Service,
+        resource_id: ResourceId,
+        customer: Customer,
+        slot: TimeSlot,
+        intake: tuple[IntakeAnswer, ...] = (),
     ) -> Appointment:
         self._reject_overlap(service, slot, self._busy(resource_id))
         appointment = Appointment(
@@ -387,6 +393,7 @@ class InMemoryCalendar:
             resource_id,
             customer.id,
             slot,
+            intake=intake,
         )
         self._store.appointments[appointment.id] = appointment
         return appointment

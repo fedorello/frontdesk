@@ -18,7 +18,15 @@ from frontdesk.application.ports import (
     ServiceRepository,
 )
 from frontdesk.domain.ids import BusinessId, ResourceId, ServiceId
-from frontdesk.domain.models import Business, KnowledgeItem, Resource, Service, WorkingHours
+from frontdesk.domain.models import (
+    MAX_INTAKE_FIELDS,
+    Business,
+    IntakeField,
+    KnowledgeItem,
+    Resource,
+    Service,
+    WorkingHours,
+)
 from frontdesk.domain.money import Money
 
 Guard = Callable[..., Awaitable[None]] | None
@@ -37,6 +45,12 @@ class WorkingHoursIO(BaseModel):
     weekday: int  # Monday = 0
     opens: str  # "HH:MM:SS"
     closes: str
+
+
+class IntakeFieldIO(BaseModel):
+    name: str = Field(max_length=MAX_NAME)
+    description: str = Field(default="", max_length=MAX_DESCRIPTION)
+    ask: str = Field(default="", max_length=MAX_DESCRIPTION)
 
 
 class BusinessProfile(BaseModel):
@@ -89,6 +103,7 @@ class ServiceIO(BaseModel):
     description: str = Field(default="", max_length=MAX_DESCRIPTION)
     working_hours: list[WorkingHoursIO] = []
     max_advance_days: int = 30
+    intake_fields: list[IntakeFieldIO] = Field(default=[], max_length=MAX_INTAKE_FIELDS)
 
     @field_validator("max_advance_days")
     @classmethod
@@ -143,6 +158,10 @@ def _service_view(service: Service) -> ServiceView:
         description=service.description,
         working_hours=_hours_io(service.working_hours),
         max_advance_days=service.max_advance_days,
+        intake_fields=[
+            IntakeFieldIO(name=f.name, description=f.description, ask=f.ask)
+            for f in service.intake_fields
+        ],
     )
 
 
@@ -220,6 +239,9 @@ def build_config_router(
             description=body.description,
             working_hours=_to_hours(body.working_hours),
             max_advance_days=body.max_advance_days,
+            intake_fields=tuple(
+                IntakeField(f.name, f.description, f.ask) for f in body.intake_fields
+            ),
         )
         await services.upsert(service)
         return _service_view(service)

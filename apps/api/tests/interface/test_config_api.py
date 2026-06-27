@@ -161,3 +161,31 @@ async def test_oversized_name_and_descriptions_are_rejected() -> None:
             json={"name": "S", "duration_minutes": 30, "description": "x" * 5001},
         )
         assert too_long_service.status_code == 422  # service description > 5000
+
+
+async def test_intake_fields_roundtrip_and_capped_at_five() -> None:
+    async with _client() as client:
+        await client.put(
+            "/api/businesses/ana/services/svc1",
+            json={
+                "name": "Reading",
+                "duration_minutes": 60,
+                "intake_fields": [
+                    {"name": "Birth date", "description": "DOB", "ask": "When were you born?"},
+                    {"name": "Birth time", "description": "time of birth"},
+                ],
+            },
+        )
+        fields = (await client.get("/api/businesses/ana/services")).json()[0]["intake_fields"]
+        assert [f["name"] for f in fields] == ["Birth date", "Birth time"]
+        assert fields[0]["ask"] == "When were you born?"
+
+        six = await client.put(
+            "/api/businesses/ana/services/svc2",
+            json={
+                "name": "X",
+                "duration_minutes": 30,
+                "intake_fields": [{"name": f"f{i}"} for i in range(6)],
+            },
+        )
+        assert six.status_code == 422  # at most 5 intake fields

@@ -15,11 +15,17 @@ from frontdesk.domain.ids import BusinessId
 Guard = Callable[..., Awaitable[None]] | None
 
 
+class IntakeAnswerView(BaseModel):
+    name: str
+    value: str
+
+
 class AppointmentView(BaseModel):
     service: str
     starts_at: str
     ends_at: str
     status: str
+    intake: list[IntakeAnswerView] = []
 
 
 class MessageView(BaseModel):
@@ -59,6 +65,7 @@ def build_read_router(
                 starts_at=appointment.slot.starts_at.isoformat(),
                 ends_at=appointment.slot.ends_at.isoformat(),
                 status=appointment.status.value,
+                intake=[IntakeAnswerView(name=a.name, value=a.value) for a in appointment.intake],
             )
             for appointment in await appointments.for_business(bid)
         ]

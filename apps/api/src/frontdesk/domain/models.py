@@ -62,6 +62,26 @@ class KnowledgeItem:
     answer: str
 
 
+MAX_INTAKE_FIELDS = 5
+
+
+@dataclass(frozen=True, slots=True)
+class IntakeField:
+    """One piece of info to collect from the customer before booking a service."""
+
+    name: str  # e.g. "Birth date"
+    description: str = ""  # what it is — guides the assistant
+    ask: str = ""  # optional: how to phrase the question to the customer
+
+
+@dataclass(frozen=True, slots=True)
+class IntakeAnswer:
+    """The customer's answer to one IntakeField, stored on the appointment."""
+
+    name: str
+    value: str
+
+
 @dataclass(frozen=True, slots=True)
 class Service:
     id: ServiceId
@@ -73,12 +93,15 @@ class Service:
     description: str = ""  # what the service is — given to the assistant and shown to owners
     working_hours: tuple[WorkingHours, ...] = ()  # the weekly schedule this service is bookable in
     max_advance_days: int = 30  # how far ahead a customer may book this service
+    intake_fields: tuple[IntakeField, ...] = ()  # info to collect before booking
 
     def __post_init__(self) -> None:
         if self.duration_minutes <= 0:
             raise ValueError("duration_minutes must be positive")
         if self.max_advance_days <= 0:
             raise ValueError("max_advance_days must be positive")
+        if len(self.intake_fields) > MAX_INTAKE_FIELDS:
+            raise ValueError(f"at most {MAX_INTAKE_FIELDS} intake fields")
 
 
 @dataclass(frozen=True, slots=True)
@@ -136,6 +159,7 @@ class Appointment:
     customer_id: CustomerId
     slot: TimeSlot
     status: AppointmentStatus = AppointmentStatus.PENDING
+    intake: tuple[IntakeAnswer, ...] = ()  # the customer's answers to the service's intake fields
 
 
 @dataclass(frozen=True, slots=True)

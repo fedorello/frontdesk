@@ -12,6 +12,7 @@ from frontdesk.application.ports import (
 )
 from frontdesk.domain.enums import AppointmentStatus, Channel
 from frontdesk.domain.ids import AppointmentId
+from frontdesk.domain.models import IntakeAnswer, IntakeField
 from tests.application.world import NOW, build_world, inbound, make_customer
 
 
@@ -176,3 +177,30 @@ async def test_sensitive_refund_runs_when_approved() -> None:
     await world.assistant.handle(inbound("I want a refund please"))
 
     assert not any(isinstance(event, ApprovalRequested) for event in world.events.events)
+
+
+async def test_booking_collects_intake_then_sends_a_receipt() -> None:
+    start = "2026-06-26T15:00:00+00:00"
+    world = build_world(
+        [
+            # First the model tries to book without the required field → blocked.
+            _tool("1", "book", {"service": "Haircut", "start": start}),
+            # Then it books with the collected answer in 'details'.
+            _tool(
+                "2",
+                "book",
+                {"service": "Haircut", "start": start, "details": {"Birth date": "1990-01-01"}},
+            ),
+            Completion("All set!"),
+        ],
+        intake_fields=(IntakeField("Birth date", "the customer's date of birth"),),
+    )
+
+    await world.assistant.handle(inbound("book me a haircut"))
+
+    # The deterministic receipt carried the captured answer.
+    receipts = [message.text for _, message in world.messaging.sent]
+    assert any("Birth date: 1990-01-01" in text for text in receipts)
+    # The appointment persisted the intake answer.
+    appointment = next(iter(world.appointments.appointments.values()))
+    assert appointment.intake == (IntakeAnswer("Birth date", "1990-01-01"),)

@@ -40,7 +40,14 @@ from frontdesk.application.ports import (
 from frontdesk.domain.enums import MessageRole
 from frontdesk.domain.errors import DomainError
 from frontdesk.domain.ids import AppointmentId
-from frontdesk.domain.models import Business, Customer, Message, Service, TimeSlot
+from frontdesk.domain.models import (
+    Business,
+    Customer,
+    IntakeAnswer,
+    Message,
+    Service,
+    TimeSlot,
+)
 
 MAX_STEPS = 6
 SLOT_FORMAT = "%a %d %b %H:%M"  # rendered in the business's local time zone
@@ -85,10 +92,15 @@ TOOL_SPECS: tuple[ToolSpec, ...] = (
     ),
     ToolSpec(
         "book",
-        "Book an appointment for a service at a slot start time (ISO).",
+        "Book an appointment for a service at a slot start time (ISO). Pass 'details' with "
+        "the service's required intake answers (a map of field name to the customer's answer).",
         {
             "type": "object",
-            "properties": {"service": {"type": "string"}, "start": {"type": "string"}},
+            "properties": {
+                "service": {"type": "string"},
+                "start": {"type": "string"},
+                "details": {"type": "object"},
+            },
             "required": ["service", "start"],
         },
     ),
@@ -165,6 +177,40 @@ def _when(moment: datetime, tz: ZoneInfo) -> str:
     return moment.astimezone(tz).strftime(SLOT_FORMAT)
 
 
+# Sent verbatim to the customer when a booking is created — localized by business.locale.
+_RECEIPT = {
+    "en": ("✅ Booking confirmed", "Your details:"),
+    "es": ("✅ Reserva confirmada", "Tus datos:"),
+    "ru": ("✅ Запись подтверждена", "Ваши данные:"),
+    "zh": ("✅ 预约已确认", "您的信息："),
+}
+
+
+def _booking_receipt(
+    business: Business, service: Service, when: str, intake: Sequence[IntakeAnswer]
+) -> str:
+    """A deterministic confirmation: what was booked, when, and the captured answers."""
+    booked, details = _RECEIPT.get(business.locale, _RECEIPT["en"])
+    lines = [booked, f"**{service.name}**", f"📅 {when}"]
+    if intake:
+        lines += ["", details, *(f"• {answer.name}: {answer.value}" for answer in intake)]
+    return "\n".join(lines)
+
+
+def _collect_intake(
+    service: Service, details: object
+) -> tuple[tuple[IntakeAnswer, ...], list[str]]:
+    """Map the model's answers to the service's fields; return (answers, missing field names)."""
+    answers = details if isinstance(details, dict) else {}
+    missing = [f.name for f in service.intake_fields if not str(answers.get(f.name, "")).strip()]
+    collected = tuple(
+        IntakeAnswer(f.name, str(answers[f.name]).strip())
+        for f in service.intake_fields
+        if f.name not in missing
+    )
+    return collected, missing
+
+
 def _format_slots(slots: Sequence[TimeSlot], tz: ZoneInfo) -> str:
     if not slots:
         return "no free times right now"
@@ -183,6 +229,22 @@ def _location_line(business: Business) -> str:
     if business.address:
         return f"\n\nLocation: {business.address}"
     return ""
+
+
+def _intake_block(services: Sequence[Service]) -> str:
+    blocks = []
+    for service in services:
+        if not service.intake_fields:
+            continue
+        fields = "\n".join(
+            f"  - {f.name}: {f.description}" + (f" (e.g. ask: {f.ask})" if f.ask else "")
+            for f in service.intake_fields
+        )
+        blocks.append(
+            f"For '{service.name}', collect ALL of these from the customer BEFORE booking and "
+            f"pass them in the book tool's 'details' (keyed by the exact field name):\n{fields}"
+        )
+    return "\n\nIntake required before booking:\n" + "\n\n".join(blocks) if blocks else ""
 
 
 def _system_prompt(business: Business, services: Sequence[Service]) -> str:
@@ -207,6 +269,7 @@ def _system_prompt(business: Business, services: Sequence[Service]) -> str:
         f"\n\nThe time shown before each '(start=...)' is the FINAL local time in the business's "
         f"zone ({business.timezone}) — show exactly that time to the customer. Never ask the "
         "customer what time zone they are in, and never offer to convert times for them."
+        f"{_intake_block(services)}"
         f"\n\nKnowledge base:\n{knowledge}"
     )
 
@@ -301,10 +364,18 @@ class Assistant:
         start = _parse_iso(args.get("start"))
         if service is None or start is None:
             return "I need a valid service and start time to book."
+        intake, missing = _collect_intake(service, args.get("details"))
+        if missing:
+            return (
+                "Before booking, you must collect ALL of these from the customer, then call book "
+                f"again with them in 'details': {', '.join(missing)}."
+            )
         tz = ZoneInfo(business.timezone)
         slot = TimeSlot(start, start + timedelta(minutes=service.duration_minutes))
         try:
-            appointment = await self._d.book(service, service.resource_ids[0], customer, slot)
+            appointment = await self._d.book(
+                service, service.resource_ids[0], customer, slot, intake
+            )
         except DomainError as error:
             current = await self._d.calendar.find_availability(service, self._d.clock.now())
             return (
@@ -312,8 +383,13 @@ class Assistant:
                 f"The currently free slots are: {_format_slots(current, tz)}. "
                 "Offer these exact times; do not reuse any earlier list."
             )
+        when = _when(slot.starts_at, tz)
+        await self._d.messaging.send(
+            customer, OutboundMessage(_booking_receipt(business, service, when, intake))
+        )
         return (
-            f"Booked {service.name} for {_when(slot.starts_at, tz)}. Reference: {appointment.id}."
+            f"Booked {service.name} for {when} (ref {appointment.id}). A confirmation with the "
+            "details was already sent to the customer — acknowledge warmly and briefly."
         )
 
     async def _do_reschedule(

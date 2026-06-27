@@ -38,6 +38,8 @@ from frontdesk.domain.models import (
     Appointment,
     Business,
     Customer,
+    IntakeAnswer,
+    IntakeField,
     KnowledgeItem,
     Message,
     Reminder,
@@ -89,6 +91,26 @@ def _hours_json(working_hours: Sequence[WorkingHours]) -> str:
     )
 
 
+def _to_intake_fields(value: object) -> tuple[IntakeField, ...]:
+    return tuple(
+        IntakeField(f["name"], f.get("description", ""), f.get("ask", "")) for f in _json(value)
+    )
+
+
+def _intake_fields_json(fields: Sequence[IntakeField]) -> str:
+    return json.dumps(
+        [{"name": f.name, "description": f.description, "ask": f.ask} for f in fields]
+    )
+
+
+def _to_intake_answers(value: object) -> tuple[IntakeAnswer, ...]:
+    return tuple(IntakeAnswer(a["name"], a["value"]) for a in _json(value))
+
+
+def _intake_json(answers: Sequence[IntakeAnswer]) -> str:
+    return json.dumps([{"name": a.name, "value": a.value} for a in answers])
+
+
 def _to_resource(row: Row) -> Resource:
     return Resource(
         ResourceId(row["id"]),
@@ -115,6 +137,7 @@ def _to_service(row: Row) -> Service:
         description=row["description"],
         working_hours=_to_hours(row["working_hours"]),
         max_advance_days=row["max_advance_days"],
+        intake_fields=_to_intake_fields(row["intake_fields"]),
     )
 
 
@@ -138,6 +161,7 @@ def _to_appointment(row: Row) -> Appointment:
         CustomerId(row["customer_id"]),
         TimeSlot(row["starts_at"], row["ends_at"]),
         AppointmentStatus(row["status"]),
+        _to_intake_answers(row["intake"]),
     )
 
 
@@ -290,13 +314,14 @@ class SqlServiceRepository:
             await session.execute(
                 text(
                     "INSERT INTO service (id, business_id, name, duration_minutes, price_cents, "
-                    "currency, resource_ids, description, working_hours, max_advance_days) "
+                    "currency, resource_ids, description, working_hours, max_advance_days, "
+                    "intake_fields) "
                     "VALUES (:id, :bid, :name, :dur, :cents, :cur, CAST(:rids AS jsonb), :desc, "
-                    "CAST(:wh AS jsonb), :adv) "
+                    "CAST(:wh AS jsonb), :adv, CAST(:intake AS jsonb)) "
                     "ON CONFLICT (id) DO UPDATE SET name = :name, duration_minutes = :dur, "
                     "price_cents = :cents, currency = :cur, resource_ids = CAST(:rids AS jsonb), "
                     "description = :desc, working_hours = CAST(:wh AS jsonb), "
-                    "max_advance_days = :adv"
+                    "max_advance_days = :adv, intake_fields = CAST(:intake AS jsonb)"
                 ),
                 {
                     "id": str(service.id),
@@ -309,6 +334,7 @@ class SqlServiceRepository:
                     "desc": service.description,
                     "wh": _hours_json(service.working_hours),
                     "adv": service.max_advance_days,
+                    "intake": _intake_fields_json(service.intake_fields),
                 },
             )
             await session.commit()
@@ -643,7 +669,12 @@ class SqlCalendar:
         )
 
     async def book(
-        self, service: Service, resource_id: ResourceId, customer: Customer, slot: TimeSlot
+        self,
+        service: Service,
+        resource_id: ResourceId,
+        customer: Customer,
+        slot: TimeSlot,
+        intake: tuple[IntakeAnswer, ...] = (),
     ) -> Appointment:
         async with self._sf() as session:
             business = await self._load_business(session, str(service.business_id))
@@ -669,6 +700,7 @@ class SqlCalendar:
                 resource_id,
                 customer.id,
                 slot,
+                intake=intake,
             )
             try:
                 await self._insert(session, appointment)
@@ -683,8 +715,9 @@ class SqlCalendar:
             text(
                 "INSERT INTO appointment "
                 "(id, business_id, service_id, resource_id, customer_id, "
-                "starts_at, ends_at, status)"
-                " VALUES (:id, :bid, :sid, :rid, :cid, :start, :end, :status)"
+                "starts_at, ends_at, status, intake)"
+                " VALUES (:id, :bid, :sid, :rid, :cid, :start, :end, :status, "
+                "CAST(:intake AS jsonb))"
             ),
             {
                 "id": str(appointment.id),
@@ -694,6 +727,7 @@ class SqlCalendar:
                 "cid": str(appointment.customer_id),
                 "start": appointment.slot.starts_at,
                 "end": appointment.slot.ends_at,
+                "intake": _intake_json(appointment.intake),
                 "status": appointment.status.value,
             },
         )

@@ -12,7 +12,14 @@ from frontdesk.application.ports import (
     ReminderStore,
 )
 from frontdesk.domain.ids import AppointmentId, ReminderId, ResourceId
-from frontdesk.domain.models import Appointment, Customer, Reminder, Service, TimeSlot
+from frontdesk.domain.models import (
+    Appointment,
+    Customer,
+    IntakeAnswer,
+    Reminder,
+    Service,
+    TimeSlot,
+)
 
 # When to remind, before the appointment.
 REMINDER_OFFSETS: tuple[tuple[str, int], ...] = (("24h", 24 * 60), ("2h", 2 * 60))
@@ -56,9 +63,14 @@ class BookAppointment:
         self._events = events
 
     async def __call__(
-        self, service: Service, resource_id: ResourceId, customer: Customer, slot: TimeSlot
+        self,
+        service: Service,
+        resource_id: ResourceId,
+        customer: Customer,
+        slot: TimeSlot,
+        intake: tuple[IntakeAnswer, ...] = (),
     ) -> Appointment:
-        appointment = await self._calendar.book(service, resource_id, customer, slot)
+        appointment = await self._calendar.book(service, resource_id, customer, slot, intake)
         await self._scheduler.schedule_for(appointment)
         await self._events.publish(AppointmentBooked(appointment.business_id, appointment.id))
         return appointment

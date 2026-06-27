@@ -40,6 +40,7 @@ from frontdesk.domain.ids import (
 from frontdesk.domain.models import (
     Business,
     Customer,
+    IntakeField,
     KnowledgeItem,
     Message,
     Reminder,
@@ -245,6 +246,7 @@ async def check_service_write(repo: ServiceRepository) -> None:
             description="A relaxing massage.",
             working_hours=(WorkingHours(1, time(10), time(15)),),
             max_advance_days=14,
+            intake_fields=(IntakeField("Birth date", "DOB", "When were you born?"),),
         )
     )
     stored = next(s for s in await repo.for_business(BusinessId("biz")) if s.id == sid)
@@ -252,6 +254,7 @@ async def check_service_write(repo: ServiceRepository) -> None:
     assert stored.price == Money(80000, "UYU")  # price + currency round-trip
     assert stored.working_hours == (WorkingHours(1, time(10), time(15)),)  # schedule round-trips
     assert stored.max_advance_days == 14  # booking horizon round-trips
+    assert stored.intake_fields == (IntakeField("Birth date", "DOB", "When were you born?"),)
 
     await repo.remove(sid)
     assert all(s.id != sid for s in await repo.for_business(BusinessId("biz")))

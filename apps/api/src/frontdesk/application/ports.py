@@ -25,6 +25,7 @@ from frontdesk.domain.models import (
     Appointment,
     Business,
     Customer,
+    IntakeAnswer,
     Message,
     Reminder,
     Resource,
@@ -180,6 +181,7 @@ class Calendar(Protocol):
         resource_id: ResourceId,
         customer: Customer,
         slot: TimeSlot,
+        intake: tuple[IntakeAnswer, ...] = (),
     ) -> Appointment: ...
     async def move(self, appointment_id: AppointmentId, slot: TimeSlot) -> Appointment: ...
     async def cancel(self, appointment_id: AppointmentId) -> Appointment: ...

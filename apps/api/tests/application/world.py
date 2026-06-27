@@ -17,6 +17,7 @@ from frontdesk.domain.ids import BusinessId, CustomerId, ResourceId, ServiceId
 from frontdesk.domain.models import (
     Business,
     Customer,
+    IntakeField,
     KnowledgeItem,
     Resource,
     Service,
@@ -61,7 +62,12 @@ class World:
     deps: AssistantDeps
 
 
-def build_world(script: Sequence[Completion], *, gate_approves: bool = False) -> World:
+def build_world(
+    script: Sequence[Completion],
+    *,
+    gate_approves: bool = False,
+    intake_fields: tuple[IntakeField, ...] = (),
+) -> World:
     business = Business(
         BusinessId("biz"),
         "Ana's Studio",
@@ -83,6 +89,7 @@ def build_world(script: Sequence[Completion], *, gate_approves: bool = False) ->
         60,
         resource_ids=(ResourceId("res"),),
         working_hours=tuple(WorkingHours(day, time(9), time(17)) for day in range(7)),
+        intake_fields=intake_fields,
     )
 
     clock = FixedClock(NOW)

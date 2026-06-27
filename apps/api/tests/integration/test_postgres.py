@@ -18,7 +18,13 @@ from frontdesk.domain.ids import (
     ResourceId,
     ServiceId,
 )
-from frontdesk.domain.models import Customer, Reminder, Service, WorkingHours
+from frontdesk.domain.models import (
+    Customer,
+    IntakeAnswer,
+    Reminder,
+    Service,
+    WorkingHours,
+)
 from frontdesk.infrastructure.postgres.adapters import (
     SqlAccountRepository,
     SqlAppointmentRepository,
@@ -144,6 +150,20 @@ async def test_booking_a_one_hour_slot_removes_overlapping_15min_slots(
     after = await calendar.find_availability(service, NOW)
     assert all(not slot.overlaps(booked) for slot in after)  # no slot inside the booked hour
     assert after[0].starts_at >= booked.ends_at  # the next free slot starts after it ends
+
+
+async def test_booking_persists_intake_answers(sessionmaker: Factory) -> None:
+    calendar = SqlCalendar(sessionmaker, SequentialIdGenerator("ap"), FixedClock(NOW))
+    service = _service()
+    slot = (await calendar.find_availability(service, NOW))[0]
+    intake = (IntakeAnswer("Birth date", "1990-01-01"), IntakeAnswer("Topic", "career"))
+
+    booked = await calendar.book(service, _resource_id(), _customer(), slot, intake)
+
+    # Re-read from Postgres: the answers survive the round-trip.
+    stored = await SqlAppointmentRepository(sessionmaker).for_business(booked.business_id)
+    appointment = next(a for a in stored if a.id == booked.id)
+    assert appointment.intake == intake
 
 
 async def test_claim_due_skips_locked_rows(sessionmaker: Factory) -> None:
