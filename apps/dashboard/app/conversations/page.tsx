@@ -1,7 +1,7 @@
 "use client";
 
 import { useSearchParams } from "next/navigation";
-import { Suspense, useEffect, useState } from "react";
+import { Suspense, useEffect, useLayoutEffect, useRef, useState } from "react";
 
 import { api, type MessageView } from "@/app/lib/api";
 import { formatDay, formatTime } from "@/app/lib/format";
@@ -25,6 +25,7 @@ export default function ConversationsPage() {
 }
 
 type LoadState = "loading" | "anon" | "ready";
+const THREAD_PAGE = 20; // messages shown per "load older" step
 
 interface Thread {
   customer: string;
@@ -108,8 +109,14 @@ function ConversationsContent() {
       )
     : threads;
 
+  const threadOpen = state === "ready" && selected !== null && selectedThread !== null;
+
   return (
-    <main className="mx-auto w-full max-w-3xl px-6 py-8 sm:px-8">
+    <main
+      className={`mx-auto w-full max-w-3xl px-6 sm:px-8 ${
+        threadOpen ? "flex h-full flex-col py-6" : "py-8"
+      }`}
+    >
       {state === "loading" && (
         <div className="space-y-3">
           <Skeleton className="h-16" />
@@ -127,6 +134,7 @@ function ConversationsContent() {
 
       {state === "ready" && selected !== null && selectedThread && session && (
         <ThreadDetail
+          key={selectedThread.customerId}
           customer={selected}
           customerId={selectedThread.customerId}
           handled={selectedThread.handled}
@@ -231,6 +239,32 @@ function ThreadDetail({
   const { t } = useI18n();
   const [draft, setDraft] = useState("");
   const [busy, setBusy] = useState(false);
+  const [visible, setVisible] = useState(THREAD_PAGE);
+  const scrollRef = useRef<HTMLDivElement>(null);
+  const bottomRef = useRef<HTMLDivElement>(null);
+  const keepScroll = useRef(0);
+
+  const shown = messages.slice(Math.max(0, messages.length - visible));
+  const hasOlder = visible < messages.length;
+
+  // Open the thread / a new message arrives → jump to the latest (the point of interest).
+  useEffect(() => {
+    bottomRef.current?.scrollIntoView?.({ block: "end" }); // optional: jsdom has no scrollIntoView
+  }, [customerId, messages.length]);
+
+  // "Load older" prepends above; keep the viewport anchored so it doesn't jump.
+  useLayoutEffect(() => {
+    const element = scrollRef.current;
+    if (element && keepScroll.current) {
+      element.scrollTop += element.scrollHeight - keepScroll.current;
+      keepScroll.current = 0;
+    }
+  }, [visible]);
+
+  const loadOlder = () => {
+    if (scrollRef.current) keepScroll.current = scrollRef.current.scrollHeight;
+    setVisible((current) => current + THREAD_PAGE);
+  };
 
   const run = async (action: () => Promise<unknown>) => {
     setBusy(true);
@@ -252,8 +286,8 @@ function ThreadDetail({
   };
 
   return (
-    <div className="space-y-4">
-      <div className="flex items-center justify-between gap-3">
+    <div className="flex min-h-0 flex-1 flex-col">
+      <div className="flex shrink-0 items-center justify-between gap-3 pb-3">
         <div className="flex items-center gap-3">
           <button
             type="button"
@@ -277,13 +311,24 @@ function ThreadDetail({
       </div>
 
       {handled && (
-        <p className="rounded-lg bg-warning-soft px-3 py-2 text-xs text-warning">
+        <p className="mb-3 shrink-0 rounded-lg bg-warning-soft px-3 py-2 text-xs text-warning">
           {t("conversations.youAreHandling")}
         </p>
       )}
 
-      <div className="space-y-2.5">
-        {messages.map((message, index) => {
+      <div ref={scrollRef} className="min-h-0 flex-1 space-y-2.5 overflow-y-auto py-1">
+        {hasOlder && (
+          <div className="flex justify-center pb-1">
+            <button
+              type="button"
+              onClick={loadOlder}
+              className="rounded-full border border-line-strong px-3 py-1 text-xs font-medium text-muted hover:bg-canvas"
+            >
+              {t("conversations.loadOlder")}
+            </button>
+          </div>
+        )}
+        {shown.map((message, index) => {
           const isOwner = message.role === "owner";
           const isAssistant = message.role === "assistant";
           const businessSide = isOwner || isAssistant;
@@ -310,9 +355,10 @@ function ThreadDetail({
             </div>
           );
         })}
+        <div ref={bottomRef} />
       </div>
 
-      <div className="space-y-2 border-t border-line pt-4">
+      <div className="shrink-0 space-y-2 border-t border-line bg-bg pt-3">
         <textarea
           aria-label={t("conversations.reply")}
           value={draft}
