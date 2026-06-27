@@ -4,7 +4,7 @@ import { useEffect, useState } from "react";
 
 import { api, type AppointmentView } from "@/app/lib/api";
 import { formatDay, formatTime } from "@/app/lib/format";
-import type { Locale } from "@/app/lib/i18n";
+import type { Locale, MessageKey } from "@/app/lib/i18n";
 import { useI18n } from "@/app/lib/I18nProvider";
 import { getSession } from "@/app/lib/session";
 import { EmptyState } from "@/components/ui/EmptyState";
@@ -13,6 +13,14 @@ import { StatusPill } from "@/components/ui/StatusPill";
 
 type LoadState = "loading" | "anon" | "ready";
 const MINUTES_PER_HOUR = 60;
+
+// Backend AppointmentStatus values → localized chip labels.
+const STATUS_LABEL: Record<string, MessageKey> = {
+  pending: "calendar.statusPending",
+  confirmed: "calendar.statusConfirmed",
+  completed: "calendar.statusCompleted",
+  cancelled: "calendar.statusCancelled",
+};
 
 function durationMinutes(startsAt: string, endsAt: string): number {
   const minutes =
@@ -69,6 +77,11 @@ export default function CalendarPage() {
               locale={locale}
               timeZone={timeZone}
               refLabel={t("calendar.ref")}
+              statusLabel={
+                STATUS_LABEL[appointment.status]
+                  ? t(STATUS_LABEL[appointment.status])
+                  : appointment.status
+              }
             />
           ))}
         </div>
@@ -82,11 +95,13 @@ function AppointmentCard({
   locale,
   timeZone,
   refLabel,
+  statusLabel,
 }: {
   appointment: AppointmentView;
   locale: Locale;
   timeZone: string;
   refLabel: string;
+  statusLabel: string;
 }) {
   const minutes = durationMinutes(appointment.starts_at, appointment.ends_at);
   return (
@@ -117,7 +132,7 @@ function AppointmentCard({
         )}
       </div>
       <div className="flex items-center">
-        <StatusPill status={appointment.status} />
+        <StatusPill status={appointment.status} label={statusLabel} />
       </div>
     </div>
   );

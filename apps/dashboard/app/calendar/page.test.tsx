@@ -57,7 +57,7 @@ describe("Calendar page", () => {
     expect(screen.getByText("10:30")).toBeInTheDocument(); // converted to the business zone
     expect(screen.queryByText("13:30")).not.toBeInTheDocument(); // not the raw UTC
     expect(screen.getByText("Code: c1f39102-167e-4523")).toBeInTheDocument();
-    expect(screen.getByText("confirmed")).toBeInTheDocument();
+    expect(screen.getByText("Confirmed")).toBeInTheDocument(); // localized, not raw "confirmed"
     expect(screen.getByText("Birth date:")).toBeInTheDocument();
   });
 });
