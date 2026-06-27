@@ -10,7 +10,7 @@ from datetime import time
 from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
 
 from fastapi import APIRouter, Depends, HTTPException
-from pydantic import BaseModel, field_validator
+from pydantic import BaseModel, Field, field_validator
 
 from frontdesk.application.ports import (
     BusinessRepository,
@@ -24,6 +24,8 @@ from frontdesk.domain.money import Money
 Guard = Callable[..., Awaitable[None]] | None
 _ISO_4217_LENGTH = 3  # currency codes are three letters, e.g. USD, EUR, UYU
 _SUPPORTED_LOCALES = frozenset({"en", "es", "ru", "zh"})
+MAX_NAME = 200  # business name
+MAX_DESCRIPTION = 5000  # business + service descriptions
 
 
 class KnowledgeItemIO(BaseModel):
@@ -38,12 +40,12 @@ class WorkingHoursIO(BaseModel):
 
 
 class BusinessProfile(BaseModel):
-    name: str
+    name: str = Field(max_length=MAX_NAME)
     timezone: str
     lead_time_minutes: int = 0
     buffer_minutes: int = 0
     knowledge: list[KnowledgeItemIO] = []
-    description: str = ""
+    description: str = Field(default="", max_length=MAX_DESCRIPTION)
     address: str = ""
     online: bool = False
     locale: str = "en"
@@ -84,7 +86,7 @@ class ServiceIO(BaseModel):
     price_cents: int | None = None
     currency: str | None = None
     resource_ids: list[str] = []
-    description: str = ""
+    description: str = Field(default="", max_length=MAX_DESCRIPTION)
     working_hours: list[WorkingHoursIO] = []
     max_advance_days: int = 30
 

@@ -5,8 +5,10 @@ import { useState } from "react";
 import type { ServiceInput } from "@/app/lib/api";
 import { CURRENCIES } from "@/app/lib/currencies";
 import { useI18n } from "@/app/lib/I18nProvider";
+import { MAX_DESCRIPTION } from "@/app/lib/limits";
 
 import { AutoTextarea } from "./AutoTextarea";
+import { CharCount } from "./CharCount";
 import { WeeklyHoursEditor } from "./WeeklyHoursEditor";
 
 export type Service = ServiceInput & { id: string };
@@ -119,7 +121,10 @@ export function ServiceCard({
           </div>
 
           <label className="block space-y-1">
-            <span className="text-sm font-medium">{t("settings.serviceDescription")}</span>
+            <div className="flex items-center justify-between">
+              <span className="text-sm font-medium">{t("settings.serviceDescription")}</span>
+              <CharCount value={description} max={MAX_DESCRIPTION} />
+            </div>
             <AutoTextarea
               ariaLabel={t("settings.serviceDescription")}
               value={description}
@@ -184,7 +189,7 @@ export function ServiceCard({
           <button
             type="button"
             onClick={save}
-            disabled={saving || name === ""}
+            disabled={saving || name === "" || description.length > MAX_DESCRIPTION}
             className="rounded-lg bg-accent px-4 py-2 text-sm font-bold text-accent-contrast disabled:opacity-50"
           >
             {saving ? t("common.saving") : t("settings.save")}

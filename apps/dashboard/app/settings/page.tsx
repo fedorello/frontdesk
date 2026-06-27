@@ -6,8 +6,10 @@ import { api, type TelegramStatus } from "@/app/lib/api";
 import { errorMessageKey } from "@/app/lib/errors";
 import { useI18n } from "@/app/lib/I18nProvider";
 import { getSession } from "@/app/lib/session";
+import { MAX_BUSINESS_NAME, MAX_DESCRIPTION } from "@/app/lib/limits";
 import { TIME_ZONE_OPTIONS } from "@/app/lib/timezones";
 import { AutoTextarea } from "@/components/AutoTextarea";
+import { CharCount } from "@/components/CharCount";
 import { ServiceCard, type Service } from "@/components/ServiceCard";
 import { ToggleSwitch } from "@/components/ToggleSwitch";
 import { EmptyState } from "@/components/ui/EmptyState";
@@ -119,7 +121,10 @@ export default function SettingsPage() {
         <h2 className="font-bold">{t("settings.profile")}</h2>
         <div className="mt-3 space-y-3">
           <label className="block space-y-1">
-            <span className="text-sm font-medium">{t("onboarding.businessName")}</span>
+            <div className="flex items-center justify-between">
+              <span className="text-sm font-medium">{t("onboarding.businessName")}</span>
+              <CharCount value={name} max={MAX_BUSINESS_NAME} />
+            </div>
             <input
               aria-label={t("onboarding.businessName")}
               value={name}
@@ -168,7 +173,10 @@ export default function SettingsPage() {
             )}
           </div>
           <label className="block space-y-1">
-            <span className="text-sm font-medium">{t("settings.businessDescription")}</span>
+            <div className="flex items-center justify-between">
+              <span className="text-sm font-medium">{t("settings.businessDescription")}</span>
+              <CharCount value={description} max={MAX_DESCRIPTION} />
+            </div>
             <AutoTextarea
               ariaLabel={t("settings.businessDescription")}
               value={description}
@@ -187,7 +195,12 @@ export default function SettingsPage() {
           <button
             type="button"
             onClick={saveProfile}
-            className="rounded-lg bg-accent px-4 py-2.5 text-sm font-bold text-accent-contrast"
+            disabled={
+              name.length === 0 ||
+              name.length > MAX_BUSINESS_NAME ||
+              description.length > MAX_DESCRIPTION
+            }
+            className="rounded-lg bg-accent px-4 py-2.5 text-sm font-bold text-accent-contrast disabled:opacity-50"
           >
             {saved ? t("settings.saved") : t("settings.save")}
           </button>

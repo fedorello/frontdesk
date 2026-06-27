@@ -141,3 +141,23 @@ async def test_resources_and_hours() -> None:
         listed = (await client.get("/api/businesses/ana/resources")).json()
         assert listed[0]["name"] == "Ana"
         assert listed[0]["working_hours"][0]["weekday"] == 0
+
+
+async def test_oversized_name_and_descriptions_are_rejected() -> None:
+    async with _client() as client:
+        too_long_name = await client.put(
+            "/api/businesses/ana", json={"name": "x" * 201, "timezone": "UTC"}
+        )
+        assert too_long_name.status_code == 422  # name > 200
+
+        too_long_desc = await client.put(
+            "/api/businesses/ana",
+            json={"name": "Ana", "timezone": "UTC", "description": "x" * 5001},
+        )
+        assert too_long_desc.status_code == 422  # business description > 5000
+
+        too_long_service = await client.put(
+            "/api/businesses/ana/services/svc1",
+            json={"name": "S", "duration_minutes": 30, "description": "x" * 5001},
+        )
+        assert too_long_service.status_code == 422  # service description > 5000
