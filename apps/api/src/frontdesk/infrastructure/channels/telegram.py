@@ -10,6 +10,7 @@ import httpx
 from frontdesk.application.ports import InboundMessage, OutboundMessage
 from frontdesk.domain.enums import Channel
 from frontdesk.domain.models import Customer
+from frontdesk.infrastructure.channels.telegram_format import markdown_to_telegram_html
 
 _logger = logging.getLogger("frontdesk.telegram")
 
@@ -31,16 +32,24 @@ class TelegramMessaging:
         self._base = base_url.rstrip("/")
 
     async def send(self, customer: Customer, message: OutboundMessage) -> None:
-        payload: dict[str, object] = {"chat_id": customer.channel_address, "text": message.text}
+        payload: dict[str, object] = {
+            "chat_id": customer.channel_address,
+            "text": markdown_to_telegram_html(message.text),
+            "parse_mode": "HTML",
+        }
         if message.buttons:
             payload["reply_markup"] = {
                 "keyboard": [[{"text": button} for button in message.buttons]],
                 "resize_keyboard": True,
                 "one_time_keyboard": True,
             }
-        response = await self._client.post(
-            f"{self._base}/bot{self._token}/sendMessage", json=payload
-        )
+        url = f"{self._base}/bot{self._token}/sendMessage"
+        response = await self._client.post(url, json=payload)
+        if response.status_code == httpx.codes.BAD_REQUEST:
+            # Malformed HTML entities — resend as plain text so the reply still arrives.
+            payload["text"] = message.text
+            del payload["parse_mode"]
+            response = await self._client.post(url, json=payload)
         response.raise_for_status()
 
 

@@ -71,10 +71,10 @@ def test_prompt_states_the_timezone() -> None:
     assert "America/Montevideo" in _system_prompt(business, [])
 
 
-def test_prompt_forbids_markdown() -> None:
+def test_prompt_allows_light_markdown() -> None:
     prompt = _system_prompt(Business(BusinessId("b"), "Ana", "UTC"), [])
-    assert "PLAIN TEXT" in prompt
     assert "Markdown" in prompt
+    assert "prefer short bullet lists over tables" in prompt
 
 
 def test_escalation_fallback_follows_business_locale() -> None:
