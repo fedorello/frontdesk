@@ -34,7 +34,7 @@ async def test_answer_flow_relays_knowledge() -> None:
 
     await world.assistant.handle(inbound("what are your opening hours?"))
 
-    assert world.messaging.sent[-1][1].text == "We're open 9 to 17, Monday to Friday."
+    assert world.messaging.sent[-1][1].text.endswith("We're open 9 to 17, Monday to Friday.")
     assert any(isinstance(event, MessageReceived) for event in world.events.events)
 
 
@@ -50,7 +50,7 @@ async def test_booking_flow_books_and_schedules_reminders() -> None:
 
     await world.assistant.handle(inbound("can I get a haircut at 3pm?"))
 
-    assert world.messaging.sent[-1][1].text == "You're booked!"
+    assert world.messaging.sent[-1][1].text.endswith("You're booked!")
     appointments = list(world.appointments.appointments.values())
     assert len(appointments) == 1
     assert appointments[0].status == AppointmentStatus.CONFIRMED  # auto-confirmed by default
@@ -69,7 +69,7 @@ async def test_escalation_flow_hands_off() -> None:
     await world.assistant.handle(inbound("this is unacceptable!"))
 
     assert any(isinstance(event, Escalated) for event in world.events.events)
-    assert world.messaging.sent[-1][1].text == "A team member will follow up shortly."
+    assert world.messaging.sent[-1][1].text.endswith("A team member will follow up shortly.")
 
 
 async def test_failed_booking_returns_current_availability() -> None:
@@ -119,7 +119,9 @@ async def test_max_steps_falls_back_to_escalation() -> None:
 
     await world.assistant.handle(inbound("loop forever"))
 
-    assert world.messaging.sent[-1][1].text == ESCALATION_FALLBACK["en"]  # world business is en
+    assert world.messaging.sent[-1][1].text.endswith(
+        ESCALATION_FALLBACK["en"]
+    )  # world business is en
 
 
 async def test_book_reschedule_cancel_via_loop() -> None:
@@ -139,7 +141,7 @@ async def test_book_reschedule_cancel_via_loop() -> None:
     appointment = world.appointments.appointments[AppointmentId("ap-1")]
     assert appointment.slot.starts_at.isoformat() == "2026-06-26T16:00:00+00:00"
     assert appointment.status == AppointmentStatus.CANCELLED
-    assert world.messaging.sent[-1][1].text == "All sorted!"
+    assert world.messaging.sent[-1][1].text.endswith("All sorted!")
 
 
 async def test_find_availability_reports_unknown_service() -> None:
@@ -152,7 +154,7 @@ async def test_find_availability_reports_unknown_service() -> None:
 
     await world.assistant.handle(inbound("do you do massages?"))
 
-    assert world.messaging.sent[-1][1].text == "Sorry, we don't offer that yet."
+    assert world.messaging.sent[-1][1].text.endswith("Sorry, we don't offer that yet.")
 
 
 async def test_sensitive_refund_is_gated_when_not_approved() -> None:
@@ -245,3 +247,15 @@ async def test_cancel_anothers_appointment_is_refused() -> None:
 
     assert "different customer" in result
     assert world.appointments.appointments[appointment.id].status != AppointmentStatus.CANCELLED
+
+
+async def test_assistant_reply_carries_the_ai_prefix_but_history_stays_clean() -> None:
+    world = build_world([Completion("Hi there!")])
+
+    await world.assistant.handle(inbound("hello"))
+
+    sent = world.messaging.sent[-1][1].text
+    assert sent.startswith("[AI assistant]: ")  # the customer sees who is answering
+    customer = await world.customers.upsert(world.business.id, Channel.WHATSAPP, "+CUST")
+    history = await world.deps.conversations.history(customer)
+    assert history[-1].text == "Hi there!"  # stored without the prefix

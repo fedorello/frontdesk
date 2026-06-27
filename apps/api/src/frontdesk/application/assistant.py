@@ -75,6 +75,20 @@ def _escalation(business: Business) -> str:
     return ESCALATION_FALLBACK.get(business.locale, ESCALATION_FALLBACK["en"])
 
 
+# Prepended to the assistant's conversational replies so the customer knows the AI is
+# answering (vs the business owner, who replies under their own name — see owner takeover).
+_AI_PREFIX = {
+    "en": "[AI assistant]: ",
+    "es": "[Asistente IA]: ",
+    "ru": "[ИИ-ассистент]: ",
+    "zh": "[AI 助手]：",
+}
+
+
+def _ai_prefix(business: Business) -> str:
+    return _AI_PREFIX.get(business.locale, _AI_PREFIX["en"])
+
+
 ToolHandler = Callable[["Business", "Customer", dict[str, object]], Awaitable[str]]
 
 
@@ -339,7 +353,8 @@ class Assistant:
 
         reply = await self._run(business, customer)
 
-        await self._d.messaging.send(customer, OutboundMessage(reply))
+        # The customer sees who is speaking; the history keeps the clean text.
+        await self._d.messaging.send(customer, OutboundMessage(_ai_prefix(business) + reply))
         await self._d.conversations.append(
             customer, Message(MessageRole.ASSISTANT, reply, self._d.clock.now())
         )

@@ -86,7 +86,7 @@ async def test_whatsapp_dispatches_with_valid_signature() -> None:
         )
 
     assert response.status_code == 200
-    assert world.messaging.sent[-1][1].text == "Hi there!"
+    assert world.messaging.sent[-1][1].text.endswith("Hi there!")
 
 
 async def test_whatsapp_rejects_bad_signature() -> None:

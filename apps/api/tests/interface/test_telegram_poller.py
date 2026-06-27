@@ -89,7 +89,7 @@ async def test_poll_dispatches_a_message_and_advances_the_offset() -> None:
     await _drain(poller)
 
     assert WAIT["en"][0] in sent  # a placeholder was shown first
-    assert "Hello!" in sent  # then the real reply
+    assert any("Hello!" in m for m in sent)  # then the real reply (under the AI prefix)
     after = await bots.get(BusinessId("biz1"))
     assert after is not None
     assert after.last_update_id == 100  # cursor advanced past the handled update
