@@ -50,7 +50,6 @@ def parse_telegram_inbound(
     """Normalize a Telegram update to an InboundMessage, or None for non-text updates."""
     try:
         message = payload["message"]
-        sender = message.get("from") or {}
         return InboundMessage(
             channel=Channel.TELEGRAM,
             from_address=str(message["chat"]["id"]),
@@ -58,7 +57,6 @@ def parse_telegram_inbound(
             text=message["text"],
             received_at=datetime.fromtimestamp(int(message["date"]), tz=UTC),
             provider_message_id=f"{message['chat']['id']}:{message['message_id']}",
-            language=sender.get("language_code"),
         )
     except KeyError, TypeError:
         return None

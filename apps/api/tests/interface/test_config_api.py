@@ -69,6 +69,23 @@ async def test_business_online_roundtrips() -> None:
         assert got["online"] is True
 
 
+async def test_locale_roundtrips_and_dedicated_endpoint() -> None:
+    async with _client() as client:
+        # Profile carries the locale...
+        await client.put(
+            "/api/businesses/ana", json={"name": "Ana", "timezone": "UTC", "locale": "ru"}
+        )
+        assert (await client.get("/api/businesses/ana")).json()["locale"] == "ru"
+
+        # ...and the dedicated endpoint updates just the locale.
+        ok = await client.put("/api/businesses/ana/locale", json={"locale": "es"})
+        assert ok.json() == {"locale": "es"}
+        assert (await client.get("/api/businesses/ana")).json()["locale"] == "es"
+
+        bad = await client.put("/api/businesses/ana/locale", json={"locale": "xx"})
+        assert bad.status_code == 422  # unsupported locale rejected
+
+
 async def test_services_crud() -> None:
     async with _client() as client:
         await client.put(

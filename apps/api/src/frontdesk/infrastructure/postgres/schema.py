@@ -18,7 +18,8 @@ CREATE_STATEMENTS: tuple[str, ...] = (
         knowledge jsonb NOT NULL DEFAULT '[]',
         description text NOT NULL DEFAULT '',
         address text NOT NULL DEFAULT '',
-        online boolean NOT NULL DEFAULT false
+        online boolean NOT NULL DEFAULT false,
+        locale text NOT NULL DEFAULT 'en'
     )
     """,
     """

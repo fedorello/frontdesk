@@ -5,6 +5,7 @@ provider lives in its own router (``business_config.py``).
 """
 
 from collections.abc import Awaitable, Callable
+from dataclasses import replace
 from datetime import time
 from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
 
@@ -22,6 +23,7 @@ from frontdesk.domain.money import Money
 
 Guard = Callable[..., Awaitable[None]] | None
 _ISO_4217_LENGTH = 3  # currency codes are three letters, e.g. USD, EUR, UYU
+_SUPPORTED_LOCALES = frozenset({"en", "es", "ru", "zh"})
 
 
 class KnowledgeItemIO(BaseModel):
@@ -44,6 +46,7 @@ class BusinessProfile(BaseModel):
     description: str = ""
     address: str = ""
     online: bool = False
+    locale: str = "en"
 
     @field_validator("timezone")
     @classmethod
@@ -54,6 +57,24 @@ class BusinessProfile(BaseModel):
             ZoneInfo(value)
         except (ZoneInfoNotFoundError, ValueError) as exc:
             raise ValueError(f"unknown timezone: {value}") from exc
+        return value
+
+    @field_validator("locale")
+    @classmethod
+    def _valid_locale(cls, value: str) -> str:
+        if value not in _SUPPORTED_LOCALES:
+            raise ValueError(f"unsupported locale: {value}")
+        return value
+
+
+class LocaleInput(BaseModel):
+    locale: str
+
+    @field_validator("locale")
+    @classmethod
+    def _valid_locale(cls, value: str) -> str:
+        if value not in _SUPPORTED_LOCALES:
+            raise ValueError(f"unsupported locale: {value}")
         return value
 
 
@@ -135,9 +156,18 @@ def build_config_router(
                 description=body.description,
                 address=body.address,
                 online=body.online,
+                locale=body.locale,
             )
         )
         return body
+
+    @router.put("/api/businesses/{business_id}/locale")
+    async def put_locale(business_id: str, body: LocaleInput) -> dict[str, str]:
+        business = await businesses.find(BusinessId(business_id))
+        if business is None:
+            raise HTTPException(404, "business not found")
+        await businesses.upsert(replace(business, locale=body.locale))
+        return {"locale": body.locale}
 
     @router.get("/api/businesses/{business_id}")
     async def get_business(business_id: str) -> BusinessProfile:
@@ -155,6 +185,7 @@ def build_config_router(
             description=business.description,
             address=business.address,
             online=business.online,
+            locale=business.locale,
         )
 
     @router.get("/api/businesses/{business_id}/services")

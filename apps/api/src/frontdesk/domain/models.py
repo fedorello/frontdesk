@@ -97,6 +97,7 @@ class Business:
     description: str = ""  # one free-text "about us" injected into every assistant prompt
     address: str = ""  # where the business is (ignored when `online` is set)
     online: bool = False  # the business operates online — there is no physical address
+    locale: str = "en"  # the owner's chosen language; the bot's filler phrases use it
 
     def __post_init__(self) -> None:
         if self.lead_time_minutes < 0:

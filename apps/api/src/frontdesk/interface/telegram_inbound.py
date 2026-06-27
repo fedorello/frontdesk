@@ -40,14 +40,6 @@ _QUOTA_MESSAGE = (
 _PHRASE_LOCALES = frozenset(WAIT)  # {"en", "es", "ru", "zh"}
 
 
-def _phrase_locale(language: str | None) -> str:
-    """Map a Telegram language_code (e.g. "ru", "en-US") to a phrase locale; default en."""
-    if not language:
-        return "en"
-    code = language.split("-")[0].lower()
-    return code if code in _PHRASE_LOCALES else "en"
-
-
 class TelegramInbound:
     """Quota, placeholder/busy feedback, and the tenant-wired assistant for one message."""
 
@@ -71,7 +63,7 @@ class TelegramInbound:
 
     async def handle(self, bot: TelegramBotConfig, inbound: InboundMessage) -> None:
         key = f"{bot.business_id}:{inbound.from_address}"
-        locale = _phrase_locale(inbound.language)
+        locale = await self._locale(bot)
         if key in self._busy:
             # A new message arrived while the previous one is still being answered.
             await self._say(bot, inbound.from_address, self._random.choice(BUSY[locale]))
@@ -92,6 +84,12 @@ class TelegramInbound:
 
     async def _say(self, bot: TelegramBotConfig, chat_id: str, text: str) -> int | None:
         return await telegram_send_message(bot.bot_token, chat_id, text, self._client, self._base)
+
+    async def _locale(self, bot: TelegramBotConfig) -> str:
+        """The business's chosen language drives the filler phrases; default en."""
+        business = await self._deps.businesses.find(bot.business_id)
+        code = business.locale if business is not None else "en"
+        return code if code in _PHRASE_LOCALES else "en"
 
     async def _run(self, bot: TelegramBotConfig, inbound: InboundMessage) -> None:
         business_id = bot.business_id

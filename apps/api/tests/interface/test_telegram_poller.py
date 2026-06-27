@@ -264,12 +264,8 @@ async def test_second_message_while_busy_gets_the_busy_phrase() -> None:
     inbound = _inbound(_businesses(), client)
     bot = TelegramBotConfig(BusinessId("biz1"), "111:AAA", "sec", "ana_bot")
     when = datetime(2026, 6, 26, tzinfo=UTC)
-    first = InboundMessage(
-        Channel.TELEGRAM, "555", "ana_bot", "first", when, "555:1", language="en"
-    )
-    second = InboundMessage(
-        Channel.TELEGRAM, "555", "ana_bot", "second", when, "555:2", language="en"
-    )
+    first = InboundMessage(Channel.TELEGRAM, "555", "ana_bot", "first", when, "555:1")
+    second = InboundMessage(Channel.TELEGRAM, "555", "ana_bot", "second", when, "555:2")
 
     task1 = asyncio.create_task(inbound.handle(bot, first))
     for _ in range(200):
@@ -282,3 +278,32 @@ async def test_second_message_while_busy_gets_the_busy_phrase() -> None:
 
     assert WAIT["en"][0] in sent  # the first got a placeholder
     assert BUSY["en"][0] in sent  # the second got the busy line
+
+
+async def test_placeholder_uses_the_business_locale() -> None:
+    sent: list[str] = []
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        url = str(request.url)
+        if "chat/completions" in url:
+            return httpx.Response(200, json={"choices": [{"message": {"content": "ответ"}}]})
+        if "sendMessage" in url:
+            sent.append(json.loads(request.content)["text"])
+            return httpx.Response(200, json={"ok": True, "result": {"message_id": 7}})
+        if "deleteMessage" in url:
+            return httpx.Response(200, json={"ok": True})
+        return httpx.Response(404)
+
+    client = httpx.AsyncClient(transport=httpx.MockTransport(handler))
+    businesses = InMemoryBusinessRepository(
+        [Business(BusinessId("biz1"), "Ana", "UTC", locale="ru")],
+        {(Channel.TELEGRAM, "ana_bot"): BusinessId("biz1")},
+    )
+    inbound = _inbound(businesses, client)
+    bot = TelegramBotConfig(BusinessId("biz1"), "111:AAA", "sec", "ana_bot")
+    when = datetime(2026, 6, 26, tzinfo=UTC)
+    message = InboundMessage(Channel.TELEGRAM, "555", "ana_bot", "привет", when, "555:1")
+
+    await inbound.handle(bot, message)
+
+    assert WAIT["ru"][0] in sent  # the filler phrase follows the business's chosen language
