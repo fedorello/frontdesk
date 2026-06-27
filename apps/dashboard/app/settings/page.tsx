@@ -1,15 +1,17 @@
 "use client";
 
+import { useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
 
 import { api, type TelegramStatus } from "@/app/lib/api";
 import { errorMessageKey } from "@/app/lib/errors";
 import { useI18n } from "@/app/lib/I18nProvider";
-import { getSession } from "@/app/lib/session";
 import { MAX_BUSINESS_NAME, MAX_DESCRIPTION } from "@/app/lib/limits";
+import { clearSession, getSession } from "@/app/lib/session";
 import { TIME_ZONE_OPTIONS } from "@/app/lib/timezones";
 import { AutoTextarea } from "@/components/AutoTextarea";
 import { CharCount } from "@/components/CharCount";
+import { ConfirmModal } from "@/components/ConfirmModal";
 import { ServiceCard, type Service } from "@/components/ServiceCard";
 import { ToggleSwitch } from "@/components/ToggleSwitch";
 import { EmptyState } from "@/components/ui/EmptyState";
@@ -19,6 +21,22 @@ const inputClass =
 
 export default function SettingsPage() {
   const { t, locale } = useI18n();
+  const router = useRouter();
+  const [confirmingDelete, setConfirmingDelete] = useState(false);
+  const [deleting, setDeleting] = useState(false);
+
+  const deleteAccount = async () => {
+    const current = getSession();
+    if (current === null) return;
+    setDeleting(true);
+    try {
+      await api.deleteAccount(current.businessId, current.token);
+      clearSession();
+      router.push("/login");
+    } finally {
+      setDeleting(false);
+    }
+  };
   const [session, setSession] = useState<{ token: string; businessId: string } | null>(null);
   const [name, setName] = useState("");
   const [ownerName, setOwnerName] = useState("");
@@ -298,6 +316,31 @@ export default function SettingsPage() {
           </button>
         </div>
       </section>
+
+      <section className="mt-8 rounded-2xl border border-danger/40 bg-danger-soft/30 p-5">
+        <h2 className="text-base font-bold text-danger">{t("settings.dangerZone")}</h2>
+        <p className="mt-1 text-sm text-muted">{t("settings.deleteAccountHint")}</p>
+        <button
+          type="button"
+          onClick={() => setConfirmingDelete(true)}
+          className="mt-3 rounded-lg border border-danger px-4 py-2 text-sm font-bold text-danger hover:bg-danger-soft"
+        >
+          {t("settings.deleteAccount")}
+        </button>
+      </section>
+
+      {confirmingDelete && (
+        <ConfirmModal
+          title={t("settings.deleteTitle")}
+          body={t("settings.deleteBody")}
+          confirmLabel={t("settings.deleteConfirm")}
+          cancelLabel={t("common.cancel")}
+          danger
+          busy={deleting}
+          onConfirm={deleteAccount}
+          onClose={() => setConfirmingDelete(false)}
+        />
+      )}
     </main>
   );
 }

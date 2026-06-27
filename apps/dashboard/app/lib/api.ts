@@ -153,6 +153,9 @@ export const api = {
   putBusiness: (id: string, body: BusinessProfile, token: string): Promise<BusinessProfile> =>
     request("PUT", `/api/businesses/${id}`, body, token),
 
+  deleteAccount: (id: string, token: string): Promise<unknown> =>
+    request("DELETE", `/api/businesses/${id}`, undefined, token),
+
   setLocale: (id: string, locale: string, token: string): Promise<{ locale: string }> =>
     request("PUT", `/api/businesses/${id}/locale`, { locale }, token),
 

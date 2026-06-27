@@ -1066,3 +1066,37 @@ class SqlUsageStore:
                 )
             ).scalar_one_or_none()
             return int(result) if result is not None else 0
+
+
+class SqlBusinessEraser:
+    """Deletes a business and every row that belongs to it, in FK-safe order."""
+
+    # Child rows first (so foreign keys never block the delete), business last.
+    _TABLES = (
+        "reminder",
+        "message",
+        "appointment",
+        "customer",
+        "service",
+        "resource",
+        "channel_binding",
+        "telegram_bot",
+        "llm_config",
+        "usage_counter",
+        "account",
+    )
+
+    def __init__(self, sessionmaker: async_sessionmaker[AsyncSession]) -> None:
+        self._sf = sessionmaker
+
+    async def erase(self, business_id: BusinessId) -> None:
+        async with self._sf() as session:
+            for table in self._TABLES:
+                await session.execute(
+                    text(f"DELETE FROM {table} WHERE business_id = :bid"),
+                    {"bid": str(business_id)},
+                )
+            await session.execute(
+                text("DELETE FROM business WHERE id = :bid"), {"bid": str(business_id)}
+            )
+            await session.commit()

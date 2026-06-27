@@ -48,6 +48,7 @@ from frontdesk.infrastructure.memory import InMemoryIdempotency
 from frontdesk.infrastructure.postgres.adapters import (
     SqlAccountRepository,
     SqlAppointmentRepository,
+    SqlBusinessEraser,
     SqlBusinessRepository,
     SqlCalendar,
     SqlChannelBindingRepository,
@@ -69,6 +70,7 @@ from frontdesk.infrastructure.system import (
     SystemRandom,
     UuidIdGenerator,
 )
+from frontdesk.interface.account_api import build_account_router
 from frontdesk.interface.appointments_api import build_appointments_router
 from frontdesk.interface.approvals import build_approvals_router
 from frontdesk.interface.auth import build_auth_router, make_owner_guard
@@ -259,5 +261,6 @@ def create_production_app() -> FastAPI:
             guard,
         )
     )
+    app.include_router(build_account_router(SqlBusinessEraser(sessions), guard))
     app.include_router(build_metrics_router(usage, settings, clock, guard))
     return app

@@ -47,14 +47,6 @@ export function Sidebar() {
         })}
       </nav>
 
-      <Link
-        href="/chat"
-        className="mt-3.5 flex items-center justify-center gap-2 rounded-xl border border-dashed border-line-strong px-3 py-2.5 text-[13px] font-bold text-accent"
-      >
-        <Icon name="spark" size={16} />
-        {t("nav.tryAssistant")}
-      </Link>
-
       <div className="mt-auto space-y-2.5">
         <BotStatus />
         <button

@@ -29,6 +29,7 @@ from frontdesk.domain.models import (
 from frontdesk.infrastructure.postgres.adapters import (
     SqlAccountRepository,
     SqlAppointmentRepository,
+    SqlBusinessEraser,
     SqlBusinessRepository,
     SqlCalendar,
     SqlConversationRepository,
@@ -151,6 +152,22 @@ async def test_booking_a_one_hour_slot_removes_overlapping_15min_slots(
     after = await calendar.find_availability(service, NOW)
     assert all(not slot.overlaps(booked) for slot in after)  # no slot inside the booked hour
     assert after[0].starts_at >= booked.ends_at  # the next free slot starts after it ends
+
+
+async def test_business_eraser_removes_the_business_and_all_its_data(
+    sessionmaker: Factory,
+) -> None:
+    calendar = SqlCalendar(sessionmaker, SequentialIdGenerator("ap"), FixedClock(NOW))
+    service = _service()
+    slot = (await calendar.find_availability(service, NOW))[0]
+    await calendar.book(service, _resource_id(), _customer(), slot)  # customer + appointment
+    appointments = SqlAppointmentRepository(sessionmaker)
+    assert await appointments.for_business(BusinessId("biz"))  # sanity: there is data
+
+    await SqlBusinessEraser(sessionmaker).erase(BusinessId("biz"))
+
+    assert await appointments.for_business(BusinessId("biz")) == []
+    assert await SqlBusinessRepository(sessionmaker).find(BusinessId("biz")) is None
 
 
 async def test_confirming_a_pending_booking_persists(sessionmaker: Factory) -> None:

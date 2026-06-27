@@ -173,6 +173,12 @@ class CustomerNotifier(Protocol):
     async def notify(self, business: Business, customer: Customer, text: str) -> None: ...
 
 
+class BusinessEraser(Protocol):
+    """Permanently deletes a business and ALL of its data (account, chats, bookings, …)."""
+
+    async def erase(self, business_id: BusinessId) -> None: ...
+
+
 class LlmProvider(Protocol):
     async def complete(
         self,
