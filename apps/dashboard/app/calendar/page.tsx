@@ -7,6 +7,7 @@ import { formatDay, formatTime } from "@/app/lib/format";
 import type { Locale, MessageKey } from "@/app/lib/i18n";
 import { useI18n } from "@/app/lib/I18nProvider";
 import { getSession } from "@/app/lib/session";
+import { Icon } from "@/components/icons";
 import { EmptyState } from "@/components/ui/EmptyState";
 import { Skeleton } from "@/components/ui/Skeleton";
 import { StatusPill } from "@/components/ui/StatusPill";
@@ -169,8 +170,9 @@ function AppointmentCard({
             type="button"
             onClick={handleConfirm}
             disabled={confirming}
-            className="rounded-full bg-accent px-2.5 py-0.5 text-xs font-semibold text-accent-contrast disabled:opacity-50"
+            className="inline-flex items-center gap-1.5 rounded-lg bg-success px-3 py-1.5 text-sm font-bold text-accent-contrast shadow-sm transition hover:opacity-90 disabled:opacity-50"
           >
+            <Icon name="check" size={16} />
             {confirmLabel}
           </button>
         )}
