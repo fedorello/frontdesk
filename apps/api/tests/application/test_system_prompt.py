@@ -69,3 +69,9 @@ def test_slots_render_in_the_business_timezone() -> None:
 def test_prompt_states_the_timezone() -> None:
     business = Business(BusinessId("b"), "Ana", "America/Montevideo")
     assert "America/Montevideo" in _system_prompt(business, [])
+
+
+def test_prompt_forbids_markdown() -> None:
+    prompt = _system_prompt(Business(BusinessId("b"), "Ana", "UTC"), [])
+    assert "PLAIN TEXT" in prompt
+    assert "Markdown" in prompt
