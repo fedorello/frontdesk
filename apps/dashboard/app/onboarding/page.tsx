@@ -10,7 +10,7 @@ import type { MessageKey } from "@/app/lib/i18n";
 import { useI18n } from "@/app/lib/I18nProvider";
 import { LanguageSwitcher } from "@/app/lib/LanguageSwitcher";
 import { setSession } from "@/app/lib/session";
-import { TIME_ZONES } from "@/app/lib/timezones";
+import { TIME_ZONE_OPTIONS } from "@/app/lib/timezones";
 
 const STEPS: MessageKey[] = [
   "onboarding.step.account",
@@ -195,9 +195,9 @@ export default function OnboardingPage() {
                     onChange={(e) => setTimezone(e.target.value)}
                     className={inputClass}
                   >
-                    {TIME_ZONES.map((zone) => (
-                      <option key={zone} value={zone}>
-                        {zone}
+                    {TIME_ZONE_OPTIONS.map((option) => (
+                      <option key={option.value} value={option.value}>
+                        {option.label}
                       </option>
                     ))}
                   </select>

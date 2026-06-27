@@ -6,7 +6,7 @@ import { api, type TelegramStatus } from "@/app/lib/api";
 import { errorMessageKey } from "@/app/lib/errors";
 import { useI18n } from "@/app/lib/I18nProvider";
 import { getSession } from "@/app/lib/session";
-import { TIME_ZONES } from "@/app/lib/timezones";
+import { TIME_ZONE_OPTIONS } from "@/app/lib/timezones";
 import { AutoTextarea } from "@/components/AutoTextarea";
 import { ServiceCard, type Service } from "@/components/ServiceCard";
 import { ToggleSwitch } from "@/components/ToggleSwitch";
@@ -135,10 +135,12 @@ export default function SettingsPage() {
               onChange={(event) => setTimezone(event.target.value)}
               className={inputClass}
             >
-              {!TIME_ZONES.includes(timezone) && <option value={timezone}>{timezone}</option>}
-              {TIME_ZONES.map((zone) => (
-                <option key={zone} value={zone}>
-                  {zone}
+              {!TIME_ZONE_OPTIONS.some((option) => option.value === timezone) && (
+                <option value={timezone}>{timezone}</option>
+              )}
+              {TIME_ZONE_OPTIONS.map((option) => (
+                <option key={option.value} value={option.value}>
+                  {option.label}
                 </option>
               ))}
             </select>

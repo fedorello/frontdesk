@@ -47,7 +47,7 @@ export function WeeklyHoursEditor({
         return (
           <div
             key={weekday}
-            className={`flex items-center gap-3 px-3 py-2 text-sm ${isOpen ? "" : "opacity-60"}`}
+            className={`flex h-14 items-center gap-3 px-3 text-sm ${isOpen ? "" : "opacity-60"}`}
           >
             <ToggleSwitch
               checked={isOpen}
