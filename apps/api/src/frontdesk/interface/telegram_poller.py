@@ -36,15 +36,24 @@ class TelegramPoller:
         self._idle_seconds = settings.telegram_idle_poll_seconds
 
     async def run(self, stop: asyncio.Event) -> None:
-        """Poll all connected bots until `stop` is set."""
+        """Poll all connected bots until `stop` is set, surviving transient failures."""
         _logger.info("telegram poller started")
         while not stop.is_set():
-            bots = await self._bots.list_connected()
-            if not bots:
-                await asyncio.sleep(self._idle_seconds)  # nothing to poll yet
-                continue
-            await asyncio.gather(*(self._poll_bot(bot) for bot in bots))
+            try:
+                await self._poll_round()
+            except Exception as exc:
+                # Broad on purpose: a DB/network blip (e.g. Postgres restarting, "in
+                # recovery") must not kill the worker. Log, back off, and retry.
+                _logger.warning("telegram poll round failed, backing off: %s", exc)
+                await asyncio.sleep(self._idle_seconds)
         _logger.info("telegram poller stopped")
+
+    async def _poll_round(self) -> None:
+        bots = await self._bots.list_connected()
+        if not bots:
+            await asyncio.sleep(self._idle_seconds)  # nothing to poll yet
+            return
+        await asyncio.gather(*(self._poll_bot(bot) for bot in bots))
 
     async def _poll_bot(self, bot: TelegramBotConfig) -> None:
         updates = await telegram_get_updates(

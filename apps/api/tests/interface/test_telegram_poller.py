@@ -179,3 +179,57 @@ async def test_run_idles_when_no_bots_are_connected() -> None:
     await asyncio.sleep(0.05)
     stop.set()
     await asyncio.wait_for(task, timeout=2)  # exits cleanly with nothing to poll
+
+
+class _FlakyBots:
+    """A bot repo whose first list_connected fails (e.g. Postgres recovering), then recovers."""
+
+    def __init__(self) -> None:
+        self._inner = InMemoryTelegramBotRepository()
+        self.calls = 0
+
+    async def list_connected(self) -> list[TelegramBotConfig]:
+        self.calls += 1
+        if self.calls == 1:
+            raise RuntimeError("the database system is in recovery mode")
+        return await self._inner.list_connected()
+
+    async def get(self, business_id: BusinessId) -> TelegramBotConfig | None:
+        return await self._inner.get(business_id)
+
+    async def upsert(self, config: TelegramBotConfig) -> None:
+        await self._inner.upsert(config)
+
+    async def set_offset(self, business_id: BusinessId, last_update_id: int) -> None:
+        await self._inner.set_offset(business_id, last_update_id)
+
+
+async def test_run_survives_a_transient_repo_error() -> None:
+    import asyncio
+
+    client = httpx.AsyncClient(transport=httpx.MockTransport(lambda r: httpx.Response(404)))
+    settings = Settings(telegram_idle_poll_seconds=0)
+    bots = _FlakyBots()
+    poller = TelegramPoller(
+        bots,
+        TelegramInbound(
+            build_assistant_deps(InMemoryBusinessRepository([], {})),
+            InMemoryLlmConfigRepository(),
+            InMemoryUsageStore(),
+            settings,
+            client,
+        ),
+        client,
+        settings,
+    )
+
+    stop = asyncio.Event()
+    task = asyncio.create_task(poller.run(stop))
+    for _ in range(200):
+        await asyncio.sleep(0.01)
+        if bots.calls >= 2:  # got past the failing first round
+            break
+    stop.set()
+    await asyncio.wait_for(task, timeout=2)
+
+    assert bots.calls >= 2  # the loop did not die on the first error
