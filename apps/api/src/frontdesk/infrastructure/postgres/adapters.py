@@ -73,6 +73,7 @@ def _to_business(row: Row) -> Business:
         address=row["address"],
         online=row["online"],
         locale=row["locale"],
+        owner_name=row["owner_name"],
     )
 
 
@@ -236,13 +237,13 @@ class SqlBusinessRepository:
             await session.execute(
                 text(
                     "INSERT INTO business (id, name, timezone, lead_time_minutes, buffer_minutes, "
-                    "knowledge, description, address, online, locale) "
+                    "knowledge, description, address, online, locale, owner_name) "
                     "VALUES (:id, :name, :tz, :lead, :buf, CAST(:kb AS jsonb), :desc, :addr, "
-                    ":online, :locale) "
+                    ":online, :locale, :owner) "
                     "ON CONFLICT (id) DO UPDATE SET name = :name, timezone = :tz, "
                     "lead_time_minutes = :lead, buffer_minutes = :buf, "
                     "knowledge = CAST(:kb AS jsonb), description = :desc, address = :addr, "
-                    "online = :online, locale = :locale"
+                    "online = :online, locale = :locale, owner_name = :owner"
                 ),
                 {
                     "id": str(business.id),
@@ -255,6 +256,7 @@ class SqlBusinessRepository:
                     "addr": business.address,
                     "online": business.online,
                     "locale": business.locale,
+                    "owner": business.owner_name,
                 },
             )
             await session.commit()

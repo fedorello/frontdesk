@@ -19,7 +19,8 @@ CREATE_STATEMENTS: tuple[str, ...] = (
         description text NOT NULL DEFAULT '',
         address text NOT NULL DEFAULT '',
         online boolean NOT NULL DEFAULT false,
-        locale text NOT NULL DEFAULT 'en'
+        locale text NOT NULL DEFAULT 'en',
+        owner_name text NOT NULL DEFAULT ''
     )
     """,
     """

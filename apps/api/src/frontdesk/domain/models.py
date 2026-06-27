@@ -126,6 +126,7 @@ class Business:
     address: str = ""  # where the business is (ignored when `online` is set)
     online: bool = False  # the business operates online — there is no physical address
     locale: str = "en"  # the owner's chosen language; the bot's filler phrases use it
+    owner_name: str = ""  # the owner's display name, shown to customers when the owner replies
 
     def __post_init__(self) -> None:
         if self.lead_time_minutes < 0:

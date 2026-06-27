@@ -216,6 +216,7 @@ async def check_business_write(repo: BusinessRepository) -> None:
             address="12 Rivera St, Montevideo",
             online=True,
             locale="ru",
+            owner_name="Alexander",
         )
     )
     found = await repo.find(BusinessId("new-biz"))
@@ -226,6 +227,7 @@ async def check_business_write(repo: BusinessRepository) -> None:
     assert found.address == "12 Rivera St, Montevideo"  # round-trips through storage
     assert found.online is True  # round-trips through storage
     assert found.locale == "ru"  # round-trips through storage
+    assert found.owner_name == "Alexander"  # round-trips through storage
 
     await repo.upsert(Business(BusinessId("new-biz"), "Renamed", "UTC"))
     renamed = await repo.find(BusinessId("new-biz"))

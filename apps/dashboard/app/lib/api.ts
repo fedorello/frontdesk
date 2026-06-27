@@ -45,6 +45,7 @@ export interface BusinessProfile {
   address?: string;
   online?: boolean;
   locale?: string;
+  owner_name?: string;
 }
 
 export interface ServiceInput {

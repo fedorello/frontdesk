@@ -178,9 +178,14 @@ function AppointmentRow({
 }) {
   return (
     <div className="flex items-center gap-4 border-b border-line px-5 py-3 last:border-b-0">
-      <span className="w-12 font-extrabold tabular-nums">
-        {formatTime(appointment.starts_at, locale, timeZone)}
-      </span>
+      <div className="flex w-24 shrink-0 flex-col leading-tight">
+        <span className="text-xs capitalize text-muted">
+          {formatDay(appointment.starts_at, locale, timeZone)}
+        </span>
+        <span className="font-extrabold tabular-nums">
+          {formatTime(appointment.starts_at, locale, timeZone)}
+        </span>
+      </div>
       <span className="flex-1 truncate text-sm font-semibold">{appointment.service}</span>
       <StatusPill status={appointment.status} label={statusLabel} />
     </div>

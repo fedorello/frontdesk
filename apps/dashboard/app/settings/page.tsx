@@ -21,6 +21,7 @@ export default function SettingsPage() {
   const { t, locale } = useI18n();
   const [session, setSession] = useState<{ token: string; businessId: string } | null>(null);
   const [name, setName] = useState("");
+  const [ownerName, setOwnerName] = useState("");
   const [timezone, setTimezone] = useState("UTC");
   const [description, setDescription] = useState("");
   const [address, setAddress] = useState("");
@@ -48,6 +49,7 @@ export default function SettingsPage() {
       ]);
       if (profile) {
         setName(profile.name);
+        setOwnerName(profile.owner_name ?? "");
         setTimezone(profile.timezone);
         setDescription(profile.description ?? "");
         setAddress(profile.address ?? "");
@@ -72,7 +74,15 @@ export default function SettingsPage() {
     try {
       await api.putBusiness(
         session.businessId,
-        { name, timezone, description, address: online ? "" : address, online, locale },
+        {
+          name,
+          owner_name: ownerName,
+          timezone,
+          description,
+          address: online ? "" : address,
+          online,
+          locale,
+        },
         session.token,
       );
       setSaved(true);
@@ -131,6 +141,17 @@ export default function SettingsPage() {
               onChange={(event) => setName(event.target.value)}
               className={inputClass}
             />
+          </label>
+          <label className="block space-y-1">
+            <span className="text-sm font-medium">{t("settings.ownerName")}</span>
+            <input
+              aria-label={t("settings.ownerName")}
+              value={ownerName}
+              onChange={(event) => setOwnerName(event.target.value)}
+              placeholder={t("settings.ownerNamePlaceholder")}
+              className={inputClass}
+            />
+            <span className="text-xs text-muted">{t("settings.ownerNameHint")}</span>
           </label>
           <label className="block space-y-1">
             <span className="text-sm font-medium">{t("onboarding.timezone")}</span>

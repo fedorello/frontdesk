@@ -63,6 +63,7 @@ class BusinessProfile(BaseModel):
     address: str = ""
     online: bool = False
     locale: str = "en"
+    owner_name: str = Field(default="", max_length=MAX_NAME)
 
     @field_validator("timezone")
     @classmethod
@@ -189,6 +190,7 @@ def build_config_router(
                 address=body.address,
                 online=body.online,
                 locale=body.locale,
+                owner_name=body.owner_name,
             )
         )
         return body
@@ -218,6 +220,7 @@ def build_config_router(
             address=business.address,
             online=business.online,
             locale=business.locale,
+            owner_name=business.owner_name,
         )
 
     @router.get("/api/businesses/{business_id}/services")
