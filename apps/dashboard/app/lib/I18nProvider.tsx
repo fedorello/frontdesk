@@ -2,7 +2,9 @@
 
 import { createContext, useContext, useEffect, useState, type ReactNode } from "react";
 
+import { api } from "./api";
 import { DEFAULT_LOCALE, isLocale, type Locale, type MessageKey, translate } from "./i18n";
+import { getSession } from "./session";
 
 interface I18nContextValue {
   locale: Locale;
@@ -26,11 +28,24 @@ export function I18nProvider({ children }: { children: ReactNode }) {
   const [locale, setLocaleState] = useState<Locale>(DEFAULT_LOCALE);
 
   useEffect(() => {
-    const stored = readStoredLocale();
-    if (stored !== null) {
-      // eslint-disable-next-line react-hooks/set-state-in-effect
-      setLocaleState(stored);
+    const fromStorage = () => {
+      const stored = readStoredLocale();
+      if (stored !== null) setLocaleState(stored);
+    };
+    const session = getSession();
+    // Signed in: the business's saved language (persisted in DB) is the source of truth.
+    const pending = session && api.getBusiness?.(session.businessId, session.token);
+    if (!pending) {
+      fromStorage();
+      return;
     }
+    pending
+      .then((business) => {
+        if (business.locale !== undefined && isLocale(business.locale)) {
+          setLocaleState(business.locale);
+        }
+      })
+      .catch(fromStorage);
   }, []);
 
   const setLocale = (next: Locale) => {
@@ -39,6 +54,11 @@ export function I18nProvider({ children }: { children: ReactNode }) {
       window.localStorage?.setItem(STORAGE_KEY, next);
     } catch {
       // storage unavailable (SSR / private mode) — keep the in-memory choice
+    }
+    const session = getSession();
+    if (session !== null) {
+      // Persist the choice so it follows the owner across devices and drives the bot.
+      void api.setLocale?.(session.businessId, next, session.token)?.catch(() => {});
     }
   };
 

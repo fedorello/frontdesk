@@ -33,6 +33,7 @@ export interface BusinessProfile {
   description?: string;
   address?: string;
   online?: boolean;
+  locale?: string;
 }
 
 export interface ServiceInput {
@@ -124,6 +125,9 @@ export const api = {
 
   putBusiness: (id: string, body: BusinessProfile, token: string): Promise<BusinessProfile> =>
     request("PUT", `/api/businesses/${id}`, body, token),
+
+  setLocale: (id: string, locale: string, token: string): Promise<{ locale: string }> =>
+    request("PUT", `/api/businesses/${id}/locale`, { locale }, token),
 
   getServices: (id: string, token: string): Promise<(ServiceInput & { id: string })[]> =>
     request("GET", `/api/businesses/${id}/services`, undefined, token),
