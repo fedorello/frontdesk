@@ -16,7 +16,7 @@ const inputClass =
   "w-full rounded-lg border border-line-strong bg-surface px-3 py-2 text-sm text-ink outline-none focus:border-accent ";
 
 export default function SettingsPage() {
-  const { t } = useI18n();
+  const { t, locale } = useI18n();
   const [session, setSession] = useState<{ token: string; businessId: string } | null>(null);
   const [name, setName] = useState("");
   const [timezone, setTimezone] = useState("UTC");
@@ -70,7 +70,7 @@ export default function SettingsPage() {
     try {
       await api.putBusiness(
         session.businessId,
-        { name, timezone, description, address: online ? "" : address, online },
+        { name, timezone, description, address: online ? "" : address, online, locale },
         session.token,
       );
       setSaved(true);

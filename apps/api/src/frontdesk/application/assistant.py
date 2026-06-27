@@ -8,6 +8,7 @@ and escalates when unsure. See ADR-0007.
 from collections.abc import Awaitable, Callable, Sequence
 from dataclasses import dataclass
 from datetime import UTC, datetime, timedelta
+from zoneinfo import ZoneInfo
 
 from frontdesk.application.appointments import (
     BookAppointment,
@@ -43,7 +44,7 @@ from frontdesk.domain.models import Business, Customer, Message, Service, TimeSl
 
 MAX_STEPS = 6
 ESCALATION_FALLBACK = "Let me get a colleague to help you with that — they'll be in touch shortly."
-SLOT_FORMAT = "%a %d %b %H:%M UTC"
+SLOT_FORMAT = "%a %d %b %H:%M"  # rendered in the business's local time zone
 
 ToolHandler = Callable[["Business", "Customer", dict[str, object]], Awaitable[str]]
 
@@ -147,12 +148,16 @@ def _parse_iso(value: object) -> datetime | None:
     return parsed if parsed.tzinfo is not None else parsed.replace(tzinfo=UTC)
 
 
-def _format_slots(slots: Sequence[TimeSlot]) -> str:
+def _when(moment: datetime, tz: ZoneInfo) -> str:
+    """A start time rendered in the business's local time zone."""
+    return moment.astimezone(tz).strftime(SLOT_FORMAT)
+
+
+def _format_slots(slots: Sequence[TimeSlot], tz: ZoneInfo) -> str:
     if not slots:
         return "no free times right now"
-    return "; ".join(
-        f"{s.starts_at.strftime(SLOT_FORMAT)} (start={s.starts_at.isoformat()})" for s in slots
-    )
+    # Show local time to the customer; keep the UTC ISO so the model books the exact slot.
+    return "; ".join(f"{_when(s.starts_at, tz)} (start={s.starts_at.isoformat()})" for s in slots)
 
 
 def _menu_line(service: Service) -> str:
@@ -182,6 +187,9 @@ def _system_prompt(business: Business, services: Sequence[Service]) -> str:
         "\n\nFree times change as time passes. Always read availability from find_availability "
         "right before offering slots, and never repeat a slot list from earlier in the chat. If a "
         "booking fails, the tool gives you the current free slots — offer exactly those."
+        f"\n\nAll times shown by the tools are already in the business's local time zone "
+        f"({business.timezone}). Present times in that zone; do not ask the customer for their "
+        "time zone or convert times unless they explicitly ask."
         f"\n\nKnowledge base:\n{knowledge}"
     )
 
@@ -267,7 +275,7 @@ class Assistant:
         slots = await self._d.calendar.find_availability(service, around)
         if not slots:
             return "There are no free slots in that window."
-        return "Free slots: " + _format_slots(slots)
+        return "Free slots: " + _format_slots(slots, ZoneInfo(business.timezone))
 
     async def _do_book(
         self, business: Business, customer: Customer, args: dict[str, object]
@@ -276,6 +284,7 @@ class Assistant:
         start = _parse_iso(args.get("start"))
         if service is None or start is None:
             return "I need a valid service and start time to book."
+        tz = ZoneInfo(business.timezone)
         slot = TimeSlot(start, start + timedelta(minutes=service.duration_minutes))
         try:
             appointment = await self._d.book(service, service.resource_ids[0], customer, slot)
@@ -283,11 +292,12 @@ class Assistant:
             current = await self._d.calendar.find_availability(service, self._d.clock.now())
             return (
                 f"Couldn't book that time ({error}) — it may have just passed or been taken. "
-                f"The currently free slots are: {_format_slots(current)}. "
+                f"The currently free slots are: {_format_slots(current, tz)}. "
                 "Offer these exact times; do not reuse any earlier list."
             )
-        when = slot.starts_at.strftime(SLOT_FORMAT)
-        return f"Booked {service.name} for {when}. Reference: {appointment.id}."
+        return (
+            f"Booked {service.name} for {_when(slot.starts_at, tz)}. Reference: {appointment.id}."
+        )
 
     async def _do_reschedule(
         self, business: Business, customer: Customer, args: dict[str, object]
@@ -303,7 +313,7 @@ class Assistant:
             moved = await self._d.reschedule(appointment_id, slot)
         except DomainError as error:
             return f"I couldn't reschedule: {error}"
-        return f"Moved to {moved.slot.starts_at.strftime(SLOT_FORMAT)}."
+        return f"Moved to {_when(moved.slot.starts_at, ZoneInfo(business.timezone))}."
 
     async def _do_cancel(
         self, business: Business, customer: Customer, args: dict[str, object]

@@ -45,3 +45,27 @@ def test_prompt_states_online_and_ignores_address() -> None:
     prompt = _system_prompt(business, [])
     assert "online" in prompt
     assert "ignored" not in prompt  # online wins over a stale address
+
+
+def test_slots_render_in_the_business_timezone() -> None:
+    from datetime import UTC, datetime
+    from zoneinfo import ZoneInfo
+
+    from frontdesk.application.assistant import _format_slots
+    from frontdesk.domain.models import TimeSlot
+
+    tz = ZoneInfo("America/Montevideo")  # UTC-3
+    slot = TimeSlot(
+        datetime(2026, 6, 26, 12, 0, tzinfo=UTC), datetime(2026, 6, 26, 13, 0, tzinfo=UTC)
+    )
+
+    rendered = _format_slots([slot], tz)
+
+    assert "09:00" in rendered  # 12:00 UTC shown as 09:00 local
+    assert "UTC" not in rendered  # the misleading "UTC" suffix is gone
+    assert "start=2026-06-26T12:00:00+00:00" in rendered  # exact UTC kept for booking
+
+
+def test_prompt_states_the_timezone() -> None:
+    business = Business(BusinessId("b"), "Ana", "America/Montevideo")
+    assert "America/Montevideo" in _system_prompt(business, [])
