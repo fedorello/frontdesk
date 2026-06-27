@@ -73,6 +73,13 @@ interface Copy {
   };
   trust: { title: string; body: string; privacy: string; terms: string };
   faq: { title: string; items: [string, string][] };
+  name: {
+    eyebrow: string;
+    title: string;
+    intro: string;
+    words: { word: string; lang: string; meaning: string }[];
+    punchline: string;
+  };
   cta: { title: string; sub: string };
   footer: {
     brand: string;
@@ -244,6 +251,19 @@ const en: Copy = {
         "No, for the hosted service — you just connect a bot token. Self-hosting needs some technical setup.",
       ],
     ],
+  },
+  name: {
+    eyebrow: "The name",
+    title: 'Why "Tovayo"?',
+    intro:
+      "Three little words from three languages — together, they're the whole job.",
+    words: [
+      { word: "tov", lang: "Hebrew", meaning: "“good”" },
+      { word: "voy", lang: "Spanish", meaning: "“I'm on it”" },
+      { word: "voilà", lang: "French", meaning: "“there, done”" },
+    ],
+    punchline:
+      "A good assistant that answers the second a customer writes — voy — and turns it into a booking — voilà. Always on, in any language.",
   },
   cta: {
     title: "Your front desk, handled.",
@@ -422,6 +442,18 @@ const es: Copy = {
         "No, para el servicio alojado — solo conectas un token de bot. Auto-alojar requiere algo de setup técnico.",
       ],
     ],
+  },
+  name: {
+    eyebrow: "El nombre",
+    title: '¿Por qué "Tovayo"?',
+    intro: "Tres palabritas de tres idiomas — juntas son justo lo que hace.",
+    words: [
+      { word: "tov", lang: "Hebreo", meaning: "«bueno»" },
+      { word: "voy", lang: "Español", meaning: "«voy, estoy en ello»" },
+      { word: "voilà", lang: "Francés", meaning: "«listo, ya está»" },
+    ],
+    punchline:
+      "Un buen asistente que responde en cuanto un cliente escribe — voy — y lo convierte en una reserva — voilà. Siempre activo, en cualquier idioma.",
   },
   cta: {
     title: "Tu recepción, resuelta.",
@@ -604,6 +636,18 @@ const ru: Copy = {
       ],
     ],
   },
+  name: {
+    eyebrow: "Имя",
+    title: "Почему «Tovayo»?",
+    intro: "Три маленьких слова из трёх языков — вместе это вся суть сервиса.",
+    words: [
+      { word: "tov", lang: "иврит", meaning: "«хорошо»" },
+      { word: "voy", lang: "испанский", meaning: "«уже иду, я на этом»" },
+      { word: "voilà", lang: "французский", meaning: "«вуаля, готово»" },
+    ],
+    punchline:
+      "Хороший ассистент, который отвечает, едва клиент написал — voy — и превращает это в готовую запись — voilà. Всегда на связи, на любом языке.",
+  },
   cta: {
     title: "Ваш ресепшн — под контролем.",
     sub: "Бесплатно, без лимитов и с открытым кодом. Настройка за минуты.",
@@ -765,6 +809,18 @@ const zh: Copy = {
         "托管服务不需要——您只需连接一个机器人令牌。自行部署需要一些技术设置。",
       ],
     ],
+  },
+  name: {
+    eyebrow: "名字的由来",
+    title: '为什么叫 "Tovayo"？',
+    intro: "三个小词，来自三种语言——合在一起，正是它的工作。",
+    words: [
+      { word: "tov", lang: "希伯来语", meaning: "“好”" },
+      { word: "voy", lang: "西班牙语", meaning: "“我这就来 / 我在处理”" },
+      { word: "voilà", lang: "法语", meaning: "“瞧，搞定了”" },
+    ],
+    punchline:
+      "一个出色的助手，客户一发来消息就回应——voy——并把它变成一笔预约——voilà。全天候在线，支持任何语言。",
   },
   cta: { title: "前台，交给我们。", sub: "免费、无限、开源。几分钟即可设置。" },
   footer: {

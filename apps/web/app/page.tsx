@@ -135,6 +135,7 @@ export default function Landing() {
         <RunItTwoWays />
         <TrustAndData />
         <Faq />
+        <NameStory />
         <CtaBanner />
         <Footer />
       </div>
@@ -586,6 +587,46 @@ function Faq() {
         {c.faq.items.map(([q, a]) => (
           <FaqItem key={q} q={q} a={a} />
         ))}
+      </div>
+    </Section>
+  );
+}
+
+/* ---------- name story ---------- */
+
+function NameStory() {
+  const { c } = useI18n();
+  return (
+    <Section>
+      <div className="mx-auto max-w-2xl rounded-[24px] border border-line bg-surface p-8 text-center shadow-card">
+        <div className="mb-2.5 text-[13px] font-bold uppercase tracking-wider text-pink">
+          {c.name.eyebrow}
+        </div>
+        <Heading>{c.name.title}</Heading>
+        <p className="mx-auto mt-3 max-w-lg text-base leading-relaxed text-muted">
+          {c.name.intro}
+        </p>
+        <div className="mt-7 flex flex-wrap justify-center gap-3">
+          {c.name.words.map((w) => (
+            <div
+              key={w.word}
+              className="min-w-[150px] flex-1 rounded-2xl border border-line bg-surface-2 px-5 py-4"
+            >
+              <div className="text-2xl font-extrabold lowercase text-accent">
+                {w.word}
+              </div>
+              <div className="mt-1.5 text-[11px] font-bold uppercase tracking-wider text-faint">
+                {w.lang}
+              </div>
+              <div className="mt-0.5 text-sm font-semibold text-ink">
+                {w.meaning}
+              </div>
+            </div>
+          ))}
+        </div>
+        <p className="mx-auto mt-7 max-w-xl text-base leading-relaxed text-muted">
+          {c.name.punchline}
+        </p>
       </div>
     </Section>
   );
