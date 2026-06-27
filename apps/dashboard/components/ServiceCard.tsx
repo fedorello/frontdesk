@@ -6,6 +6,7 @@ import type { ServiceInput } from "@/app/lib/api";
 import { CURRENCIES } from "@/app/lib/currencies";
 import { useI18n } from "@/app/lib/I18nProvider";
 
+import { AutoTextarea } from "./AutoTextarea";
 import { WeeklyHoursEditor } from "./WeeklyHoursEditor";
 
 export type Service = ServiceInput & { id: string };
@@ -117,10 +118,10 @@ export function ServiceCard({
 
           <label className="block space-y-1">
             <span className="text-sm font-medium">{t("settings.serviceDescription")}</span>
-            <input
-              aria-label={t("settings.serviceDescription")}
+            <AutoTextarea
+              ariaLabel={t("settings.serviceDescription")}
               value={description}
-              onChange={(event) => setDescription(event.target.value)}
+              onChange={setDescription}
               className={fieldClass}
             />
           </label>

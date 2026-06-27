@@ -32,6 +32,7 @@ export interface BusinessProfile {
   knowledge?: { question: string; answer: string }[];
   description?: string;
   address?: string;
+  online?: boolean;
 }
 
 export interface ServiceInput {

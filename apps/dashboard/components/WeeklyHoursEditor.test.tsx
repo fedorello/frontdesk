@@ -8,7 +8,7 @@ afterEach(cleanup);
 describe("WeeklyHoursEditor", () => {
   it("renders seven days, all closed by default", () => {
     render(<WeeklyHoursEditor value={[]} onChange={() => {}} locale="en" closedLabel="Closed" />);
-    expect(screen.getAllByRole("checkbox")).toHaveLength(7);
+    expect(screen.getAllByRole("switch")).toHaveLength(7);
     expect(screen.getAllByText("Closed")).toHaveLength(7);
   });
 
@@ -16,7 +16,7 @@ describe("WeeklyHoursEditor", () => {
     const onChange = vi.fn();
     render(<WeeklyHoursEditor value={[]} onChange={onChange} locale="en" closedLabel="Closed" />);
 
-    fireEvent.click(screen.getAllByRole("checkbox")[0]); // Monday (weekday 0)
+    fireEvent.click(screen.getAllByRole("switch")[0]); // Monday (weekday 0)
 
     expect(onChange).toHaveBeenCalledWith([{ weekday: 0, opens: "09:00:00", closes: "17:00:00" }]);
   });

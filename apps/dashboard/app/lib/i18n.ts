@@ -48,6 +48,9 @@ const MESSAGES = {
     "settings.serviceDescription": "Description (optional)",
     "settings.address": "Address",
     "settings.addressHint": "Street and city — shown to customers and used by the assistant.",
+    "settings.online": "Online",
+    "settings.onlineHint":
+      "This business is online — no physical address. The assistant tells customers it’s remote.",
     "settings.servicesHint": "Each service has its own price and weekly schedule.",
     "settings.noServices": "No services yet — add your first one.",
     "settings.edit": "Edit",
@@ -135,6 +138,9 @@ const MESSAGES = {
     "settings.serviceDescription": "Descripción (opcional)",
     "settings.address": "Dirección",
     "settings.addressHint": "Calle y ciudad — visible para clientes y usada por el asistente.",
+    "settings.online": "En línea",
+    "settings.onlineHint":
+      "Este negocio es en línea — sin dirección física. El asistente indica que es remoto.",
     "settings.servicesHint": "Cada servicio tiene su propio precio y horario semanal.",
     "settings.noServices": "Aún no hay servicios — agrega el primero.",
     "settings.edit": "Editar",
@@ -222,6 +228,9 @@ const MESSAGES = {
     "settings.serviceDescription": "Описание (необязательно)",
     "settings.address": "Адрес",
     "settings.addressHint": "Улица и город — показывается клиентам и используется ассистентом.",
+    "settings.online": "Онлайн",
+    "settings.onlineHint":
+      "Бизнес онлайн — без физического адреса. Ассистент сообщит клиентам, что приём удалённый.",
     "settings.servicesHint": "У каждой услуги своя цена и недельное расписание.",
     "settings.noServices": "Услуг пока нет — добавьте первую.",
     "settings.edit": "Изменить",
@@ -309,6 +318,8 @@ const MESSAGES = {
     "settings.serviceDescription": "描述（可选）",
     "settings.address": "地址",
     "settings.addressHint": "街道和城市——向客户显示并供助手使用。",
+    "settings.online": "在线",
+    "settings.onlineHint": "该业务为在线服务——没有实体地址。助手会告知客户为远程服务。",
     "settings.servicesHint": "每项服务都有自己的价格和每周排班。",
     "settings.noServices": "暂无服务——添加第一项。",
     "settings.edit": "编辑",

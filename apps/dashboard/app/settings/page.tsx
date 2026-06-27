@@ -7,7 +7,9 @@ import { errorMessageKey } from "@/app/lib/errors";
 import { useI18n } from "@/app/lib/I18nProvider";
 import { getSession } from "@/app/lib/session";
 import { TIME_ZONES } from "@/app/lib/timezones";
+import { AutoTextarea } from "@/components/AutoTextarea";
 import { ServiceCard, type Service } from "@/components/ServiceCard";
+import { ToggleSwitch } from "@/components/ToggleSwitch";
 import { EmptyState } from "@/components/ui/EmptyState";
 
 const inputClass =
@@ -20,6 +22,7 @@ export default function SettingsPage() {
   const [timezone, setTimezone] = useState("UTC");
   const [description, setDescription] = useState("");
   const [address, setAddress] = useState("");
+  const [online, setOnline] = useState(false);
   const [services, setServices] = useState<Service[]>([]);
   const [aiMode, setAiMode] = useState("default");
   const [saved, setSaved] = useState(false);
@@ -46,6 +49,7 @@ export default function SettingsPage() {
         setTimezone(profile.timezone);
         setDescription(profile.description ?? "");
         setAddress(profile.address ?? "");
+        setOnline(profile.online ?? false);
       }
       setServices(list);
       setAiMode(llm.mode);
@@ -66,7 +70,7 @@ export default function SettingsPage() {
     try {
       await api.putBusiness(
         session.businessId,
-        { name, timezone, description, address },
+        { name, timezone, description, address: online ? "" : address, online },
         session.token,
       );
       setSaved(true);
@@ -139,23 +143,35 @@ export default function SettingsPage() {
               ))}
             </select>
           </label>
-          <label className="block space-y-1">
-            <span className="text-sm font-medium">{t("settings.address")}</span>
-            <input
-              aria-label={t("settings.address")}
-              value={address}
-              onChange={(event) => setAddress(event.target.value)}
-              placeholder={t("settings.addressHint")}
-              className={inputClass}
-            />
-          </label>
+          <div className="space-y-2">
+            <div className="flex items-center justify-between">
+              <span className="text-sm font-medium">{t("settings.address")}</span>
+              <label className="flex items-center gap-2 text-sm text-muted">
+                {t("settings.online")}
+                <ToggleSwitch checked={online} onChange={setOnline} label={t("settings.online")} />
+              </label>
+            </div>
+            {online ? (
+              <p className="rounded-lg border border-line bg-canvas px-3 py-2 text-sm text-muted">
+                {t("settings.onlineHint")}
+              </p>
+            ) : (
+              <input
+                aria-label={t("settings.address")}
+                value={address}
+                onChange={(event) => setAddress(event.target.value)}
+                placeholder={t("settings.addressHint")}
+                className={inputClass}
+              />
+            )}
+          </div>
           <label className="block space-y-1">
             <span className="text-sm font-medium">{t("settings.businessDescription")}</span>
-            <textarea
-              aria-label={t("settings.businessDescription")}
+            <AutoTextarea
+              ariaLabel={t("settings.businessDescription")}
               value={description}
-              onChange={(event) => setDescription(event.target.value)}
-              rows={4}
+              onChange={setDescription}
+              minRows={3}
               placeholder={t("settings.businessDescriptionHint")}
               className={inputClass}
             />

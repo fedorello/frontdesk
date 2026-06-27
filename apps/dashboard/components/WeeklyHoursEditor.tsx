@@ -3,6 +3,8 @@
 import type { WorkingHours } from "@/app/lib/api";
 import type { Locale } from "@/app/lib/i18n";
 
+import { ToggleSwitch } from "./ToggleSwitch";
+
 const WEEKDAYS = [0, 1, 2, 3, 4, 5, 6]; // Monday = 0
 const DEFAULT_OPEN = "09:00:00";
 const DEFAULT_CLOSE = "17:00:00";
@@ -37,33 +39,32 @@ export function WeeklyHoursEditor({
   };
 
   return (
-    <div className="space-y-1.5">
+    <div className="divide-y divide-line rounded-xl border border-line">
       {WEEKDAYS.map((weekday) => {
         const hours = value.find((h) => h.weekday === weekday);
         const label = weekdayLabel(weekday, locale);
+        const isOpen = hours !== undefined;
         return (
-          <div key={weekday} className="flex items-center gap-2 text-sm">
-            <label className="flex w-32 shrink-0 items-center gap-2">
-              <input
-                type="checkbox"
-                checked={hours !== undefined}
-                onChange={(event) =>
-                  setDay(
-                    weekday,
-                    event.target.checked
-                      ? { weekday, opens: DEFAULT_OPEN, closes: DEFAULT_CLOSE }
-                      : null,
-                  )
-                }
-                className="accent-accent"
-              />
-              <span className="capitalize">{label}</span>
-            </label>
-            {hours !== undefined ? (
+          <div
+            key={weekday}
+            className={`flex items-center gap-3 px-3 py-2 text-sm ${isOpen ? "" : "opacity-60"}`}
+          >
+            <ToggleSwitch
+              checked={isOpen}
+              label={label}
+              onChange={(open) =>
+                setDay(
+                  weekday,
+                  open ? { weekday, opens: DEFAULT_OPEN, closes: DEFAULT_CLOSE } : null,
+                )
+              }
+            />
+            <span className="w-28 shrink-0 capitalize">{label}</span>
+            {isOpen ? (
               <div className="flex items-center gap-1.5">
                 <input
                   type="time"
-                  aria-label={`${label} ·`}
+                  aria-label={`${label} — from`}
                   value={toInput(hours.opens)}
                   onChange={(event) =>
                     setDay(weekday, { ...hours, opens: fromInput(event.target.value) })
@@ -73,6 +74,7 @@ export function WeeklyHoursEditor({
                 <span className="text-muted">–</span>
                 <input
                   type="time"
+                  aria-label={`${label} — to`}
                   value={toInput(hours.closes)}
                   onChange={(event) =>
                     setDay(weekday, { ...hours, closes: fromInput(event.target.value) })
