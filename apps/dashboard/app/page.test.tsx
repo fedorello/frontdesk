@@ -52,6 +52,12 @@ describe("Overview page", () => {
       },
     ]);
     conversations.mockResolvedValue([
+      {
+        customer: "55501",
+        role: "assistant",
+        text: "**Готово!** ✅",
+        at: "2026-06-26T09:05:00+00:00",
+      },
       { customer: "55501", role: "customer", text: "hi", at: "2026-06-26T09:00:00+00:00" },
     ]);
     getBusiness.mockResolvedValue({ name: "B", timezone: "UTC" });
@@ -60,5 +66,7 @@ describe("Overview page", () => {
     expect(screen.getByText("09:00")).toBeInTheDocument();
     expect(screen.getByText("Scheduled")).toBeInTheDocument(); // localized status
     expect(screen.queryByText("Old")).not.toBeInTheDocument(); // cancelled is hidden
+    expect(screen.getByText("Готово! ✅")).toBeInTheDocument(); // markdown stripped in activity
+    expect(screen.getByText("Assistant")).toBeInTheDocument(); // sender role shown
   });
 });

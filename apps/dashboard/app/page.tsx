@@ -9,6 +9,8 @@ import { formatDay, formatTime } from "@/app/lib/format";
 import type { Locale } from "@/app/lib/i18n";
 import { useI18n } from "@/app/lib/I18nProvider";
 import { getSession } from "@/app/lib/session";
+import { plainPreview } from "@/app/lib/text";
+import { Icon } from "@/components/icons";
 import { Card } from "@/components/ui/Card";
 import { EmptyState } from "@/components/ui/EmptyState";
 import { Skeleton } from "@/components/ui/Skeleton";
@@ -45,6 +47,8 @@ export default function Home() {
   }, []);
 
   const active = appointments.filter((appointment) => !isCancelled(appointment.status));
+  // The activity feed is a human-readable dialog — drop internal tool steps.
+  const activity = messages.filter((message) => message.role !== "tool");
 
   if (state === "loading") {
     return <OverviewSkeleton />;
@@ -121,13 +125,19 @@ export default function Home() {
 
         <Card className="overflow-hidden">
           <div className="px-5 pt-4 pb-2 font-bold">{t("overview.activity")}</div>
-          {messages.length === 0 ? (
+          {activity.length === 0 ? (
             <Hint text={t("conversations.empty")} />
           ) : (
-            messages
+            activity
               .slice(0, MAX_ROWS)
               .map((message, index) => (
-                <ActivityRow key={index} message={message} locale={locale} timeZone={timeZone} />
+                <ActivityRow
+                  key={index}
+                  message={message}
+                  locale={locale}
+                  timeZone={timeZone}
+                  assistantLabel={t("overview.assistant")}
+                />
               ))
           )}
         </Card>
@@ -181,24 +191,32 @@ function ActivityRow({
   message,
   locale,
   timeZone,
+  assistantLabel,
 }: {
   message: MessageView;
   locale: Locale;
   timeZone: string;
+  assistantLabel: string;
 }) {
+  const fromAssistant = message.role === "assistant";
+  const who = fromAssistant ? assistantLabel : message.customer;
   return (
     <div className="flex items-start gap-3 border-b border-line px-5 py-3 last:border-b-0">
-      <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-surface-3 text-xs font-bold text-muted">
-        {message.customer.slice(0, 2)}
+      <span
+        className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-full text-xs font-bold ${
+          fromAssistant ? "bg-accent-soft text-accent" : "bg-pink-soft text-pink"
+        }`}
+      >
+        {fromAssistant ? <Icon name="spark" size={15} /> : message.customer.slice(0, 2)}
       </span>
       <div className="min-w-0 flex-1">
         <div className="flex items-baseline justify-between gap-2">
-          <span className="truncate text-sm font-semibold">{message.customer}</span>
+          <span className="truncate text-sm font-semibold">{who}</span>
           <span className="shrink-0 text-xs text-faint">
             {formatDay(message.at, locale, timeZone)} {formatTime(message.at, locale, timeZone)}
           </span>
         </div>
-        <p className="truncate text-sm text-muted">{message.text}</p>
+        <p className="truncate text-sm text-muted">{plainPreview(message.text)}</p>
       </div>
     </div>
   );
