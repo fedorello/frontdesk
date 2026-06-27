@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 
 import { I18nProvider, useI18n } from "@/app/lib/i18n";
 import { LanguageSwitcher } from "@/components/LanguageSwitcher";
+import { Logo } from "@/components/Logo";
 
 // Real destinations are set per environment; these are the production defaults.
 const APP_URL = process.env.NEXT_PUBLIC_APP_URL ?? "https://app.tovayo.com";
@@ -213,10 +214,8 @@ function Navbar() {
   return (
     <nav className="sticky top-0 z-40 border-b border-line bg-surface/80 backdrop-blur-md">
       <div className="mx-auto flex w-full max-w-6xl items-center gap-4 px-5 py-3 sm:px-8">
-        <a href="#top" className="flex items-center gap-2.5">
-          <span className="flex h-8 w-8 items-center justify-center rounded-[9px] bg-accent text-base font-extrabold text-accent-contrast">
-            T
-          </span>
+        <a href="#top" className="flex items-center gap-2">
+          <Logo size={32} />
           <span className="text-lg font-extrabold tracking-tight">Tovayo</span>
         </a>
         <div className="ml-3 hidden items-center gap-1 md:flex">
@@ -628,10 +627,8 @@ function Footer() {
   return (
     <footer className="border-t border-line">
       <div className="mx-auto flex w-full max-w-6xl flex-col items-center justify-between gap-4 px-5 py-8 sm:flex-row sm:px-8">
-        <div className="flex items-center gap-2.5">
-          <span className="flex h-7 w-7 items-center justify-center rounded-lg bg-accent text-sm font-extrabold text-accent-contrast">
-            T
-          </span>
+        <div className="flex items-center gap-2">
+          <Logo size={26} />
           <span className="text-sm font-bold text-muted">{c.footer.brand}</span>
         </div>
         <div className="flex flex-wrap items-center gap-4 text-sm font-semibold text-muted">

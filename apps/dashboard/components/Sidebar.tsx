@@ -7,6 +7,7 @@ import { useI18n } from "@/app/lib/I18nProvider";
 import { useTheme } from "@/app/lib/ThemeProvider";
 import { BotStatus } from "@/components/BotStatus";
 import { Icon } from "@/components/icons";
+import { Logo } from "@/components/Logo";
 import { isActive, NAV_ITEMS } from "@/components/nav-items";
 
 export function Sidebar() {
@@ -16,10 +17,8 @@ export function Sidebar() {
 
   return (
     <aside className="hidden w-60 shrink-0 flex-col border-r border-line bg-surface px-3.5 pt-5 pb-4 sm:flex">
-      <div className="flex items-center gap-3 px-2 pb-5">
-        <div className="flex h-9 w-9 items-center justify-center rounded-[10px] bg-accent text-[17px] font-extrabold text-accent-contrast">
-          t
-        </div>
+      <div className="flex items-center gap-2.5 px-2 pb-5">
+        <Logo size={34} />
         <div className="leading-tight">
           <div className="text-base font-bold tracking-tight">tovayo</div>
           <div className="text-[11.5px] font-medium text-faint">{t("nav.appTagline")}</div>

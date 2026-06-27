@@ -9,6 +9,7 @@ import { errorMessageKey } from "@/app/lib/errors";
 import { useI18n } from "@/app/lib/I18nProvider";
 import { LanguageSwitcher } from "@/app/lib/LanguageSwitcher";
 import { setSession } from "@/app/lib/session";
+import { Logo } from "@/components/Logo";
 
 const inputClass =
   "w-full rounded-lg border border-line-strong bg-surface px-3 py-2 text-sm text-ink outline-none focus:border-accent";
@@ -39,10 +40,8 @@ export default function LoginPage() {
     <main className="min-h-screen bg-canvas px-6 py-10">
       <div className="mx-auto w-full max-w-sm">
         <div className="mb-6 flex items-center justify-between">
-          <div className="flex items-center gap-2.5">
-            <div className="flex h-8 w-8 items-center justify-center rounded-[9px] bg-accent text-sm font-extrabold text-accent-contrast">
-              t
-            </div>
+          <div className="flex items-center gap-2">
+            <Logo size={30} />
             <span className="font-bold tracking-tight">tovayo</span>
           </div>
           <LanguageSwitcher />

@@ -1,5 +1,6 @@
 import Link from "next/link";
 
+import { Logo } from "@/components/Logo";
 import { Markdown } from "@/components/Markdown";
 
 // A simple header + prose + footer wrapper for legal pages.
@@ -8,10 +9,8 @@ export function LegalShell({ content }: { content: string }) {
     <div className="font-sans">
       <header className="sticky top-0 z-40 border-b border-line bg-surface/80 backdrop-blur-md">
         <div className="mx-auto flex w-full max-w-3xl items-center gap-3 px-5 py-3 sm:px-8">
-          <Link href="/" className="flex items-center gap-2.5">
-            <span className="flex h-8 w-8 items-center justify-center rounded-[9px] bg-accent text-base font-extrabold text-accent-contrast">
-              T
-            </span>
+          <Link href="/" className="flex items-center gap-2">
+            <Logo size={32} />
             <span className="text-lg font-extrabold tracking-tight">
               Tovayo
             </span>
