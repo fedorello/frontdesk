@@ -43,8 +43,20 @@ from frontdesk.domain.ids import AppointmentId
 from frontdesk.domain.models import Business, Customer, Message, Service, TimeSlot
 
 MAX_STEPS = 6
-ESCALATION_FALLBACK = "Let me get a colleague to help you with that — they'll be in touch shortly."
 SLOT_FORMAT = "%a %d %b %H:%M"  # rendered in the business's local time zone
+
+# Sent verbatim to the customer (not via the model), so it carries the business's language.
+ESCALATION_FALLBACK = {
+    "en": "Let me get a colleague to help you with that — they'll be in touch shortly.",
+    "es": "Déjame pasar esto a un compañero — se pondrá en contacto contigo en breve.",
+    "ru": "Передам это коллеге — он скоро свяжется с вами.",
+    "zh": "我帮您转交给同事，他们会尽快与您联系。",
+}
+
+
+def _escalation(business: Business) -> str:
+    return ESCALATION_FALLBACK.get(business.locale, ESCALATION_FALLBACK["en"])
+
 
 ToolHandler = Callable[["Business", "Customer", dict[str, object]], Awaitable[str]]
 
@@ -240,7 +252,7 @@ class Assistant:
                 system=system, messages=messages, tools=TOOL_SPECS
             )
             if not completion.tool_calls:
-                return completion.text or ESCALATION_FALLBACK
+                return completion.text or _escalation(business)
             if completion.text:
                 await self._observer.on_thought(completion.text)
             messages.append(
@@ -252,7 +264,7 @@ class Assistant:
                 messages.append(
                     Message(MessageRole.TOOL, result, self._d.clock.now(), tool_call_id=call.id)
                 )
-        return ESCALATION_FALLBACK
+        return _escalation(business)
 
     async def _dispatch(self, business: Business, customer: Customer, call: ToolCall) -> str:
         handler = self._handlers.get(call.name)

@@ -75,3 +75,11 @@ def test_prompt_forbids_markdown() -> None:
     prompt = _system_prompt(Business(BusinessId("b"), "Ana", "UTC"), [])
     assert "PLAIN TEXT" in prompt
     assert "Markdown" in prompt
+
+
+def test_escalation_fallback_follows_business_locale() -> None:
+    from frontdesk.application.assistant import ESCALATION_FALLBACK, _escalation
+
+    ru = Business(BusinessId("b"), "Ana", "UTC", locale="ru")
+    assert _escalation(ru) == ESCALATION_FALLBACK["ru"]
+    assert _escalation(Business(BusinessId("b"), "Ana", "UTC")) == ESCALATION_FALLBACK["en"]

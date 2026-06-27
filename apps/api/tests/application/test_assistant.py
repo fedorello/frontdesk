@@ -114,7 +114,7 @@ async def test_max_steps_falls_back_to_escalation() -> None:
 
     await world.assistant.handle(inbound("loop forever"))
 
-    assert world.messaging.sent[-1][1].text == ESCALATION_FALLBACK
+    assert world.messaging.sent[-1][1].text == ESCALATION_FALLBACK["en"]  # world business is en
 
 
 async def test_book_reschedule_cancel_via_loop() -> None:

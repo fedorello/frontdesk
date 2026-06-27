@@ -33,10 +33,15 @@ from frontdesk.interface.telegram_phrases import BUSY, WAIT
 from frontdesk.interface.tenancy import provider_from_config, telegram_messaging_from_config
 
 _logger = logging.getLogger("frontdesk.telegram_inbound")
-_QUOTA_MESSAGE = (
-    "We've reached today's message limit for the free assistant. "
-    "Please try again tomorrow — sorry about that!"
-)
+_QUOTA_MESSAGE = {
+    "en": "We've reached today's message limit for the free assistant. "
+    "Please try again tomorrow — sorry about that!",
+    "es": "Hemos alcanzado el límite de mensajes de hoy del asistente gratuito. "
+    "Inténtalo de nuevo mañana — ¡disculpa!",
+    "ru": "Достигнут дневной лимит сообщений бесплатного ассистента. "
+    "Пожалуйста, попробуйте завтра — извините!",
+    "zh": "免费助手今天的消息数量已达上限。请明天再试——抱歉！",
+}
 _PHRASE_LOCALES = frozenset(WAIT)  # {"en", "es", "ru", "zh"}
 
 
@@ -74,7 +79,7 @@ class TelegramInbound:
             bot, inbound.from_address, self._random.choice(WAIT[locale])
         )
         try:
-            await self._run(bot, inbound)
+            await self._run(bot, inbound, locale)
         finally:
             if placeholder_id is not None:
                 await telegram_delete_message(
@@ -91,7 +96,7 @@ class TelegramInbound:
         code = business.locale if business is not None else "en"
         return code if code in _PHRASE_LOCALES else "en"
 
-    async def _run(self, bot: TelegramBotConfig, inbound: InboundMessage) -> None:
+    async def _run(self, bot: TelegramBotConfig, inbound: InboundMessage, locale: str) -> None:
         business_id = bot.business_id
         llm_config = await self._llm_configs.get(business_id)
         messaging = telegram_messaging_from_config(bot, self._client, self._base)
@@ -108,7 +113,7 @@ class TelegramInbound:
             quota_customer = Customer(
                 CustomerId("quota"), business_id, inbound.channel, inbound.from_address
             )
-            await messaging.send(quota_customer, OutboundMessage(_QUOTA_MESSAGE))
+            await messaging.send(quota_customer, OutboundMessage(_QUOTA_MESSAGE[locale]))
             return
 
         assistant = Assistant(
