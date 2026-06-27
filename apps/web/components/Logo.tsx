@@ -14,8 +14,6 @@ export function Logo({ size = 32 }: { size?: number }) {
         d="M11 30.5 8 36.5l-.2-6.1A8 8 0 0 1 4 23.5v-10A8 8 0 0 1 12 5.5h16a8 8 0 0 1 8 8v10a8 8 0 0 1-8 8z"
         fill="var(--accent)"
       />
-      <circle cx="12.5" cy="19" r="2.1" fill="var(--pink)" opacity=".6" />
-      <circle cx="27.5" cy="19" r="2.1" fill="var(--pink)" opacity=".6" />
       <circle cx="15.6" cy="16" r="2.5" fill="#fff" />
       <circle cx="24.4" cy="16" r="2.5" fill="#fff" />
       <path
