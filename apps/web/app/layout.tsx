@@ -1,11 +1,13 @@
 import type { Metadata } from "next";
-import { Plus_Jakarta_Sans } from "next/font/google";
+import { Manrope } from "next/font/google";
 
 import "./globals.css";
 
-const jakarta = Plus_Jakarta_Sans({
+// Manrope covers Latin AND Cyrillic in one geometric sans close to Plus Jakarta Sans,
+// so en/es/ru/zh all render in the same typeface (no system fallback for Cyrillic).
+const jakarta = Manrope({
   variable: "--font-jakarta",
-  subsets: ["latin"],
+  subsets: ["latin", "cyrillic"],
   weight: ["400", "500", "600", "700", "800"],
 });
 
