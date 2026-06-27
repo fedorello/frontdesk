@@ -1,25 +1,28 @@
-const POINTS = [
-  "You're chatting with a real AI agent (a live model) — not a script.",
-  "Ask about services, check times, and book a real appointment — it writes to a real database, just like a customer messaging on WhatsApp.",
-  "Open 🧠 Agent reasoning under any reply to see the agent's thoughts and the tools it called.",
-  "Time is frozen for the demo, so the slots it offers stay bookable.",
+"use client";
+
+import type { MessageKey } from "@/app/lib/i18n";
+import { useI18n } from "@/app/lib/I18nProvider";
+
+const POINT_KEYS: MessageKey[] = [
+  "chat.demoPoint1",
+  "chat.demoPoint2",
+  "chat.demoPoint3",
+  "chat.demoPoint4",
 ];
 
 export function DemoNote() {
+  const { t } = useI18n();
   return (
     <aside className="rounded-xl border border-zinc-200 bg-zinc-50 p-4 text-sm dark:border-zinc-800 dark:bg-zinc-900/50">
-      <h2 className="font-medium">What this demo shows</h2>
+      <h2 className="font-medium">{t("chat.demoTitle")}</h2>
       <p className="mt-1 text-zinc-500">
-        Frontdesk is an open-source AI front desk for small service businesses — it answers
-        messages, books appointments, and sends reminders. This is{" "}
-        <span className="font-medium">Ana Studio</span>, a demo salon that offers one service
-        (Haircut).
+        {t("chat.demoIntro", { studio: "Ana Studio", service: "Haircut" })}
       </p>
       <ul className="mt-3 space-y-1.5 text-zinc-600 dark:text-zinc-300">
-        {POINTS.map((point) => (
-          <li key={point} className="flex gap-2">
+        {POINT_KEYS.map((key) => (
+          <li key={key} className="flex gap-2">
             <span aria-hidden>•</span>
-            <span>{point}</span>
+            <span>{t(key)}</span>
           </li>
         ))}
       </ul>
