@@ -114,6 +114,7 @@ def _to_service(row: Row) -> Service:
         resource_ids,
         description=row["description"],
         working_hours=_to_hours(row["working_hours"]),
+        max_advance_days=row["max_advance_days"],
     )
 
 
@@ -289,12 +290,13 @@ class SqlServiceRepository:
             await session.execute(
                 text(
                     "INSERT INTO service (id, business_id, name, duration_minutes, price_cents, "
-                    "currency, resource_ids, description, working_hours) "
+                    "currency, resource_ids, description, working_hours, max_advance_days) "
                     "VALUES (:id, :bid, :name, :dur, :cents, :cur, CAST(:rids AS jsonb), :desc, "
-                    "CAST(:wh AS jsonb)) "
+                    "CAST(:wh AS jsonb), :adv) "
                     "ON CONFLICT (id) DO UPDATE SET name = :name, duration_minutes = :dur, "
                     "price_cents = :cents, currency = :cur, resource_ids = CAST(:rids AS jsonb), "
-                    "description = :desc, working_hours = CAST(:wh AS jsonb)"
+                    "description = :desc, working_hours = CAST(:wh AS jsonb), "
+                    "max_advance_days = :adv"
                 ),
                 {
                     "id": str(service.id),
@@ -306,6 +308,7 @@ class SqlServiceRepository:
                     "rids": rids,
                     "desc": service.description,
                     "wh": _hours_json(service.working_hours),
+                    "adv": service.max_advance_days,
                 },
             )
             await session.commit()
@@ -635,6 +638,7 @@ class SqlCalendar:
             duration_minutes=service.duration_minutes,
             now=self._clock.now(),
             around=around,
+            max_advance_days=service.max_advance_days,
             limit=limit,
         )
 
@@ -656,6 +660,7 @@ class SqlCalendar:
                 busy=[],
                 slot=slot,
                 now=self._clock.now(),
+                max_advance_days=service.max_advance_days,
             )
             appointment = Appointment(
                 AppointmentId(self._ids.new()),
@@ -709,6 +714,7 @@ class SqlCalendar:
                 busy=[],
                 slot=slot,
                 now=self._clock.now(),
+                max_advance_days=service.max_advance_days,
             )
             await session.execute(
                 text("UPDATE appointment SET starts_at = :start, ends_at = :end WHERE id = :id"),

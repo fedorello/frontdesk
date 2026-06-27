@@ -55,29 +55,33 @@ def free_slots(
     duration_minutes: int,
     now: datetime,
     around: datetime,
-    days: int = 7,
+    max_advance_days: int = 30,
     step_minutes: int = 15,
     limit: int = 5,
 ) -> list[TimeSlot]:
-    """Free slots of ``duration_minutes``, near ``around``, within the next ``days``.
+    """Free slots of ``duration_minutes``, near ``around``, within the booking horizon.
 
     Respects ``working_hours`` (the service's schedule), the business buffer between
-    appointments, and the lead time before now. ``now`` and ``around`` are UTC.
+    appointments, the lead time before now, and ``max_advance_days`` (the furthest a
+    customer may book). ``now`` and ``around`` are UTC.
     """
     tz = ZoneInfo(business.timezone)
     earliest = max(around, now + timedelta(minutes=business.lead_time_minutes))
+    latest = now + timedelta(days=max_advance_days)
     duration = timedelta(minutes=duration_minutes)
     step = timedelta(minutes=step_minutes)
 
     found: list[TimeSlot] = []
     start_day = earliest.astimezone(tz).date()
-    for offset in range(days):
+    for offset in range(max_advance_days + 1):
         for window in _windows_for_day(working_hours, start_day + timedelta(days=offset), tz):
             candidate = window.starts_at
             if candidate < earliest:
                 steps = math.ceil((earliest - window.starts_at) / step)
                 candidate = window.starts_at + steps * step
             while candidate + duration <= window.ends_at:
+                if candidate > latest:
+                    return found  # past the booking horizon — nothing further to offer
                 slot = TimeSlot(candidate, candidate + duration)
                 if candidate >= earliest and not _conflicts(slot, busy, business.buffer_minutes):
                     found.append(slot)
@@ -94,10 +98,13 @@ def ensure_bookable(
     busy: Sequence[TimeSlot],
     slot: TimeSlot,
     now: datetime,
+    max_advance_days: int,
 ) -> None:
-    """Raise if ``slot`` can't be booked: too soon, off-hours, or taken."""
+    """Raise if ``slot`` can't be booked: too soon, too far ahead, off-hours, or taken."""
     if slot.starts_at < now + timedelta(minutes=business.lead_time_minutes):
         raise LeadTimeViolation("slot is inside the lead time")
+    if slot.starts_at > now + timedelta(days=max_advance_days):
+        raise SlotUnavailable("slot is beyond the booking horizon")
     tz = ZoneInfo(business.timezone)
     if not _within_working_hours(slot, working_hours, tz):
         raise SlotUnavailable("slot is outside working hours")

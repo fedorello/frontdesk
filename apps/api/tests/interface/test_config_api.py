@@ -98,6 +98,7 @@ async def test_services_crud() -> None:
                 "price_cents": 80000,
                 "currency": "uyu",  # lower-case is normalised
                 "working_hours": [{"weekday": 1, "opens": "10:00:00", "closes": "15:00:00"}],
+                "max_advance_days": 14,
             },
         )
         listed = (await client.get("/api/businesses/ana/services")).json()
@@ -107,6 +108,13 @@ async def test_services_crud() -> None:
         assert listed[0]["price_cents"] == 80000
         assert listed[0]["currency"] == "UYU"  # normalised to ISO 4217
         assert listed[0]["working_hours"][0]["weekday"] == 1  # schedule round-trips
+        assert listed[0]["max_advance_days"] == 14  # booking horizon round-trips
+
+        bad = await client.put(
+            "/api/businesses/ana/services/svc2",
+            json={"name": "X", "duration_minutes": 30, "max_advance_days": 0},
+        )
+        assert bad.status_code == 422  # horizon must be positive
 
         await client.delete("/api/businesses/ana/services/svc1")
         assert (await client.get("/api/businesses/ana/services")).json() == []

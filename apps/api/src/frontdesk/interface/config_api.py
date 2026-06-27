@@ -86,6 +86,14 @@ class ServiceIO(BaseModel):
     resource_ids: list[str] = []
     description: str = ""
     working_hours: list[WorkingHoursIO] = []
+    max_advance_days: int = 30
+
+    @field_validator("max_advance_days")
+    @classmethod
+    def _positive_horizon(cls, value: int) -> int:
+        if value <= 0:
+            raise ValueError("max_advance_days must be positive")
+        return value
 
     @field_validator("currency")
     @classmethod
@@ -132,6 +140,7 @@ def _service_view(service: Service) -> ServiceView:
         resource_ids=[str(r) for r in service.resource_ids],
         description=service.description,
         working_hours=_hours_io(service.working_hours),
+        max_advance_days=service.max_advance_days,
     )
 
 
@@ -208,6 +217,7 @@ def build_config_router(
             tuple(ResourceId(r) for r in body.resource_ids),
             description=body.description,
             working_hours=_to_hours(body.working_hours),
+            max_advance_days=body.max_advance_days,
         )
         await services.upsert(service)
         return _service_view(service)

@@ -72,10 +72,13 @@ class Service:
     resource_ids: tuple[ResourceId, ...] = ()
     description: str = ""  # what the service is — given to the assistant and shown to owners
     working_hours: tuple[WorkingHours, ...] = ()  # the weekly schedule this service is bookable in
+    max_advance_days: int = 30  # how far ahead a customer may book this service
 
     def __post_init__(self) -> None:
         if self.duration_minutes <= 0:
             raise ValueError("duration_minutes must be positive")
+        if self.max_advance_days <= 0:
+            raise ValueError("max_advance_days must be positive")
 
 
 @dataclass(frozen=True, slots=True)

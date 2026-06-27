@@ -44,6 +44,7 @@ export interface ServiceInput {
   resource_ids?: string[];
   description?: string;
   working_hours?: WorkingHours[];
+  max_advance_days?: number;
 }
 
 export interface LlmConfigInput {

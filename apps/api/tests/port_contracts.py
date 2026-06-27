@@ -244,12 +244,14 @@ async def check_service_write(repo: ServiceRepository) -> None:
             resource_ids=(ResourceId("res"),),
             description="A relaxing massage.",
             working_hours=(WorkingHours(1, time(10), time(15)),),
+            max_advance_days=14,
         )
     )
     stored = next(s for s in await repo.for_business(BusinessId("biz")) if s.id == sid)
     assert stored.description == "A relaxing massage."  # round-trips through storage
     assert stored.price == Money(80000, "UYU")  # price + currency round-trip
     assert stored.working_hours == (WorkingHours(1, time(10), time(15)),)  # schedule round-trips
+    assert stored.max_advance_days == 14  # booking horizon round-trips
 
     await repo.remove(sid)
     assert all(s.id != sid for s in await repo.for_business(BusinessId("biz")))

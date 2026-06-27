@@ -131,6 +131,7 @@ def test_ensure_bookable_accepts_a_valid_slot() -> None:
         busy=[],
         slot=TimeSlot(_at(11), _at(12)),
         now=_at(8),
+        max_advance_days=30,
     )
 
 
@@ -142,6 +143,7 @@ def test_ensure_bookable_rejects_inside_lead_time() -> None:
             busy=[],
             slot=TimeSlot(_at(8, 30), _at(9, 30)),
             now=_at(8),
+            max_advance_days=30,
         )
 
 
@@ -153,6 +155,7 @@ def test_ensure_bookable_rejects_outside_working_hours() -> None:
             busy=[],
             slot=TimeSlot(_at(18), _at(19)),  # after 17:00 close
             now=_at(8),
+            max_advance_days=30,
         )
 
 
@@ -164,6 +167,7 @@ def test_ensure_bookable_rejects_taken_slot() -> None:
             busy=[TimeSlot(_at(11), _at(12))],
             slot=TimeSlot(_at(12), _at(13)),  # within the 15-min buffer of 11-12
             now=_at(8),
+            max_advance_days=30,
         )
 
 
@@ -181,3 +185,32 @@ def test_free_slots_across_multiple_days() -> None:
     )
 
     assert slots[0].starts_at == _at(9) + timedelta(days=1)
+
+
+def test_free_slots_respects_the_booking_horizon() -> None:
+    hours = tuple(WorkingHours(day, time(9), time(17)) for day in range(7))
+    # Asking around 10 days out, but the service horizon is only 3 days → nothing offered.
+    slots = free_slots(
+        business=_business(lead=0),
+        working_hours=hours,
+        busy=[],
+        duration_minutes=60,
+        now=_at(8),
+        around=_at(9) + timedelta(days=10),
+        max_advance_days=3,
+        limit=5,
+    )
+
+    assert slots == []  # beyond the booking horizon
+
+
+def test_ensure_bookable_rejects_beyond_horizon() -> None:
+    with pytest.raises(SlotUnavailable, match="horizon"):
+        ensure_bookable(
+            business=_business(lead=0),
+            working_hours=_resource().working_hours,
+            busy=[],
+            slot=TimeSlot(_at(9) + timedelta(days=10), _at(10) + timedelta(days=10)),
+            now=_at(8),
+            max_advance_days=7,
+        )

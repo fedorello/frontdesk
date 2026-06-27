@@ -43,7 +43,6 @@ from frontdesk.domain.models import (
     Resource,
     Service,
     TimeSlot,
-    WorkingHours,
 )
 
 
@@ -348,19 +347,18 @@ class InMemoryCalendar:
             and appointment.id != ignore
         ]
 
-    def _reject_overlap(
-        self, working_hours: Sequence[WorkingHours], slot: TimeSlot, busy: Sequence[TimeSlot]
-    ) -> None:
+    def _reject_overlap(self, service: Service, slot: TimeSlot, busy: Sequence[TimeSlot]) -> None:
         buffer = timedelta(minutes=self._business.buffer_minutes)
         for taken in busy:
             if slot.overlaps(TimeSlot(taken.starts_at - buffer, taken.ends_at + buffer)):
                 raise DoubleBooking("the resource is already booked for that time")
         ensure_bookable(
             business=self._business,
-            working_hours=working_hours,
+            working_hours=service.working_hours,
             busy=[],
             slot=slot,
             now=self._clock.now(),
+            max_advance_days=service.max_advance_days,
         )
 
     async def find_availability(
@@ -374,13 +372,14 @@ class InMemoryCalendar:
             duration_minutes=service.duration_minutes,
             now=self._clock.now(),
             around=around,
+            max_advance_days=service.max_advance_days,
             limit=limit,
         )
 
     async def book(
         self, service: Service, resource_id: ResourceId, customer: Customer, slot: TimeSlot
     ) -> Appointment:
-        self._reject_overlap(service.working_hours, slot, self._busy(resource_id))
+        self._reject_overlap(service, slot, self._busy(resource_id))
         appointment = Appointment(
             AppointmentId(self._ids.new()),
             self._business.id,
@@ -396,7 +395,7 @@ class InMemoryCalendar:
         appointment = self._store.appointments[appointment_id]
         service = await self._services.get(appointment.service_id)
         self._reject_overlap(
-            service.working_hours, slot, self._busy(appointment.resource_id, ignore=appointment_id)
+            service, slot, self._busy(appointment.resource_id, ignore=appointment_id)
         )
         moved = replace(appointment, slot=slot)
         self._store.appointments[appointment_id] = moved

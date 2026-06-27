@@ -130,6 +130,22 @@ async def test_calendar_book_maps_constraint_to_double_booking(sessionmaker: Fac
         await calendar.book(_service(), _resource_id(), _customer(), slots[0])
 
 
+async def test_booking_a_one_hour_slot_removes_overlapping_15min_slots(
+    sessionmaker: Factory,
+) -> None:
+    # The service is 60 minutes on a 15-minute grid. Booking 09:00 must drop 09:15/09:30/
+    # 09:45 — anything that overlaps the hour — even though the step is 15 minutes.
+    calendar = SqlCalendar(sessionmaker, SequentialIdGenerator("ap"), FixedClock(NOW))
+    service = _service()
+    booked = (await calendar.find_availability(service, NOW))[0]
+
+    await calendar.book(service, _resource_id(), _customer(), booked)
+
+    after = await calendar.find_availability(service, NOW)
+    assert all(not slot.overlaps(booked) for slot in after)  # no slot inside the booked hour
+    assert after[0].starts_at >= booked.ends_at  # the next free slot starts after it ends
+
+
 async def test_claim_due_skips_locked_rows(sessionmaker: Factory) -> None:
     store = SqlReminderStore(sessionmaker)
     await store.schedule([_reminder("r1"), _reminder("r2")])

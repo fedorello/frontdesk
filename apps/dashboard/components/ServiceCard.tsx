@@ -40,6 +40,7 @@ export function ServiceCard({
   const [amount, setAmount] = useState(service.price_cents != null ? service.price_cents / 100 : 0);
   const [currency, setCurrency] = useState(service.currency || "USD");
   const [hours, setHours] = useState(service.working_hours ?? []);
+  const [maxAdvanceDays, setMaxAdvanceDays] = useState(service.max_advance_days ?? 30);
   const [saving, setSaving] = useState(false);
 
   const save = async () => {
@@ -53,6 +54,7 @@ export function ServiceCard({
         price_cents: Math.round(amount * 100),
         currency,
         working_hours: hours,
+        max_advance_days: maxAdvanceDays,
       });
       setOpen(false);
     } finally {
@@ -165,6 +167,19 @@ export function ServiceCard({
               closedLabel={t("settings.closed")}
             />
           </div>
+
+          <label className="block space-y-1">
+            <span className="text-sm font-medium">{t("settings.maxAdvanceDays")}</span>
+            <input
+              aria-label={t("settings.maxAdvanceDays")}
+              type="number"
+              min={1}
+              value={maxAdvanceDays}
+              onChange={(event) => setMaxAdvanceDays(Number(event.target.value))}
+              className={fieldClass}
+            />
+            <span className="text-xs text-muted">{t("settings.maxAdvanceDaysHint")}</span>
+          </label>
 
           <button
             type="button"
