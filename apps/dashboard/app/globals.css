@@ -103,3 +103,14 @@ input:-webkit-autofill:focus {
   caret-color: var(--text);
   transition: background-color 9999s ease-in-out 0s;
 }
+
+/* Modern browsers no longer default buttons to a hand cursor — make every
+   interactive element clearly clickable. */
+button:not(:disabled),
+[role="button"]:not([aria-disabled="true"]),
+[role="switch"],
+a[href],
+summary,
+select {
+  cursor: pointer;
+}

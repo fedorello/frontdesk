@@ -5,12 +5,16 @@ import { I18nProvider } from "@/app/lib/I18nProvider";
 
 import ConversationsPage from "./page";
 
-const { conversations } = vi.hoisted(() => ({ conversations: vi.fn() }));
-vi.mock("@/app/lib/api", () => ({ api: { conversations } }));
+const { conversations, getBusiness } = vi.hoisted(() => ({
+  conversations: vi.fn(),
+  getBusiness: vi.fn(),
+}));
+vi.mock("@/app/lib/api", () => ({ api: { conversations, getBusiness } }));
 
 afterEach(() => {
   window.localStorage.clear();
   conversations.mockReset();
+  getBusiness.mockReset();
 });
 
 function renderPage() {
@@ -45,6 +49,7 @@ describe("Conversations page", () => {
   it("shows the empty state when there are no conversations", async () => {
     signIn();
     conversations.mockResolvedValue([]);
+    getBusiness.mockResolvedValue({ name: "B", timezone: "UTC" });
     renderPage();
     expect(await screen.findByText("No conversations yet.")).toBeInTheDocument();
   });
@@ -58,6 +63,7 @@ describe("Conversations page", () => {
   it("opens a thread to show its messages oldest-first, then goes back", async () => {
     signIn();
     conversations.mockResolvedValue(FEED);
+    getBusiness.mockResolvedValue({ name: "B", timezone: "UTC" });
     renderPage();
 
     // The list shows the customer with their latest message.
