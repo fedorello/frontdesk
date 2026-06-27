@@ -3,27 +3,21 @@
 import { useEffect, useState } from "react";
 
 import { api, type AppointmentView } from "@/app/lib/api";
+import { isCancelled, PENDING, STATUS_LABEL } from "@/app/lib/appointments";
 import { formatDay, formatTime } from "@/app/lib/format";
-import type { Locale, MessageKey } from "@/app/lib/i18n";
+import type { Locale } from "@/app/lib/i18n";
 import { useI18n } from "@/app/lib/I18nProvider";
 import { getSession } from "@/app/lib/session";
 import { Icon } from "@/components/icons";
 import { EmptyState } from "@/components/ui/EmptyState";
+import { Pagination } from "@/components/ui/Pagination";
 import { Skeleton } from "@/components/ui/Skeleton";
 import { StatusPill } from "@/components/ui/StatusPill";
+import { ToggleSwitch } from "@/components/ToggleSwitch";
 
 type LoadState = "loading" | "anon" | "ready";
 const MINUTES_PER_HOUR = 60;
-
-const PENDING = "pending"; // only pending appointments can be confirmed
-
-// Backend AppointmentStatus values → localized chip labels.
-const STATUS_LABEL: Record<string, MessageKey> = {
-  pending: "calendar.statusPending",
-  confirmed: "calendar.statusConfirmed",
-  completed: "calendar.statusCompleted",
-  cancelled: "calendar.statusCancelled",
-};
+const PAGE_SIZE = 8;
 
 function durationMinutes(startsAt: string, endsAt: string): number {
   const minutes =
@@ -36,6 +30,8 @@ export default function CalendarPage() {
   const [state, setState] = useState<LoadState>("loading");
   const [appointments, setAppointments] = useState<AppointmentView[]>([]);
   const [timeZone, setTimeZone] = useState("UTC");
+  const [showCancelled, setShowCancelled] = useState(false);
+  const [page, setPage] = useState(0);
 
   useEffect(() => {
     const session = getSession();
@@ -67,6 +63,19 @@ export default function CalendarPage() {
     );
   };
 
+  const cancelledCount = appointments.filter((item) => isCancelled(item.status)).length;
+  const visible = showCancelled
+    ? appointments
+    : appointments.filter((item) => !isCancelled(item.status));
+  const pageCount = Math.max(1, Math.ceil(visible.length / PAGE_SIZE));
+  const safePage = Math.min(page, pageCount - 1);
+  const paged = visible.slice(safePage * PAGE_SIZE, (safePage + 1) * PAGE_SIZE);
+
+  const toggleCancelled = (show: boolean) => {
+    setShowCancelled(show);
+    setPage(0);
+  };
+
   return (
     <main className="mx-auto w-full max-w-3xl px-6 py-8 sm:px-8">
       {state === "loading" && (
@@ -84,24 +93,51 @@ export default function CalendarPage() {
       )}
 
       {state === "ready" && appointments.length > 0 && (
-        <div className="space-y-2.5">
-          {appointments.map((appointment) => (
-            <AppointmentCard
-              key={appointment.id}
-              appointment={appointment}
-              locale={locale}
-              timeZone={timeZone}
-              refLabel={t("calendar.ref")}
-              statusLabel={
-                STATUS_LABEL[appointment.status]
-                  ? t(STATUS_LABEL[appointment.status])
-                  : appointment.status
-              }
-              onConfirm={appointment.status === PENDING ? confirm : undefined}
-              confirmLabel={t("calendar.confirm")}
+        <>
+          {cancelledCount > 0 && (
+            <label className="mb-4 flex items-center justify-end gap-2 text-sm">
+              <span className="text-muted">{t("calendar.showCancelled")}</span>
+              <ToggleSwitch
+                checked={showCancelled}
+                onChange={toggleCancelled}
+                label={t("calendar.showCancelled")}
+              />
+            </label>
+          )}
+
+          {visible.length === 0 ? (
+            <EmptyState icon="calendar" title={t("calendar.empty")} />
+          ) : (
+            <div className="space-y-2.5">
+              {paged.map((appointment) => (
+                <AppointmentCard
+                  key={appointment.id}
+                  appointment={appointment}
+                  locale={locale}
+                  timeZone={timeZone}
+                  refLabel={t("calendar.ref")}
+                  statusLabel={
+                    STATUS_LABEL[appointment.status]
+                      ? t(STATUS_LABEL[appointment.status])
+                      : appointment.status
+                  }
+                  onConfirm={appointment.status === PENDING ? confirm : undefined}
+                  confirmLabel={t("calendar.confirm")}
+                />
+              ))}
+            </div>
+          )}
+
+          {pageCount > 1 && (
+            <Pagination
+              page={safePage}
+              pageCount={pageCount}
+              onPage={setPage}
+              prevLabel={t("calendar.prev")}
+              nextLabel={t("calendar.next")}
             />
-          ))}
-        </div>
+          )}
+        </>
       )}
     </main>
   );

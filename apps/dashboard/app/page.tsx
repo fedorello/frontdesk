@@ -4,7 +4,8 @@ import Link from "next/link";
 import { useEffect, useState } from "react";
 
 import { api, type AppointmentView, type MessageView } from "@/app/lib/api";
-import { formatTime } from "@/app/lib/format";
+import { isCancelled, STATUS_LABEL } from "@/app/lib/appointments";
+import { formatDay, formatTime } from "@/app/lib/format";
 import type { Locale } from "@/app/lib/i18n";
 import { useI18n } from "@/app/lib/I18nProvider";
 import { getSession } from "@/app/lib/session";
@@ -22,6 +23,7 @@ export default function Home() {
   const [state, setState] = useState<LoadState>("loading");
   const [appointments, setAppointments] = useState<AppointmentView[]>([]);
   const [messages, setMessages] = useState<MessageView[]>([]);
+  const [timeZone, setTimeZone] = useState("UTC");
 
   useEffect(() => {
     const session = getSession();
@@ -33,12 +35,16 @@ export default function Home() {
     Promise.all([
       api.appointments(session.businessId, session.token).catch(() => []),
       api.conversations(session.businessId, session.token).catch(() => []),
-    ]).then(([appts, msgs]) => {
+      api.getBusiness(session.businessId, session.token).catch(() => null),
+    ]).then(([appts, msgs, business]) => {
       setAppointments(appts);
       setMessages(msgs);
+      if (business) setTimeZone(business.timezone);
       setState("ready");
     });
   }, []);
+
+  const active = appointments.filter((appointment) => !isCancelled(appointment.status));
 
   if (state === "loading") {
     return <OverviewSkeleton />;
@@ -79,7 +85,7 @@ export default function Home() {
           icon="calendar"
           tone="accent"
           label={t("overview.bookings")}
-          value={appointments.length}
+          value={active.length}
         />
         <StatCard
           icon="conversations"
@@ -92,13 +98,23 @@ export default function Home() {
       <div className="mt-5 grid items-start gap-5 lg:grid-cols-[1.4fr_1fr]">
         <Card className="overflow-hidden">
           <CardHead title={t("nav.calendar")} href="/calendar" cta={t("overview.viewAll")} />
-          {appointments.length === 0 ? (
+          {active.length === 0 ? (
             <Hint text={t("calendar.empty")} />
           ) : (
-            appointments
+            active
               .slice(0, MAX_ROWS)
-              .map((appointment, index) => (
-                <AppointmentRow key={index} appointment={appointment} locale={locale} />
+              .map((appointment) => (
+                <AppointmentRow
+                  key={appointment.id}
+                  appointment={appointment}
+                  locale={locale}
+                  timeZone={timeZone}
+                  statusLabel={
+                    STATUS_LABEL[appointment.status]
+                      ? t(STATUS_LABEL[appointment.status])
+                      : appointment.status
+                  }
+                />
               ))
           )}
         </Card>
@@ -110,7 +126,9 @@ export default function Home() {
           ) : (
             messages
               .slice(0, MAX_ROWS)
-              .map((message, index) => <ActivityRow key={index} message={message} />)
+              .map((message, index) => (
+                <ActivityRow key={index} message={message} locale={locale} timeZone={timeZone} />
+              ))
           )}
         </Card>
       </div>
@@ -137,28 +155,51 @@ function Hint({ text }: { text: string }) {
   return <p className="px-5 py-6 text-sm text-muted">{text}</p>;
 }
 
-function AppointmentRow({ appointment, locale }: { appointment: AppointmentView; locale: Locale }) {
+function AppointmentRow({
+  appointment,
+  locale,
+  timeZone,
+  statusLabel,
+}: {
+  appointment: AppointmentView;
+  locale: Locale;
+  timeZone: string;
+  statusLabel: string;
+}) {
   return (
     <div className="flex items-center gap-4 border-b border-line px-5 py-3 last:border-b-0">
       <span className="w-12 font-extrabold tabular-nums">
-        {formatTime(appointment.starts_at, locale)}
+        {formatTime(appointment.starts_at, locale, timeZone)}
       </span>
       <span className="flex-1 truncate text-sm font-semibold">{appointment.service}</span>
-      <StatusPill status={appointment.status} />
+      <StatusPill status={appointment.status} label={statusLabel} />
     </div>
   );
 }
 
-function ActivityRow({ message }: { message: MessageView }) {
+function ActivityRow({
+  message,
+  locale,
+  timeZone,
+}: {
+  message: MessageView;
+  locale: Locale;
+  timeZone: string;
+}) {
   return (
-    <div className="flex items-center gap-3 px-5 py-2.5">
+    <div className="flex items-start gap-3 border-b border-line px-5 py-3 last:border-b-0">
       <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-surface-3 text-xs font-bold text-muted">
         {message.customer.slice(0, 2)}
       </span>
-      <p className="flex-1 truncate text-sm">
-        <span className="font-semibold">{message.customer}</span>{" "}
-        <span className="text-muted">{message.text}</span>
-      </p>
+      <div className="min-w-0 flex-1">
+        <div className="flex items-baseline justify-between gap-2">
+          <span className="truncate text-sm font-semibold">{message.customer}</span>
+          <span className="shrink-0 text-xs text-faint">
+            {formatDay(message.at, locale, timeZone)} {formatTime(message.at, locale, timeZone)}
+          </span>
+        </div>
+        <p className="truncate text-sm text-muted">{message.text}</p>
+      </div>
     </div>
   );
 }

@@ -84,4 +84,33 @@ describe("Calendar page", () => {
     expect(confirmAppointment).toHaveBeenCalledWith("b", "apt-1", "t");
     expect(screen.queryByRole("button", { name: "Confirm" })).not.toBeInTheDocument();
   });
+
+  it("hides cancelled bookings by default and reveals them via the toggle", async () => {
+    signIn();
+    appointments.mockResolvedValue([
+      {
+        id: "a1",
+        service: "Active",
+        starts_at: "2026-06-28T13:00:00+00:00",
+        ends_at: "2026-06-28T14:00:00+00:00",
+        status: "confirmed",
+      },
+      {
+        id: "a2",
+        service: "Gone",
+        starts_at: "2026-06-20T13:00:00+00:00",
+        ends_at: "2026-06-20T14:00:00+00:00",
+        status: "cancelled",
+      },
+    ]);
+    getBusiness.mockResolvedValue({ name: "B", timezone: "UTC" });
+    renderCalendar();
+
+    expect(await screen.findByText("Active")).toBeInTheDocument();
+    expect(screen.queryByText("Gone")).not.toBeInTheDocument(); // cancelled hidden by default
+
+    fireEvent.click(screen.getByRole("switch", { name: "Show cancelled" }));
+
+    expect(screen.getByText("Gone")).toBeInTheDocument(); // revealed
+  });
 });
