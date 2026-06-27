@@ -1,7 +1,7 @@
 "use client";
 
 import { usePathname } from "next/navigation";
-import type { ReactNode } from "react";
+import { Suspense, type ReactNode } from "react";
 
 import { BottomNav } from "@/components/BottomNav";
 import { Sidebar } from "@/components/Sidebar";
@@ -20,7 +20,10 @@ export function AppShell({ children }: { children: ReactNode }) {
     <div className="flex h-screen overflow-hidden">
       <Sidebar />
       <div className="flex min-w-0 flex-1 flex-col bg-canvas">
-        <Topbar />
+        {/* Suspense isolates Topbar's useSearchParams so static pages still prerender. */}
+        <Suspense fallback={<div className="h-[57px] shrink-0 border-b border-line bg-surface" />}>
+          <Topbar />
+        </Suspense>
         <div className="flex-1 overflow-auto">{children}</div>
         <BottomNav />
       </div>

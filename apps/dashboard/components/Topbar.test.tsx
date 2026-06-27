@@ -6,7 +6,11 @@ import { I18nProvider } from "@/app/lib/I18nProvider";
 import { Topbar } from "./Topbar";
 
 const { push } = vi.hoisted(() => ({ push: vi.fn() }));
-vi.mock("next/navigation", () => ({ usePathname: () => "/", useRouter: () => ({ push }) }));
+vi.mock("next/navigation", () => ({
+  usePathname: () => "/",
+  useRouter: () => ({ push, replace: vi.fn() }),
+  useSearchParams: () => new URLSearchParams(),
+}));
 
 afterEach(() => {
   window.localStorage.clear();

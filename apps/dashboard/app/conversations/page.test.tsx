@@ -5,16 +5,21 @@ import { I18nProvider } from "@/app/lib/I18nProvider";
 
 import ConversationsPage from "./page";
 
-const { conversations, getBusiness } = vi.hoisted(() => ({
+const { conversations, getBusiness, q } = vi.hoisted(() => ({
   conversations: vi.fn(),
   getBusiness: vi.fn(),
+  q: { value: "" },
 }));
 vi.mock("@/app/lib/api", () => ({ api: { conversations, getBusiness } }));
+vi.mock("next/navigation", () => ({
+  useSearchParams: () => new URLSearchParams(q.value ? `q=${q.value}` : ""),
+}));
 
 afterEach(() => {
   window.localStorage.clear();
   conversations.mockReset();
   getBusiness.mockReset();
+  q.value = "";
 });
 
 function renderPage() {
@@ -79,5 +84,19 @@ describe("Conversations page", () => {
 
     fireEvent.click(screen.getByRole("button", { name: /All conversations/ }));
     expect(screen.queryByText("Can I book today?")).not.toBeInTheDocument(); // back to the list
+  });
+
+  it("filters the thread list by the ?q search param", async () => {
+    signIn();
+    conversations.mockResolvedValue([
+      { customer: "Mara", role: "customer", text: "hi", at: "2026-06-26T15:00:00+00:00" },
+      { customer: "Bob", role: "customer", text: "yo", at: "2026-06-26T15:00:00+00:00" },
+    ]);
+    getBusiness.mockResolvedValue({ name: "B", timezone: "UTC" });
+    q.value = "mar";
+    renderPage();
+
+    expect(await screen.findByText("Mara")).toBeInTheDocument();
+    expect(screen.queryByText("Bob")).not.toBeInTheDocument(); // filtered out
   });
 });

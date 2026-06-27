@@ -1,6 +1,7 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useSearchParams } from "next/navigation";
+import { Suspense, useEffect, useState } from "react";
 
 import { api, type MessageView } from "@/app/lib/api";
 import { formatDay, formatTime } from "@/app/lib/format";
@@ -11,6 +12,17 @@ import { plainPreview, stripMarkdown } from "@/app/lib/text";
 import { Card } from "@/components/ui/Card";
 import { EmptyState } from "@/components/ui/EmptyState";
 import { Skeleton } from "@/components/ui/Skeleton";
+
+// Authenticated, client-data page that reads the ?q= search param — never static.
+export const dynamic = "force-dynamic";
+
+export default function ConversationsPage() {
+  return (
+    <Suspense>
+      <ConversationsContent />
+    </Suspense>
+  );
+}
 
 type LoadState = "loading" | "anon" | "ready";
 
@@ -48,8 +60,9 @@ function threadMessages(messages: MessageView[], customer: string): MessageView[
     .reverse();
 }
 
-export default function ConversationsPage() {
+function ConversationsContent() {
   const { t, locale } = useI18n();
+  const searchParams = useSearchParams();
   const [state, setState] = useState<LoadState>("loading");
   const [messages, setMessages] = useState<MessageView[]>([]);
   const [selected, setSelected] = useState<string | null>(null);
@@ -74,6 +87,14 @@ export default function ConversationsPage() {
   }, []);
 
   const threads = toThreads(messages);
+  const query = (searchParams.get("q") ?? "").trim().toLowerCase();
+  const filtered = query
+    ? threads.filter(
+        (thread) =>
+          thread.customer.toLowerCase().includes(query) ||
+          plainPreview(thread.last).toLowerCase().includes(query),
+      )
+    : threads;
 
   return (
     <main className="mx-auto w-full max-w-3xl px-6 py-8 sm:px-8">
@@ -103,9 +124,13 @@ export default function ConversationsPage() {
         />
       )}
 
-      {state === "ready" && selected === null && threads.length > 0 && (
+      {state === "ready" && selected === null && threads.length > 0 && filtered.length === 0 && (
+        <EmptyState icon="search" title={t("common.noResults")} />
+      )}
+
+      {state === "ready" && selected === null && filtered.length > 0 && (
         <Card className="divide-y divide-line overflow-hidden">
-          {threads.map((thread) => (
+          {filtered.map((thread) => (
             <ThreadRow
               key={thread.customer}
               thread={thread}

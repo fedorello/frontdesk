@@ -1,6 +1,7 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useSearchParams } from "next/navigation";
+import { Suspense, useEffect, useState } from "react";
 
 import { api, type AppointmentView } from "@/app/lib/api";
 import { isCancelled, PENDING, STATUS_LABEL } from "@/app/lib/appointments";
@@ -15,6 +16,17 @@ import { Skeleton } from "@/components/ui/Skeleton";
 import { StatusPill } from "@/components/ui/StatusPill";
 import { ToggleSwitch } from "@/components/ToggleSwitch";
 
+// Authenticated, client-data page that reads the ?q= search param — never static.
+export const dynamic = "force-dynamic";
+
+export default function CalendarPage() {
+  return (
+    <Suspense>
+      <CalendarContent />
+    </Suspense>
+  );
+}
+
 type LoadState = "loading" | "anon" | "ready";
 const MINUTES_PER_HOUR = 60;
 const PAGE_SIZE = 8;
@@ -25,8 +37,21 @@ function durationMinutes(startsAt: string, endsAt: string): number {
   return Number.isFinite(minutes) ? Math.round(minutes) : 0;
 }
 
-export default function CalendarPage() {
+// Search a booking by service, booking code, or any captured intake field/answer.
+function matchesQuery(appointment: AppointmentView, query: string): boolean {
+  return (
+    appointment.service.toLowerCase().includes(query) ||
+    appointment.id.toLowerCase().includes(query) ||
+    (appointment.intake ?? []).some(
+      (answer) =>
+        answer.name.toLowerCase().includes(query) || answer.value.toLowerCase().includes(query),
+    )
+  );
+}
+
+function CalendarContent() {
   const { t, locale } = useI18n();
+  const searchParams = useSearchParams();
   const [state, setState] = useState<LoadState>("loading");
   const [appointments, setAppointments] = useState<AppointmentView[]>([]);
   const [timeZone, setTimeZone] = useState("UTC");
@@ -64,9 +89,11 @@ export default function CalendarPage() {
   };
 
   const cancelledCount = appointments.filter((item) => isCancelled(item.status)).length;
-  const visible = showCancelled
+  const afterCancel = showCancelled
     ? appointments
     : appointments.filter((item) => !isCancelled(item.status));
+  const query = (searchParams.get("q") ?? "").trim().toLowerCase();
+  const visible = query ? afterCancel.filter((item) => matchesQuery(item, query)) : afterCancel;
   const pageCount = Math.max(1, Math.ceil(visible.length / PAGE_SIZE));
   const safePage = Math.min(page, pageCount - 1);
   const paged = visible.slice(safePage * PAGE_SIZE, (safePage + 1) * PAGE_SIZE);
@@ -106,7 +133,10 @@ export default function CalendarPage() {
           )}
 
           {visible.length === 0 ? (
-            <EmptyState icon="calendar" title={t("calendar.empty")} />
+            <EmptyState
+              icon={query ? "search" : "calendar"}
+              title={query ? t("common.noResults") : t("calendar.empty")}
+            />
           ) : (
             <div className="space-y-2.5">
               {paged.map((appointment) => (

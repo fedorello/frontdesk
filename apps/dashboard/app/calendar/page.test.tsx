@@ -11,6 +11,7 @@ const { appointments, getBusiness, confirmAppointment } = vi.hoisted(() => ({
   confirmAppointment: vi.fn(),
 }));
 vi.mock("@/app/lib/api", () => ({ api: { appointments, getBusiness, confirmAppointment } }));
+vi.mock("next/navigation", () => ({ useSearchParams: () => new URLSearchParams() }));
 
 afterEach(() => {
   window.localStorage.clear();
