@@ -18,9 +18,21 @@ export function LegalShell({ content }: { content: string }) {
           </Link>
           <Link
             href="/"
-            className="ml-auto text-sm font-semibold text-muted hover:text-ink"
+            className="ml-auto flex items-center gap-1.5 text-sm font-semibold text-muted hover:text-ink"
           >
-            ← Back to home
+            <svg
+              width="15"
+              height="15"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              strokeWidth="2.2"
+              strokeLinecap="round"
+              strokeLinejoin="round"
+            >
+              <path d="M19 12H5M11 18l-6-6 6-6" />
+            </svg>
+            Back to home
           </Link>
         </div>
       </header>
