@@ -9,9 +9,7 @@ export function CharCount({ value, max }: { value: string; max: number }) {
   const over = remaining < 0;
   return (
     <span className={`text-xs ${over ? "font-medium text-danger" : "text-muted"}`}>
-      {over
-        ? t("settings.charsOver", { n: -remaining })
-        : t("settings.charsLeft", { n: remaining })}
+      {over ? t("common.charsOver", { n: -remaining }) : t("common.charsLeft", { n: remaining })}
     </span>
   );
 }
