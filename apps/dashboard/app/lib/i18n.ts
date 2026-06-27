@@ -40,7 +40,8 @@ const MESSAGES = {
     "approvals.approve": "Approve",
     "approvals.reject": "Reject",
     "approvals.sensitive": "sensitive",
-    "approvals.subtitle": "Sensitive actions wait here for your sign-off.",
+    "approvals.subtitle":
+      "When the assistant wants to take a sensitive action — like issuing a refund — it pauses and asks for your sign-off here. Nothing happens until you approve. To confirm bookings, use the Calendar.",
     "approvals.unreachable": "Can't reach the API. Start the stack and refresh.",
     "settings.profile": "Business profile",
     "settings.servicesTitle": "Services",
@@ -149,7 +150,8 @@ const MESSAGES = {
     "approvals.approve": "Aprobar",
     "approvals.reject": "Rechazar",
     "approvals.sensitive": "sensible",
-    "approvals.subtitle": "Las acciones sensibles esperan tu aprobación aquí.",
+    "approvals.subtitle":
+      "Cuando el asistente quiere realizar una acción sensible —como emitir un reembolso— se detiene y te pide tu aprobación aquí. Nada ocurre hasta que apruebes. Para confirmar reservas, usa el Calendario.",
     "approvals.unreachable": "No se puede conectar con la API. Inicia el stack y actualiza.",
     "settings.profile": "Perfil del negocio",
     "settings.servicesTitle": "Servicios",
@@ -258,7 +260,8 @@ const MESSAGES = {
     "approvals.approve": "Подтвердить",
     "approvals.reject": "Отклонить",
     "approvals.sensitive": "важное",
-    "approvals.subtitle": "Важные действия ждут здесь вашего подтверждения.",
+    "approvals.subtitle":
+      "Когда ассистент хочет выполнить важное действие — например, оформить возврат — он останавливается и спрашивает ваше одобрение здесь. Ничего не произойдёт, пока вы не одобрите. Чтобы подтверждать записи, используйте Календарь.",
     "approvals.unreachable": "API недоступен. Запустите стек и обновите.",
     "settings.profile": "Профиль бизнеса",
     "settings.servicesTitle": "Услуги",
@@ -367,7 +370,8 @@ const MESSAGES = {
     "approvals.approve": "批准",
     "approvals.reject": "拒绝",
     "approvals.sensitive": "敏感",
-    "approvals.subtitle": "敏感操作在此等待您的批准。",
+    "approvals.subtitle":
+      "当助手想执行敏感操作（例如退款）时，会在此暂停并请您批准。在您批准之前不会执行任何操作。如需确认预约，请使用日历。",
     "approvals.unreachable": "无法连接 API。请启动服务并刷新。",
     "settings.profile": "企业资料",
     "settings.servicesTitle": "服务",

@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useState } from "react";
 
 import { useI18n } from "@/app/lib/I18nProvider";
+import { Icon } from "@/components/icons";
 
 import { ApprovalsList } from "./ApprovalsList";
 import type { Approval, ApprovalDecision } from "./types";
@@ -43,7 +44,12 @@ export default function ApprovalsPage() {
 
   return (
     <main className="mx-auto w-full max-w-3xl px-6 py-8 sm:px-8">
-      <p className="mb-6 text-sm text-muted">{t("approvals.subtitle")}</p>
+      <div className="mb-6 flex items-start gap-3 rounded-xl border border-line bg-surface p-4">
+        <span className="mt-0.5 shrink-0 text-accent">
+          <Icon name="approvals" size={20} />
+        </span>
+        <p className="text-sm leading-relaxed text-muted">{t("approvals.subtitle")}</p>
+      </div>
       {reachable ? (
         <ApprovalsList approvals={approvals} onDecide={(id, decision) => decide(id, decision)} />
       ) : (
