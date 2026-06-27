@@ -20,7 +20,7 @@ export function Sidebar() {
       <div className="flex items-center gap-2.5 px-2 pb-5">
         <Logo size={34} />
         <div className="leading-tight">
-          <div className="text-base font-bold tracking-tight">tovayo</div>
+          <div className="text-base font-extrabold tracking-tight">Tovayo</div>
           <div className="text-[11.5px] font-medium text-faint">{t("nav.appTagline")}</div>
         </div>
       </div>

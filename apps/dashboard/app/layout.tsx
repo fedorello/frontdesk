@@ -15,7 +15,7 @@ const jakarta = Manrope({
 });
 
 export const metadata: Metadata = {
-  title: "tovayo",
+  title: "Tovayo",
   description: "The dashboard for your tovayo AI receptionist.",
 };
 

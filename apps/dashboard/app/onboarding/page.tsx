@@ -128,7 +128,7 @@ export default function OnboardingPage() {
         <div className="mb-6 flex items-center justify-between">
           <div className="flex items-center gap-2">
             <Logo size={30} />
-            <span className="font-bold tracking-tight">tovayo</span>
+            <span className="text-lg font-extrabold tracking-tight">Tovayo</span>
           </div>
           <LanguageSwitcher />
         </div>
