@@ -1,5 +1,5 @@
 // The Tovayo brand mark: a chat-bubble "front desk" with a friendly face.
-// Uses the theme's accent/pink tokens so it adapts to light and dark.
+// Uses the theme's accent token so it adapts to light and dark.
 export function Logo({ size = 34 }: { size?: number }) {
   return (
     <svg
