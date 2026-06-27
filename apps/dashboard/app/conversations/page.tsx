@@ -75,7 +75,8 @@ function ConversationsContent() {
   const searchParams = useSearchParams();
   const [state, setState] = useState<LoadState>("loading");
   const [messages, setMessages] = useState<MessageView[]>([]);
-  const [selected, setSelected] = useState<string | null>(null);
+  // ?open=<address> deep-links to a thread (e.g. from the overview's recent conversations).
+  const [selected, setSelected] = useState<string | null>(() => searchParams.get("open"));
   const [timeZone, setTimeZone] = useState("UTC");
 
   useEffect(() => {

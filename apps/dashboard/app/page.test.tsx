@@ -54,6 +54,7 @@ describe("Overview page", () => {
     conversations.mockResolvedValue([
       {
         customer: "55501",
+        customer_name: "Mara",
         role: "assistant",
         text: "**Готово!** ✅",
         at: "2026-06-26T09:05:00+00:00",
@@ -66,7 +67,9 @@ describe("Overview page", () => {
     expect(screen.getByText("09:00")).toBeInTheDocument();
     expect(screen.getByText("Scheduled")).toBeInTheDocument(); // localized status
     expect(screen.queryByText("Old")).not.toBeInTheDocument(); // cancelled is hidden
-    expect(screen.getByText("Готово! ✅")).toBeInTheDocument(); // markdown stripped in activity
-    expect(screen.getByText("Assistant")).toBeInTheDocument(); // sender role shown
+    // Recent conversations: one row per customer (by name), linking into the thread.
+    expect(screen.queryByText("Готово! ✅")).not.toBeInTheDocument(); // no message content
+    const chat = screen.getByText("Mara");
+    expect(chat.closest("a")).toHaveAttribute("href", "/conversations?open=55501");
   });
 });

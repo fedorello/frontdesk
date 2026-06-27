@@ -9,9 +9,7 @@ import { formatDay, formatTime } from "@/app/lib/format";
 import type { Locale } from "@/app/lib/i18n";
 import { useI18n } from "@/app/lib/I18nProvider";
 import { getSession } from "@/app/lib/session";
-import { plainPreview } from "@/app/lib/text";
 import { AppointmentModal } from "@/components/AppointmentModal";
-import { Icon } from "@/components/icons";
 import { Card } from "@/components/ui/Card";
 import { EmptyState } from "@/components/ui/EmptyState";
 import { Skeleton } from "@/components/ui/Skeleton";
@@ -50,8 +48,7 @@ export default function Home() {
   }, []);
 
   const active = appointments.filter((appointment) => !isCancelled(appointment.status));
-  // The activity feed is a human-readable dialog — drop internal tool steps.
-  const activity = messages.filter((message) => message.role !== "tool");
+  const chats = recentChats(messages, MAX_ROWS);
 
   if (state === "loading") {
     return <OverviewSkeleton />;
@@ -128,21 +125,17 @@ export default function Home() {
         </Card>
 
         <Card className="overflow-hidden">
-          <div className="px-5 pt-4 pb-2 font-bold">{t("overview.activity")}</div>
-          {activity.length === 0 ? (
+          <CardHead
+            title={t("overview.recentChats")}
+            href="/conversations"
+            cta={t("overview.viewAll")}
+          />
+          {chats.length === 0 ? (
             <Hint text={t("conversations.empty")} />
           ) : (
-            activity
-              .slice(0, MAX_ROWS)
-              .map((message, index) => (
-                <ActivityRow
-                  key={index}
-                  message={message}
-                  locale={locale}
-                  timeZone={timeZone}
-                  assistantLabel={t("overview.assistant")}
-                />
-              ))
+            chats.map((chat) => (
+              <ChatRow key={chat.customer} chat={chat} locale={locale} timeZone={timeZone} />
+            ))
           )}
         </Card>
       </div>
@@ -228,38 +221,48 @@ function AppointmentRow({
   );
 }
 
-function ActivityRow({
-  message,
+interface ChatSummary {
+  customer: string; // channel address (the thread key)
+  name: string; // display name, or the address
+  at: string; // time of the latest message
+}
+
+// Newest-first feed → one entry per customer, most-recent first.
+function recentChats(messages: MessageView[], max: number): ChatSummary[] {
+  const seen = new Map<string, ChatSummary>();
+  for (const message of messages) {
+    if (message.role === "tool" || seen.has(message.customer)) continue;
+    seen.set(message.customer, {
+      customer: message.customer,
+      name: message.customer_name || message.customer,
+      at: message.at,
+    });
+  }
+  return [...seen.values()].slice(0, max);
+}
+
+function ChatRow({
+  chat,
   locale,
   timeZone,
-  assistantLabel,
 }: {
-  message: MessageView;
+  chat: ChatSummary;
   locale: Locale;
   timeZone: string;
-  assistantLabel: string;
 }) {
-  const fromAssistant = message.role === "assistant";
-  const who = fromAssistant ? assistantLabel : message.customer;
   return (
-    <div className="flex items-start gap-3 border-b border-line px-5 py-3 last:border-b-0">
-      <span
-        className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-full text-xs font-bold ${
-          fromAssistant ? "bg-accent-soft text-accent" : "bg-pink-soft text-pink"
-        }`}
-      >
-        {fromAssistant ? <Icon name="spark" size={15} /> : message.customer.slice(0, 2)}
+    <Link
+      href={`/conversations?open=${encodeURIComponent(chat.customer)}`}
+      className="flex items-center gap-3 border-b border-line px-5 py-3 transition last:border-b-0 hover:bg-canvas"
+    >
+      <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-pink-soft text-xs font-extrabold text-pink">
+        {chat.name.slice(0, 2).toUpperCase()}
       </span>
-      <div className="min-w-0 flex-1">
-        <div className="flex items-baseline justify-between gap-2">
-          <span className="truncate text-sm font-semibold">{who}</span>
-          <span className="shrink-0 text-xs text-faint">
-            {formatDay(message.at, locale, timeZone)} {formatTime(message.at, locale, timeZone)}
-          </span>
-        </div>
-        <p className="truncate text-sm text-muted">{plainPreview(message.text)}</p>
-      </div>
-    </div>
+      <span className="min-w-0 flex-1 truncate text-sm font-semibold">{chat.name}</span>
+      <span className="shrink-0 text-xs text-faint">
+        {formatDay(chat.at, locale, timeZone)} {formatTime(chat.at, locale, timeZone)}
+      </span>
+    </Link>
   );
 }
 
