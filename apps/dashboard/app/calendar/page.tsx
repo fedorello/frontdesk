@@ -14,6 +14,8 @@ import { StatusPill } from "@/components/ui/StatusPill";
 type LoadState = "loading" | "anon" | "ready";
 const MINUTES_PER_HOUR = 60;
 
+const PENDING = "pending"; // only pending appointments can be confirmed
+
 // Backend AppointmentStatus values → localized chip labels.
 const STATUS_LABEL: Record<string, MessageKey> = {
   pending: "calendar.statusPending",
@@ -52,6 +54,18 @@ export default function CalendarPage() {
     })();
   }, []);
 
+  // Confirm a pending booking; apply the status the server actually returns (no optimism).
+  const confirm = async (appointmentId: string) => {
+    const session = getSession();
+    if (session === null) return;
+    const result = await api.confirmAppointment(session.businessId, appointmentId, session.token);
+    setAppointments((previous) =>
+      previous.map((item) =>
+        item.id === appointmentId ? { ...item, status: result.status } : item,
+      ),
+    );
+  };
+
   return (
     <main className="mx-auto w-full max-w-3xl px-6 py-8 sm:px-8">
       {state === "loading" && (
@@ -82,6 +96,8 @@ export default function CalendarPage() {
                   ? t(STATUS_LABEL[appointment.status])
                   : appointment.status
               }
+              onConfirm={appointment.status === PENDING ? confirm : undefined}
+              confirmLabel={t("calendar.confirm")}
             />
           ))}
         </div>
@@ -96,14 +112,29 @@ function AppointmentCard({
   timeZone,
   refLabel,
   statusLabel,
+  onConfirm,
+  confirmLabel,
 }: {
   appointment: AppointmentView;
   locale: Locale;
   timeZone: string;
   refLabel: string;
   statusLabel: string;
+  onConfirm?: (appointmentId: string) => Promise<void>;
+  confirmLabel: string;
 }) {
   const minutes = durationMinutes(appointment.starts_at, appointment.ends_at);
+  const [confirming, setConfirming] = useState(false);
+
+  const handleConfirm = async () => {
+    if (!onConfirm) return;
+    setConfirming(true);
+    try {
+      await onConfirm(appointment.id);
+    } finally {
+      setConfirming(false); // re-enable on failure so the owner can retry
+    }
+  };
   return (
     <div className="flex items-stretch gap-4 rounded-2xl border border-line bg-surface p-4 shadow-card">
       <div className="flex min-w-16 flex-col items-center justify-center border-r border-line pr-4 text-center">
@@ -131,8 +162,18 @@ function AppointmentCard({
           </dl>
         )}
       </div>
-      <div className="flex items-center">
+      <div className="flex flex-col items-end justify-center gap-2">
         <StatusPill status={appointment.status} label={statusLabel} />
+        {onConfirm && (
+          <button
+            type="button"
+            onClick={handleConfirm}
+            disabled={confirming}
+            className="rounded-full bg-accent px-2.5 py-0.5 text-xs font-semibold text-accent-contrast disabled:opacity-50"
+          >
+            {confirmLabel}
+          </button>
+        )}
       </div>
     </div>
   );

@@ -57,6 +57,7 @@ export interface ServiceInput {
   working_hours?: WorkingHours[];
   max_advance_days?: number;
   intake_fields?: IntakeField[];
+  requires_confirmation?: boolean;
 }
 
 export interface LlmConfigInput {
@@ -179,6 +180,18 @@ export const api = {
 
   appointments: (id: string, token: string): Promise<AppointmentView[]> =>
     request("GET", `/api/businesses/${id}/appointments`, undefined, token),
+
+  confirmAppointment: (
+    id: string,
+    appointmentId: string,
+    token: string,
+  ): Promise<{ id: string; status: string }> =>
+    request(
+      "POST",
+      `/api/businesses/${id}/appointments/${appointmentId}/confirm`,
+      undefined,
+      token,
+    ),
 
   conversations: (id: string, token: string): Promise<MessageView[]> =>
     request("GET", `/api/businesses/${id}/conversations`, undefined, token),

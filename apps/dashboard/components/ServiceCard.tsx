@@ -10,6 +10,7 @@ import { MAX_DESCRIPTION } from "@/app/lib/limits";
 import { AutoTextarea } from "./AutoTextarea";
 import { CharCount } from "./CharCount";
 import { IntakeFieldsEditor } from "./IntakeFieldsEditor";
+import { ToggleSwitch } from "./ToggleSwitch";
 import { WeeklyHoursEditor } from "./WeeklyHoursEditor";
 
 export type Service = ServiceInput & { id: string };
@@ -45,6 +46,9 @@ export function ServiceCard({
   const [hours, setHours] = useState(service.working_hours ?? []);
   const [maxAdvanceDays, setMaxAdvanceDays] = useState(service.max_advance_days ?? 30);
   const [intakeFields, setIntakeFields] = useState(service.intake_fields ?? []);
+  const [requiresConfirmation, setRequiresConfirmation] = useState(
+    service.requires_confirmation ?? false,
+  );
   const [saving, setSaving] = useState(false);
 
   const save = async () => {
@@ -60,6 +64,7 @@ export function ServiceCard({
         working_hours: hours,
         max_advance_days: maxAdvanceDays,
         intake_fields: intakeFields.filter((item) => item.name.trim() !== ""),
+        requires_confirmation: requiresConfirmation,
       });
       setOpen(false);
     } finally {
@@ -193,6 +198,18 @@ export function ServiceCard({
             <span className="text-sm font-medium">{t("settings.intakeTitle")}</span>
             <p className="text-xs text-muted">{t("settings.intakeHint")}</p>
             <IntakeFieldsEditor value={intakeFields} onChange={setIntakeFields} />
+          </div>
+
+          <div className="flex items-start justify-between gap-3 rounded-lg border border-line bg-canvas p-3">
+            <div className="min-w-0">
+              <span className="text-sm font-medium">{t("settings.requiresConfirmation")}</span>
+              <p className="text-xs text-muted">{t("settings.requiresConfirmationHint")}</p>
+            </div>
+            <ToggleSwitch
+              checked={requiresConfirmation}
+              onChange={setRequiresConfirmation}
+              label={t("settings.requiresConfirmation")}
+            />
           </div>
 
           <button
