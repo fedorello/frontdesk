@@ -152,6 +152,7 @@ def _to_customer(row: Row) -> Customer:
         row["address"],
         row["name"],
         row["language"],
+        handled_by_owner=row["handled_by_owner"],
     )
 
 
@@ -443,6 +444,14 @@ class SqlCustomerRepository:
                 raise KeyError(str(customer_id))
             return _to_customer(row)
 
+    async def set_handled(self, customer_id: CustomerId, handled: bool) -> None:
+        async with self._sf() as session:
+            await session.execute(
+                text("UPDATE customer SET handled_by_owner = :h WHERE id = :id"),
+                {"h": handled, "id": str(customer_id)},
+            )
+            await session.commit()
+
 
 class SqlConversationRepository:
     def __init__(self, sessionmaker: async_sessionmaker[AsyncSession]) -> None:
@@ -496,7 +505,8 @@ class SqlConversationRepository:
                 (
                     await session.execute(
                         text(
-                            "SELECT m.role, m.body, m.at, c.address FROM message m "
+                            "SELECT m.role, m.body, m.at, c.address, c.id AS customer_id, "
+                            "c.handled_by_owner FROM message m "
                             "JOIN customer c ON c.id = m.customer_id "
                             "WHERE m.business_id = :bid ORDER BY m.id DESC LIMIT :lim"
                         ),
@@ -506,7 +516,17 @@ class SqlConversationRepository:
                 .mappings()
                 .all()
             )
-            return [RecentMessage(r["address"], r["role"], r["body"], r["at"]) for r in rows]
+            return [
+                RecentMessage(
+                    r["address"],
+                    r["role"],
+                    r["body"],
+                    r["at"],
+                    customer_id=str(r["customer_id"]),
+                    handled=r["handled_by_owner"],
+                )
+                for r in rows
+            ]
 
 
 class SqlAppointmentRepository:

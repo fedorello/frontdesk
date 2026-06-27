@@ -34,5 +34,6 @@ class RiskTier(StrEnum):
 class MessageRole(StrEnum):
     CUSTOMER = "customer"
     ASSISTANT = "assistant"
+    OWNER = "owner"  # the business owner, replying by hand through the bot
     SYSTEM = "system"
     TOOL = "tool"

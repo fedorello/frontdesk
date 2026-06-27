@@ -28,6 +28,8 @@ type LoadState = "loading" | "anon" | "ready";
 
 interface Thread {
   customer: string;
+  customerId: string;
+  handled: boolean;
   last: string;
   at: string;
   count: number;
@@ -43,6 +45,8 @@ function toThreads(messages: MessageView[]): Thread[] {
     } else {
       byCustomer.set(message.customer, {
         customer: message.customer,
+        customerId: message.customer_id,
+        handled: message.handled,
         last: message.text,
         at: message.at,
         count: 1,
@@ -86,7 +90,15 @@ function ConversationsContent() {
     })();
   }, []);
 
+  const reload = async () => {
+    const session = getSession();
+    if (session === null) return;
+    setMessages(await api.conversations(session.businessId, session.token).catch(() => []));
+  };
+
   const threads = toThreads(messages);
+  const selectedThread = selected ? threads.find((thread) => thread.customer === selected) : null;
+  const session = getSession();
   const query = (searchParams.get("q") ?? "").trim().toLowerCase();
   const filtered = query
     ? threads.filter(
@@ -113,13 +125,18 @@ function ConversationsContent() {
         <EmptyState icon="conversations" title={t("conversations.empty")} />
       )}
 
-      {state === "ready" && selected !== null && (
+      {state === "ready" && selected !== null && selectedThread && session && (
         <ThreadDetail
           customer={selected}
+          customerId={selectedThread.customerId}
+          handled={selectedThread.handled}
+          businessId={session.businessId}
+          token={session.token}
           messages={threadMessages(messages, selected)}
           locale={locale}
           timeZone={timeZone}
           onBack={() => setSelected(null)}
+          onChanged={reload}
           backLabel={t("conversations.back")}
         />
       )}
@@ -183,54 +200,138 @@ function ThreadRow({
   );
 }
 
+const composerClass =
+  "w-full rounded-lg border border-line-strong bg-surface px-3 py-2 text-sm text-ink outline-none focus:border-accent";
+
 function ThreadDetail({
   customer,
+  customerId,
+  handled,
+  businessId,
+  token,
   messages,
   locale,
   timeZone,
   onBack,
+  onChanged,
   backLabel,
 }: {
   customer: string;
+  customerId: string;
+  handled: boolean;
+  businessId: string;
+  token: string;
   messages: MessageView[];
   locale: Locale;
   timeZone: string;
   onBack: () => void;
+  onChanged: () => Promise<void>;
   backLabel: string;
 }) {
+  const { t } = useI18n();
+  const [draft, setDraft] = useState("");
+  const [busy, setBusy] = useState(false);
+
+  const run = async (action: () => Promise<unknown>) => {
+    setBusy(true);
+    try {
+      await action();
+      await onChanged();
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const send = () => {
+    const text = draft.trim();
+    if (!text) return;
+    void run(async () => {
+      await api.sendOwnerMessage(businessId, customerId, text, token);
+      setDraft("");
+    });
+  };
+
   return (
     <div className="space-y-4">
-      <div className="flex items-center gap-3">
-        <button
-          type="button"
-          onClick={onBack}
-          className="rounded-lg border border-line-strong px-3 py-1.5 text-sm font-medium hover:bg-canvas"
-        >
-          ← {backLabel}
-        </button>
-        <h2 className="font-bold">{customer}</h2>
+      <div className="flex items-center justify-between gap-3">
+        <div className="flex items-center gap-3">
+          <button
+            type="button"
+            onClick={onBack}
+            className="rounded-lg border border-line-strong px-3 py-1.5 text-sm font-medium hover:bg-canvas"
+          >
+            ← {backLabel}
+          </button>
+          <h2 className="font-bold">{customer}</h2>
+        </div>
+        {handled && (
+          <button
+            type="button"
+            onClick={() => run(() => api.setHandoff(businessId, customerId, false, token))}
+            disabled={busy}
+            className="rounded-lg border border-line-strong px-3 py-1.5 text-sm font-medium hover:bg-canvas disabled:opacity-50"
+          >
+            {t("conversations.returnToAi")}
+          </button>
+        )}
       </div>
+
+      {handled && (
+        <p className="rounded-lg bg-warning-soft px-3 py-2 text-xs text-warning">
+          {t("conversations.youAreHandling")}
+        </p>
+      )}
+
       <div className="space-y-2.5">
         {messages.map((message, index) => {
-          const fromAssistant = message.role === "assistant";
+          const isOwner = message.role === "owner";
+          const isAssistant = message.role === "assistant";
+          const businessSide = isOwner || isAssistant;
           return (
             <div
               key={index}
-              className={`flex flex-col ${fromAssistant ? "items-end" : "items-start"}`}
+              className={`flex flex-col ${businessSide ? "items-end" : "items-start"}`}
             >
               <div
                 className={`max-w-[80%] whitespace-pre-wrap rounded-2xl px-3.5 py-2 text-sm ${
-                  fromAssistant ? "bg-accent text-accent-contrast" : "bg-surface border border-line"
+                  isOwner
+                    ? "bg-success text-accent-contrast"
+                    : isAssistant
+                      ? "bg-accent text-accent-contrast"
+                      : "border border-line bg-surface"
                 }`}
               >
                 {stripMarkdown(message.text)}
               </div>
               <span className="mt-1 px-1 text-xs text-muted">
+                {isOwner ? `${t("conversations.you")} · ` : ""}
                 {formatTime(message.at, locale, timeZone)}
               </span>
             </div>
           );
         })}
+      </div>
+
+      <div className="space-y-2 border-t border-line pt-4">
+        <textarea
+          aria-label={t("conversations.reply")}
+          value={draft}
+          onChange={(event) => setDraft(event.target.value)}
+          placeholder={t("conversations.replyPlaceholder")}
+          rows={2}
+          className={composerClass}
+        />
+        <div className="flex items-center justify-between gap-3">
+          <span className="text-xs text-muted">{t("conversations.replyHint")}</span>
+          <button
+            type="button"
+            onClick={send}
+            disabled={busy || draft.trim() === ""}
+            className="shrink-0 rounded-lg bg-accent px-4 py-2 text-sm font-bold text-accent-contrast disabled:opacity-50"
+          >
+            {t("conversations.send")}
+          </button>
+        </div>
       </div>
     </div>
   );

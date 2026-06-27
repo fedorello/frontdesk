@@ -143,6 +143,7 @@ class Customer:
     channel_address: str
     name: str | None = None
     language: str | None = None
+    handled_by_owner: bool = False  # the owner has taken over; the assistant stays silent
 
 
 @dataclass(frozen=True, slots=True)

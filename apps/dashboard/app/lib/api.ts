@@ -91,9 +91,11 @@ export interface AppointmentResult {
 
 export interface MessageView {
   customer: string;
+  customer_id: string;
   role: string;
   text: string;
   at: string;
+  handled: boolean;
 }
 
 async function request<T>(
@@ -229,4 +231,25 @@ export const api = {
 
   conversations: (id: string, token: string): Promise<MessageView[]> =>
     request("GET", `/api/businesses/${id}/conversations`, undefined, token),
+
+  sendOwnerMessage: (
+    id: string,
+    customerId: string,
+    text: string,
+    token: string,
+  ): Promise<{ handled: boolean }> =>
+    request("POST", `/api/businesses/${id}/conversations/${customerId}/messages`, { text }, token),
+
+  setHandoff: (
+    id: string,
+    customerId: string,
+    handled: boolean,
+    token: string,
+  ): Promise<{ handled: boolean }> =>
+    request(
+      "POST",
+      `/api/businesses/${id}/conversations/${customerId}/handoff`,
+      { handled },
+      token,
+    ),
 };

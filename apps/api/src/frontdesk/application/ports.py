@@ -235,6 +235,7 @@ class UsageStore(Protocol):
 class CustomerRepository(Protocol):
     async def upsert(self, business_id: BusinessId, channel: Channel, address: str) -> Customer: ...
     async def get(self, customer_id: CustomerId) -> Customer: ...
+    async def set_handled(self, customer_id: CustomerId, handled: bool) -> None: ...
 
 
 class ServiceRepository(Protocol):
@@ -256,6 +257,8 @@ class RecentMessage:
     role: str
     text: str
     at: datetime
+    customer_id: str = ""  # for owner actions targeting this customer
+    handled: bool = False  # the owner has taken this conversation over
 
 
 class ConversationRepository(Protocol):

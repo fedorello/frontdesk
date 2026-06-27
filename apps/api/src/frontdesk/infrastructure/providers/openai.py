@@ -12,6 +12,7 @@ from frontdesk.domain.models import Message
 _ROLE = {
     MessageRole.CUSTOMER: "user",
     MessageRole.ASSISTANT: "assistant",
+    MessageRole.OWNER: "assistant",  # owner replies are business-side, like the assistant's
     MessageRole.SYSTEM: "system",
     MessageRole.TOOL: "tool",
 }

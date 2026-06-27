@@ -1,24 +1,31 @@
-import { fireEvent, render, screen } from "@testing-library/react";
+import { cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 
 import { I18nProvider } from "@/app/lib/I18nProvider";
 
 import ConversationsPage from "./page";
 
-const { conversations, getBusiness, q } = vi.hoisted(() => ({
+const { conversations, getBusiness, sendOwnerMessage, setHandoff, q } = vi.hoisted(() => ({
   conversations: vi.fn(),
   getBusiness: vi.fn(),
+  sendOwnerMessage: vi.fn(),
+  setHandoff: vi.fn(),
   q: { value: "" },
 }));
-vi.mock("@/app/lib/api", () => ({ api: { conversations, getBusiness } }));
+vi.mock("@/app/lib/api", () => ({
+  api: { conversations, getBusiness, sendOwnerMessage, setHandoff },
+}));
 vi.mock("next/navigation", () => ({
   useSearchParams: () => new URLSearchParams(q.value ? `q=${q.value}` : ""),
 }));
 
 afterEach(() => {
+  cleanup();
   window.localStorage.clear();
   conversations.mockReset();
   getBusiness.mockReset();
+  sendOwnerMessage.mockReset();
+  setHandoff.mockReset();
   q.value = "";
 });
 
@@ -84,6 +91,29 @@ describe("Conversations page", () => {
 
     fireEvent.click(screen.getByRole("button", { name: /All conversations/ }));
     expect(screen.queryByText("Can I book today?")).not.toBeInTheDocument(); // back to the list
+  });
+
+  it("lets the owner reply, calling the takeover API with the customer id", async () => {
+    signIn();
+    conversations.mockResolvedValue([
+      {
+        customer: "Mara",
+        customer_id: "c1",
+        handled: false,
+        role: "customer",
+        text: "Can I book?",
+        at: "2026-06-26T14:58:00+00:00",
+      },
+    ]);
+    getBusiness.mockResolvedValue({ name: "B", timezone: "UTC" });
+    sendOwnerMessage.mockResolvedValue({ handled: true });
+    renderPage();
+
+    fireEvent.click(await screen.findByText("Mara"));
+    fireEvent.change(screen.getByLabelText("Reply"), { target: { value: "On my way" } });
+    fireEvent.click(screen.getByRole("button", { name: "Send" }));
+
+    await waitFor(() => expect(sendOwnerMessage).toHaveBeenCalledWith("b", "c1", "On my way", "t"));
   });
 
   it("filters the thread list by the ?q search param", async () => {

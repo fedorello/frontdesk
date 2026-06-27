@@ -212,6 +212,11 @@ class InMemoryCustomerRepository:
     async def get(self, customer_id: CustomerId) -> Customer:
         return self._by_id[customer_id]
 
+    async def set_handled(self, customer_id: CustomerId, handled: bool) -> None:
+        customer = replace(self._by_id[customer_id], handled_by_owner=handled)
+        self._by_id[customer.id] = customer
+        self._by_key[(customer.business_id, customer.channel, customer.channel_address)] = customer
+
 
 class InMemoryServiceRepository:
     def __init__(self, services: Sequence[Service]) -> None:
@@ -267,7 +272,14 @@ class InMemoryConversationRepository:
     ) -> list[RecentMessage]:
         recent = [(c, m) for c, m in self._all if c.business_id == business_id][-limit:]
         return [
-            RecentMessage(c.channel_address, m.role.value, m.text, m.at)
+            RecentMessage(
+                c.channel_address,
+                m.role.value,
+                m.text,
+                m.at,
+                customer_id=str(c.id),
+                handled=c.handled_by_owner,
+            )
             for c, m in reversed(recent)
         ]
 

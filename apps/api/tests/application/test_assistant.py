@@ -259,3 +259,13 @@ async def test_assistant_reply_carries_the_ai_prefix_but_history_stays_clean() -
     customer = await world.customers.upsert(world.business.id, Channel.WHATSAPP, "+CUST")
     history = await world.deps.conversations.history(customer)
     assert history[-1].text == "Hi there!"  # stored without the prefix
+
+
+async def test_assistant_stays_silent_when_the_owner_has_taken_over() -> None:
+    world = build_world([Completion("the AI should not send this")])
+    customer = await world.customers.upsert(world.business.id, Channel.WHATSAPP, "+CUST")
+    await world.customers.set_handled(customer.id, True)
+
+    await world.assistant.handle(inbound("hello?"))
+
+    assert world.messaging.sent == []  # the human is handling it; the AI is muted

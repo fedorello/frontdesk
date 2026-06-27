@@ -23,7 +23,9 @@ def _to_message(message: Message) -> dict[str, object]:
                 }
             ],
         }
-    role = "assistant" if message.role is MessageRole.ASSISTANT else "user"
+    # Owner replies are business-side, so the model sees them as assistant turns.
+    business_side = {MessageRole.ASSISTANT, MessageRole.OWNER}
+    role = "assistant" if message.role in business_side else "user"
     return {"role": role, "content": message.text}
 
 

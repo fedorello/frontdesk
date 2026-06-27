@@ -104,6 +104,7 @@ CREATE_STATEMENTS: tuple[str, ...] = (
         address text NOT NULL,
         name text,
         language text,
+        handled_by_owner boolean NOT NULL DEFAULT false,
         UNIQUE (business_id, channel, address)
     )
     """,

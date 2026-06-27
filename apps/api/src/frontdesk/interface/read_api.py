@@ -31,9 +31,11 @@ class AppointmentView(BaseModel):
 
 class MessageView(BaseModel):
     customer: str
+    customer_id: str
     role: str
     text: str
     at: str
+    handled: bool
 
 
 def build_read_router(
@@ -49,9 +51,11 @@ def build_read_router(
         return [
             MessageView(
                 customer=message.customer,
+                customer_id=message.customer_id,
                 role=message.role,
                 text=message.text,
                 at=message.at.isoformat(),
+                handled=message.handled,
             )
             for message in await conversations.recent_for_business(BusinessId(business_id))
         ]

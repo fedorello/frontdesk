@@ -351,6 +351,9 @@ class Assistant:
         )
         await self._d.events.publish(MessageReceived(business.id, customer.id, inbound.text))
 
+        if customer.handled_by_owner:
+            return  # the owner has taken over; the assistant stays silent
+
         reply = await self._run(business, customer)
 
         # The customer sees who is speaking; the history keeps the clean text.
