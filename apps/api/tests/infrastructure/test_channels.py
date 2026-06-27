@@ -101,3 +101,20 @@ def test_telegram_inbound_parsing() -> None:
     assert (inbound.channel, inbound.from_address, inbound.text) == (Channel.TELEGRAM, "123", "hi")
     assert inbound.provider_message_id == "123:5"
     assert parse_telegram_inbound({"edited_message": {}}, bot_address="+BOT") is None
+
+
+def test_telegram_inbound_captures_the_sender_name() -> None:
+    base = {"message_id": 5, "date": 1782000000, "chat": {"id": 1}, "text": "hi"}
+    full = parse_telegram_inbound(
+        {"message": {**base, "from": {"first_name": "Fedor", "last_name": "C"}}}, bot_address="+B"
+    )
+    handle = parse_telegram_inbound(
+        {"message": {**base, "from": {"username": "fedor"}}}, bot_address="+B"
+    )
+    none = parse_telegram_inbound({"message": base}, bot_address="+B")
+    assert full is not None
+    assert handle is not None
+    assert none is not None
+    assert full.sender_name == "Fedor C"
+    assert handle.sender_name == "@fedor"
+    assert none.sender_name is None

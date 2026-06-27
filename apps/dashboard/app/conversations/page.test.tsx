@@ -78,9 +78,9 @@ describe("Conversations page", () => {
     getBusiness.mockResolvedValue({ name: "B", timezone: "UTC" });
     renderPage();
 
-    // The list shows the customer with their latest message.
+    // The list shows the customer (no message content — just who + when).
     const row = await screen.findByText("Mara");
-    expect(screen.getByText("Booked for 3pm 👍")).toBeInTheDocument();
+    expect(screen.queryByText("Booked for 3pm 👍")).not.toBeInTheDocument(); // no preview in the list
 
     fireEvent.click(row);
 

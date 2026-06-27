@@ -397,19 +397,24 @@ class SqlCustomerRepository:
         self._sf = sessionmaker
         self._ids = ids
 
-    async def upsert(self, business_id: BusinessId, channel: Channel, address: str) -> Customer:
+    async def upsert(
+        self, business_id: BusinessId, channel: Channel, address: str, name: str | None = None
+    ) -> Customer:
         async with self._sf() as session:
+            # Keep the display name fresh; never overwrite a known name with a null.
             await session.execute(
                 text(
-                    "INSERT INTO customer (id, business_id, channel, address) "
-                    "VALUES (:id, :bid, :ch, :addr) "
-                    "ON CONFLICT (business_id, channel, address) DO NOTHING"
+                    "INSERT INTO customer (id, business_id, channel, address, name) "
+                    "VALUES (:id, :bid, :ch, :addr, :name) "
+                    "ON CONFLICT (business_id, channel, address) "
+                    "DO UPDATE SET name = COALESCE(EXCLUDED.name, customer.name)"
                 ),
                 {
                     "id": self._ids.new(),
                     "bid": str(business_id),
                     "ch": channel.value,
                     "addr": address,
+                    "name": name,
                 },
             )
             await session.commit()
@@ -506,7 +511,7 @@ class SqlConversationRepository:
                     await session.execute(
                         text(
                             "SELECT m.role, m.body, m.at, c.address, c.id AS customer_id, "
-                            "c.handled_by_owner FROM message m "
+                            "c.handled_by_owner, c.name FROM message m "
                             "JOIN customer c ON c.id = m.customer_id "
                             "WHERE m.business_id = :bid ORDER BY m.id DESC LIMIT :lim"
                         ),
@@ -524,6 +529,7 @@ class SqlConversationRepository:
                     r["at"],
                     customer_id=str(r["customer_id"]),
                     handled=r["handled_by_owner"],
+                    customer_name=r["name"],
                 )
                 for r in rows
             ]

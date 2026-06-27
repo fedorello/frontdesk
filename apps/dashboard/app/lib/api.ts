@@ -92,6 +92,7 @@ export interface AppointmentResult {
 export interface MessageView {
   customer: string;
   customer_id: string;
+  customer_name?: string | null;
   role: string;
   text: string;
   at: string;

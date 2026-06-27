@@ -70,9 +70,21 @@ def parse_telegram_inbound(
             text=message["text"],
             received_at=datetime.fromtimestamp(int(message["date"]), tz=UTC),
             provider_message_id=f"{message['chat']['id']}:{message['message_id']}",
+            sender_name=_telegram_sender_name(message.get("from")),
         )
     except KeyError, TypeError:
         return None
+
+
+def _telegram_sender_name(sender: Mapping[str, Any] | None) -> str | None:
+    """A display name from a Telegram 'from' object: full name, else @username, else None."""
+    if not sender:
+        return None
+    full_name = " ".join(p for p in (sender.get("first_name"), sender.get("last_name")) if p)
+    if full_name:
+        return full_name
+    username = sender.get("username")
+    return f"@{username}" if username else None
 
 
 _TELEGRAM_API = "https://api.telegram.org"

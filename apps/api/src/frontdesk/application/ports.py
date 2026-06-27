@@ -52,6 +52,7 @@ class InboundMessage:
     text: str
     received_at: datetime
     provider_message_id: str
+    sender_name: str | None = None  # the sender's display name on the channel, if any
 
 
 @dataclass(frozen=True, slots=True)
@@ -233,7 +234,9 @@ class UsageStore(Protocol):
 
 
 class CustomerRepository(Protocol):
-    async def upsert(self, business_id: BusinessId, channel: Channel, address: str) -> Customer: ...
+    async def upsert(
+        self, business_id: BusinessId, channel: Channel, address: str, name: str | None = None
+    ) -> Customer: ...
     async def get(self, customer_id: CustomerId) -> Customer: ...
     async def set_handled(self, customer_id: CustomerId, handled: bool) -> None: ...
 
@@ -259,6 +262,7 @@ class RecentMessage:
     at: datetime
     customer_id: str = ""  # for owner actions targeting this customer
     handled: bool = False  # the owner has taken this conversation over
+    customer_name: str | None = None  # the customer's display name on the channel, if any
 
 
 class ConversationRepository(Protocol):

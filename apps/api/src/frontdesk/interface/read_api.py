@@ -32,6 +32,7 @@ class AppointmentView(BaseModel):
 class MessageView(BaseModel):
     customer: str
     customer_id: str
+    customer_name: str | None = None
     role: str
     text: str
     at: str
@@ -52,6 +53,7 @@ def build_read_router(
             MessageView(
                 customer=message.customer,
                 customer_id=message.customer_id,
+                customer_name=message.customer_name,
                 role=message.role,
                 text=message.text,
                 at=message.at.isoformat(),

@@ -199,12 +199,18 @@ class InMemoryCustomerRepository:
         self._by_key: dict[tuple[BusinessId, Channel, str], Customer] = {}
         self._by_id: dict[CustomerId, Customer] = {}
 
-    async def upsert(self, business_id: BusinessId, channel: Channel, address: str) -> Customer:
+    async def upsert(
+        self, business_id: BusinessId, channel: Channel, address: str, name: str | None = None
+    ) -> Customer:
         key = (business_id, channel, address)
         existing = self._by_key.get(key)
         if existing is not None:
+            if name and name != existing.name:  # keep the display name fresh
+                existing = replace(existing, name=name)
+                self._by_key[key] = existing
+                self._by_id[existing.id] = existing
             return existing
-        customer = Customer(CustomerId(self._ids.new()), business_id, channel, address)
+        customer = Customer(CustomerId(self._ids.new()), business_id, channel, address, name)
         self._by_key[key] = customer
         self._by_id[customer.id] = customer
         return customer
@@ -279,6 +285,7 @@ class InMemoryConversationRepository:
                 m.at,
                 customer_id=str(c.id),
                 handled=c.handled_by_owner,
+                customer_name=c.name,
             )
             for c, m in reversed(recent)
         ]

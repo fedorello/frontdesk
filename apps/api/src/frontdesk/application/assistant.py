@@ -344,7 +344,7 @@ class Assistant:
         if business is None:
             return  # not one of our numbers
         customer = await self._d.customers.upsert(
-            business.id, inbound.channel, inbound.from_address
+            business.id, inbound.channel, inbound.from_address, inbound.sender_name
         )
         await self._d.conversations.append(
             customer, Message(MessageRole.CUSTOMER, inbound.text, inbound.received_at)

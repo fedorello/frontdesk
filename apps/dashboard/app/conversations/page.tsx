@@ -8,7 +8,7 @@ import { formatDay, formatTime } from "@/app/lib/format";
 import type { Locale } from "@/app/lib/i18n";
 import { useI18n } from "@/app/lib/I18nProvider";
 import { getSession } from "@/app/lib/session";
-import { plainPreview, stripMarkdown } from "@/app/lib/text";
+import { stripMarkdown } from "@/app/lib/text";
 import { Card } from "@/components/ui/Card";
 import { EmptyState } from "@/components/ui/EmptyState";
 import { Skeleton } from "@/components/ui/Skeleton";
@@ -28,30 +28,34 @@ type LoadState = "loading" | "anon" | "ready";
 const THREAD_PAGE = 20; // messages shown per "load older" step
 
 interface Thread {
-  customer: string;
+  customer: string; // channel address (the fallback label / id)
   customerId: string;
+  name: string; // display name, or the address if none
   handled: boolean;
-  last: string;
-  at: string;
+  lastReceived?: string; // when the customer last wrote
+  lastSent?: string; // when we last replied (assistant or owner)
   count: number;
 }
 
-// The feed is newest-first; fold it into one entry per customer (latest message + count).
+// The feed is newest-first; fold it into one entry per customer with the last in/out times.
 function toThreads(messages: MessageView[]): Thread[] {
   const byCustomer = new Map<string, Thread>();
   for (const message of messages) {
-    const existing = byCustomer.get(message.customer);
-    if (existing) {
-      existing.count += 1;
-    } else {
-      byCustomer.set(message.customer, {
+    let thread = byCustomer.get(message.customer);
+    if (!thread) {
+      thread = {
         customer: message.customer,
         customerId: message.customer_id,
+        name: message.customer_name || message.customer,
         handled: message.handled,
-        last: message.text,
-        at: message.at,
-        count: 1,
-      });
+        count: 0,
+      };
+      byCustomer.set(message.customer, thread);
+    }
+    thread.count += 1;
+    if (message.role === "customer" && !thread.lastReceived) thread.lastReceived = message.at;
+    if ((message.role === "assistant" || message.role === "owner") && !thread.lastSent) {
+      thread.lastSent = message.at;
     }
   }
   return [...byCustomer.values()];
@@ -104,8 +108,8 @@ function ConversationsContent() {
   const filtered = query
     ? threads.filter(
         (thread) =>
-          thread.customer.toLowerCase().includes(query) ||
-          plainPreview(thread.last).toLowerCase().includes(query),
+          thread.name.toLowerCase().includes(query) ||
+          thread.customer.toLowerCase().includes(query),
       )
     : threads;
 
@@ -135,7 +139,7 @@ function ConversationsContent() {
       {state === "ready" && selected !== null && selectedThread && session && (
         <ThreadDetail
           key={selectedThread.customerId}
-          customer={selected}
+          customer={selectedThread.name}
           customerId={selectedThread.customerId}
           handled={selectedThread.handled}
           businessId={session.businessId}
@@ -161,6 +165,8 @@ function ConversationsContent() {
               thread={thread}
               locale={locale}
               timeZone={timeZone}
+              receivedLabel={t("conversations.received")}
+              sentLabel={t("conversations.sent")}
               onOpen={() => setSelected(thread.customer)}
             />
           ))}
@@ -174,13 +180,19 @@ function ThreadRow({
   thread,
   locale,
   timeZone,
+  receivedLabel,
+  sentLabel,
   onOpen,
 }: {
   thread: Thread;
   locale: Locale;
   timeZone: string;
+  receivedLabel: string;
+  sentLabel: string;
   onOpen: () => void;
 }) {
+  const stamp = (iso: string) =>
+    `${formatDay(iso, locale, timeZone)} ${formatTime(iso, locale, timeZone)}`;
   return (
     <button
       type="button"
@@ -188,21 +200,27 @@ function ThreadRow({
       className="flex w-full items-center gap-3.5 px-5 py-3.5 text-left transition hover:bg-canvas"
     >
       <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-pink-soft text-sm font-extrabold text-pink">
-        {thread.customer.slice(0, 2)}
+        {thread.name.slice(0, 2).toUpperCase()}
       </span>
       <div className="min-w-0 flex-1">
-        <div className="flex items-baseline justify-between gap-2">
-          <span className="flex min-w-0 items-baseline gap-2">
-            <span className="truncate font-semibold">{thread.customer}</span>
-            <span className="shrink-0 rounded-full bg-surface-3 px-1.5 py-0.5 text-[11px] font-medium text-muted">
-              {thread.count}
-            </span>
-          </span>
-          <span className="shrink-0 text-xs text-faint">
-            {formatDay(thread.at, locale, timeZone)} {formatTime(thread.at, locale, timeZone)}
+        <div className="flex items-baseline gap-2">
+          <span className="truncate font-semibold">{thread.name}</span>
+          <span className="shrink-0 rounded-full bg-surface-3 px-1.5 py-0.5 text-[11px] font-medium text-muted">
+            {thread.count}
           </span>
         </div>
-        <div className="truncate text-sm text-muted">{plainPreview(thread.last)}</div>
+        <div className="mt-0.5 flex flex-wrap gap-x-4 gap-y-0.5 text-xs text-muted">
+          {thread.lastReceived && (
+            <span>
+              <span className="text-faint">↓ {receivedLabel}:</span> {stamp(thread.lastReceived)}
+            </span>
+          )}
+          {thread.lastSent && (
+            <span>
+              <span className="text-faint">↑ {sentLabel}:</span> {stamp(thread.lastSent)}
+            </span>
+          )}
+        </div>
       </div>
     </button>
   );
