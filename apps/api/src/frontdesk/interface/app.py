@@ -19,6 +19,10 @@ from frontdesk.application.appointments import (
     RescheduleAppointment,
 )
 from frontdesk.application.assistant import Assistant, AssistantDeps
+from frontdesk.application.owner_actions import (
+    OwnerCancelAppointment,
+    OwnerRescheduleAppointment,
+)
 from frontdesk.application.ports import (
     ApprovalGate,
     Clock,
@@ -30,7 +34,10 @@ from frontdesk.application.ports import (
 from frontdesk.core.settings import Settings
 from frontdesk.infrastructure.airlock_gate import AirlockApprovalGate, PendingApprovals
 from frontdesk.infrastructure.channels.composite import LoggingMessaging, RoutingMessaging
-from frontdesk.infrastructure.channels.telegram import TelegramMessaging
+from frontdesk.infrastructure.channels.telegram import (
+    TelegramCustomerNotifier,
+    TelegramMessaging,
+)
 from frontdesk.infrastructure.channels.whatsapp import WhatsAppMessaging
 from frontdesk.infrastructure.db import create_engine, make_session_factory
 from frontdesk.infrastructure.events import LoggingEventPublisher
@@ -219,9 +226,27 @@ def create_production_app() -> FastAPI:
             guard,
         )
     )
+    notifier = TelegramCustomerNotifier(telegram_bots, client, settings.telegram_api_base)
     app.include_router(
         build_appointments_router(
-            ConfirmAppointment(deps.appointments, deps.calendar, deps.events), guard
+            ConfirmAppointment(deps.appointments, deps.calendar, deps.events),
+            OwnerCancelAppointment(
+                deps.appointments,
+                deps.services,
+                deps.businesses,
+                deps.customers,
+                deps.cancel,
+                notifier,
+            ),
+            OwnerRescheduleAppointment(
+                deps.appointments,
+                deps.services,
+                deps.businesses,
+                deps.customers,
+                deps.reschedule,
+                notifier,
+            ),
+            guard,
         )
     )
     app.include_router(build_metrics_router(usage, settings, clock, guard))

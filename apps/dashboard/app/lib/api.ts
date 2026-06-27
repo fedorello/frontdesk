@@ -82,6 +82,13 @@ export interface AppointmentView {
   intake?: IntakeAnswer[];
 }
 
+export interface AppointmentResult {
+  id: string;
+  status: string;
+  starts_at: string;
+  ends_at: string;
+}
+
 export interface MessageView {
   customer: string;
   role: string;
@@ -191,6 +198,32 @@ export const api = {
       "POST",
       `/api/businesses/${id}/appointments/${appointmentId}/confirm`,
       undefined,
+      token,
+    ),
+
+  cancelAppointment: (
+    id: string,
+    appointmentId: string,
+    reason: string,
+    token: string,
+  ): Promise<AppointmentResult> =>
+    request(
+      "POST",
+      `/api/businesses/${id}/appointments/${appointmentId}/cancel`,
+      { reason },
+      token,
+    ),
+
+  rescheduleAppointment: (
+    id: string,
+    appointmentId: string,
+    start: string,
+    token: string,
+  ): Promise<AppointmentResult> =>
+    request(
+      "POST",
+      `/api/businesses/${id}/appointments/${appointmentId}/reschedule`,
+      { start },
       token,
     ),
 

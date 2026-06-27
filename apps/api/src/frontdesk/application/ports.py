@@ -166,6 +166,12 @@ class MessagingPort(Protocol):
     async def send(self, customer: Customer, message: OutboundMessage) -> None: ...
 
 
+class CustomerNotifier(Protocol):
+    """Sends a one-off plain message to a customer over the business's own channel/bot."""
+
+    async def notify(self, business: Business, customer: Customer, text: str) -> None: ...
+
+
 class LlmProvider(Protocol):
     async def complete(
         self,

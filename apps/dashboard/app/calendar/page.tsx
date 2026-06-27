@@ -9,6 +9,7 @@ import { formatDay, formatTime } from "@/app/lib/format";
 import type { Locale } from "@/app/lib/i18n";
 import { useI18n } from "@/app/lib/I18nProvider";
 import { getSession } from "@/app/lib/session";
+import { AppointmentModal } from "@/components/AppointmentModal";
 import { Icon } from "@/components/icons";
 import { EmptyState } from "@/components/ui/EmptyState";
 import { Pagination } from "@/components/ui/Pagination";
@@ -57,6 +58,8 @@ function CalendarContent() {
   const [timeZone, setTimeZone] = useState("UTC");
   const [showCancelled, setShowCancelled] = useState(false);
   const [page, setPage] = useState(0);
+  const [selected, setSelected] = useState<AppointmentView | null>(null);
+  const session = getSession();
 
   useEffect(() => {
     const session = getSession();
@@ -153,6 +156,7 @@ function CalendarContent() {
                   }
                   onConfirm={appointment.status === PENDING ? confirm : undefined}
                   confirmLabel={t("calendar.confirm")}
+                  onOpen={() => setSelected(appointment)}
                 />
               ))}
             </div>
@@ -169,6 +173,32 @@ function CalendarContent() {
           )}
         </>
       )}
+
+      {selected && session && (
+        <AppointmentModal
+          appointment={selected}
+          timeZone={timeZone}
+          locale={locale}
+          businessId={session.businessId}
+          token={session.token}
+          onClose={() => setSelected(null)}
+          onChanged={(result) => {
+            setAppointments((previous) =>
+              previous.map((item) =>
+                item.id === result.id
+                  ? {
+                      ...item,
+                      status: result.status,
+                      starts_at: result.starts_at,
+                      ends_at: result.ends_at,
+                    }
+                  : item,
+              ),
+            );
+            setSelected(null);
+          }}
+        />
+      )}
     </main>
   );
 }
@@ -181,6 +211,7 @@ function AppointmentCard({
   statusLabel,
   onConfirm,
   confirmLabel,
+  onOpen,
 }: {
   appointment: AppointmentView;
   locale: Locale;
@@ -189,6 +220,7 @@ function AppointmentCard({
   statusLabel: string;
   onConfirm?: (appointmentId: string) => Promise<void>;
   confirmLabel: string;
+  onOpen: () => void;
 }) {
   const minutes = durationMinutes(appointment.starts_at, appointment.ends_at);
   const [confirming, setConfirming] = useState(false);
@@ -204,7 +236,11 @@ function AppointmentCard({
   };
   return (
     <div className="overflow-hidden rounded-2xl border border-line bg-surface shadow-card">
-      <div className="flex items-stretch gap-4 p-4">
+      <button
+        type="button"
+        onClick={onOpen}
+        className="flex w-full items-stretch gap-4 p-4 text-left transition hover:bg-canvas"
+      >
         <div className="flex min-w-16 flex-col items-center justify-center border-r border-line pr-4 text-center">
           <span className="text-xs font-medium capitalize text-muted">
             {formatDay(appointment.starts_at, locale, timeZone)}
@@ -233,7 +269,7 @@ function AppointmentCard({
         <div className="flex items-center">
           <StatusPill status={appointment.status} label={statusLabel} />
         </div>
-      </div>
+      </button>
       {onConfirm && (
         <button
           type="button"

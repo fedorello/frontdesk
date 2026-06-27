@@ -10,6 +10,7 @@ import type { Locale } from "@/app/lib/i18n";
 import { useI18n } from "@/app/lib/I18nProvider";
 import { getSession } from "@/app/lib/session";
 import { plainPreview } from "@/app/lib/text";
+import { AppointmentModal } from "@/components/AppointmentModal";
 import { Icon } from "@/components/icons";
 import { Card } from "@/components/ui/Card";
 import { EmptyState } from "@/components/ui/EmptyState";
@@ -26,6 +27,8 @@ export default function Home() {
   const [appointments, setAppointments] = useState<AppointmentView[]>([]);
   const [messages, setMessages] = useState<MessageView[]>([]);
   const [timeZone, setTimeZone] = useState("UTC");
+  const [selected, setSelected] = useState<AppointmentView | null>(null);
+  const session = getSession();
 
   useEffect(() => {
     const session = getSession();
@@ -118,6 +121,7 @@ export default function Home() {
                       ? t(STATUS_LABEL[appointment.status])
                       : appointment.status
                   }
+                  onOpen={() => setSelected(appointment)}
                 />
               ))
           )}
@@ -142,6 +146,32 @@ export default function Home() {
           )}
         </Card>
       </div>
+
+      {selected && session && (
+        <AppointmentModal
+          appointment={selected}
+          timeZone={timeZone}
+          locale={locale}
+          businessId={session.businessId}
+          token={session.token}
+          onClose={() => setSelected(null)}
+          onChanged={(result) => {
+            setAppointments((previous) =>
+              previous.map((item) =>
+                item.id === result.id
+                  ? {
+                      ...item,
+                      status: result.status,
+                      starts_at: result.starts_at,
+                      ends_at: result.ends_at,
+                    }
+                  : item,
+              ),
+            );
+            setSelected(null);
+          }}
+        />
+      )}
     </Page>
   );
 }
@@ -170,14 +200,20 @@ function AppointmentRow({
   locale,
   timeZone,
   statusLabel,
+  onOpen,
 }: {
   appointment: AppointmentView;
   locale: Locale;
   timeZone: string;
   statusLabel: string;
+  onOpen: () => void;
 }) {
   return (
-    <div className="flex items-center gap-4 border-b border-line px-5 py-3 last:border-b-0">
+    <button
+      type="button"
+      onClick={onOpen}
+      className="flex w-full items-center gap-4 border-b border-line px-5 py-3 text-left transition last:border-b-0 hover:bg-canvas"
+    >
       <div className="flex w-24 shrink-0 flex-col leading-tight">
         <span className="text-xs capitalize text-muted">
           {formatDay(appointment.starts_at, locale, timeZone)}
@@ -188,7 +224,7 @@ function AppointmentRow({
       </div>
       <span className="flex-1 truncate text-sm font-semibold">{appointment.service}</span>
       <StatusPill status={appointment.status} label={statusLabel} />
-    </div>
+    </button>
   );
 }
 

@@ -7,9 +7,13 @@ from typing import Any
 
 import httpx
 
-from frontdesk.application.ports import InboundMessage, OutboundMessage
+from frontdesk.application.ports import (
+    InboundMessage,
+    OutboundMessage,
+    TelegramBotRepository,
+)
 from frontdesk.domain.enums import Channel
-from frontdesk.domain.models import Customer
+from frontdesk.domain.models import Business, Customer
 from frontdesk.infrastructure.channels.telegram_format import markdown_to_telegram_html
 
 _logger = logging.getLogger("frontdesk.telegram")
@@ -138,6 +142,26 @@ async def telegram_get_updates(
         _logger.warning("telegram getUpdates failed: %s", exc)
         return []
     return list(data["result"]) if data.get("ok") else []
+
+
+class TelegramCustomerNotifier:
+    """Sends a one-off message to a customer over their business's own Telegram bot."""
+
+    def __init__(
+        self, bots: TelegramBotRepository, client: httpx.AsyncClient, base: str = _TELEGRAM_API
+    ) -> None:
+        self._bots = bots
+        self._client = client
+        self._base = base
+
+    async def notify(self, business: Business, customer: Customer, text: str) -> None:
+        bot = await self._bots.get(business.id)
+        if bot is None:
+            _logger.warning("no telegram bot for business %s; cannot notify", business.id)
+            return
+        await telegram_send_message(
+            bot.bot_token, customer.channel_address, text, self._client, self._base
+        )
 
 
 async def telegram_send_message(
