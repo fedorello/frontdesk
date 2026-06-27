@@ -137,46 +137,48 @@ function AppointmentCard({
     }
   };
   return (
-    <div className="flex items-stretch gap-4 rounded-2xl border border-line bg-surface p-4 shadow-card">
-      <div className="flex min-w-16 flex-col items-center justify-center border-r border-line pr-4 text-center">
-        <span className="text-xs font-medium capitalize text-muted">
-          {formatDay(appointment.starts_at, locale, timeZone)}
-        </span>
-        <span className="font-extrabold tabular-nums">
-          {formatTime(appointment.starts_at, locale, timeZone)}
-        </span>
-        <span className="text-xs text-faint">{minutes}m</span>
+    <div className="overflow-hidden rounded-2xl border border-line bg-surface shadow-card">
+      <div className="flex items-stretch gap-4 p-4">
+        <div className="flex min-w-16 flex-col items-center justify-center border-r border-line pr-4 text-center">
+          <span className="text-xs font-medium capitalize text-muted">
+            {formatDay(appointment.starts_at, locale, timeZone)}
+          </span>
+          <span className="font-extrabold tabular-nums">
+            {formatTime(appointment.starts_at, locale, timeZone)}
+          </span>
+          <span className="text-xs text-faint">{minutes}m</span>
+        </div>
+        <div className="flex min-w-0 flex-1 flex-col justify-center">
+          <span className="font-semibold">{appointment.service}</span>
+          <span className="font-mono text-xs text-faint" title={appointment.id}>
+            {refLabel}: {appointment.id}
+          </span>
+          {appointment.intake && appointment.intake.length > 0 && (
+            <dl className="mt-1.5 space-y-0.5">
+              {appointment.intake.map((answer, index) => (
+                <div key={index} className="flex gap-1.5 text-xs">
+                  <dt className="shrink-0 text-muted">{answer.name}:</dt>
+                  <dd className="truncate text-ink">{answer.value}</dd>
+                </div>
+              ))}
+            </dl>
+          )}
+        </div>
+        <div className="flex items-center">
+          <StatusPill status={appointment.status} label={statusLabel} />
+        </div>
       </div>
-      <div className="flex min-w-0 flex-1 flex-col justify-center">
-        <span className="font-semibold">{appointment.service}</span>
-        <span className="font-mono text-xs text-faint" title={appointment.id}>
-          {refLabel}: {appointment.id}
-        </span>
-        {appointment.intake && appointment.intake.length > 0 && (
-          <dl className="mt-1.5 space-y-0.5">
-            {appointment.intake.map((answer, index) => (
-              <div key={index} className="flex gap-1.5 text-xs">
-                <dt className="shrink-0 text-muted">{answer.name}:</dt>
-                <dd className="truncate text-ink">{answer.value}</dd>
-              </div>
-            ))}
-          </dl>
-        )}
-      </div>
-      <div className="flex flex-col items-end justify-center gap-2">
-        <StatusPill status={appointment.status} label={statusLabel} />
-        {onConfirm && (
-          <button
-            type="button"
-            onClick={handleConfirm}
-            disabled={confirming}
-            className="inline-flex items-center gap-1.5 rounded-lg bg-success px-3 py-1.5 text-sm font-bold text-accent-contrast shadow-sm transition hover:opacity-90 disabled:opacity-50"
-          >
-            <Icon name="check" size={16} />
-            {confirmLabel}
-          </button>
-        )}
-      </div>
+      {onConfirm && (
+        <button
+          type="button"
+          onClick={handleConfirm}
+          disabled={confirming}
+          className="flex w-full items-center justify-center gap-2 border-t border-line bg-success-soft px-4 py-3 text-sm font-semibold text-success transition hover:brightness-105 disabled:opacity-60"
+        >
+          <Icon name="check" size={18} />
+          {confirmLabel}
+        </button>
+      )}
     </div>
   );
 }
