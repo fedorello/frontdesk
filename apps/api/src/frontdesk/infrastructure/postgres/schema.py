@@ -17,7 +17,8 @@ CREATE_STATEMENTS: tuple[str, ...] = (
         buffer_minutes integer NOT NULL DEFAULT 0,
         knowledge jsonb NOT NULL DEFAULT '[]',
         description text NOT NULL DEFAULT '',
-        address text NOT NULL DEFAULT ''
+        address text NOT NULL DEFAULT '',
+        online boolean NOT NULL DEFAULT false
     )
     """,
     """

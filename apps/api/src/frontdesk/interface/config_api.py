@@ -43,6 +43,7 @@ class BusinessProfile(BaseModel):
     knowledge: list[KnowledgeItemIO] = []
     description: str = ""
     address: str = ""
+    online: bool = False
 
     @field_validator("timezone")
     @classmethod
@@ -133,6 +134,7 @@ def build_config_router(
                 knowledge=tuple(KnowledgeItem(k.question, k.answer) for k in body.knowledge),
                 description=body.description,
                 address=body.address,
+                online=body.online,
             )
         )
         return body
@@ -152,6 +154,7 @@ def build_config_router(
             ],
             description=business.description,
             address=business.address,
+            online=business.online,
         )
 
     @router.get("/api/businesses/{business_id}/services")

@@ -32,3 +32,16 @@ def test_prompt_omits_empty_descriptions() -> None:
 
     assert "About" not in prompt  # no empty "About" block
     assert "- Cut (30 min)" in prompt  # no trailing " — "
+
+
+def test_prompt_states_the_physical_address() -> None:
+    business = Business(BusinessId("b"), "Ana", "UTC", address="12 Rivera St")
+    prompt = _system_prompt(business, [])
+    assert "Location: 12 Rivera St" in prompt
+
+
+def test_prompt_states_online_and_ignores_address() -> None:
+    business = Business(BusinessId("b"), "Ana", "UTC", address="ignored", online=True)
+    prompt = _system_prompt(business, [])
+    assert "online" in prompt
+    assert "ignored" not in prompt  # online wins over a stale address

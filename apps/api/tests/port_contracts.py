@@ -213,6 +213,7 @@ async def check_business_write(repo: BusinessRepository) -> None:
             knowledge=(KnowledgeItem("q", "a"),),
             description="A new place.",
             address="12 Rivera St, Montevideo",
+            online=True,
         )
     )
     found = await repo.find(BusinessId("new-biz"))
@@ -221,6 +222,7 @@ async def check_business_write(repo: BusinessRepository) -> None:
     assert found.knowledge[0].answer == "a"
     assert found.description == "A new place."  # round-trips through storage
     assert found.address == "12 Rivera St, Montevideo"  # round-trips through storage
+    assert found.online is True  # round-trips through storage
 
     await repo.upsert(Business(BusinessId("new-biz"), "Renamed", "UTC"))
     renamed = await repo.find(BusinessId("new-biz"))

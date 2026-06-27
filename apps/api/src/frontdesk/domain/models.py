@@ -95,7 +95,8 @@ class Business:
     buffer_minutes: int = 0
     knowledge: tuple[KnowledgeItem, ...] = ()
     description: str = ""  # one free-text "about us" injected into every assistant prompt
-    address: str = ""  # where the business is — shown to customers and given to the assistant
+    address: str = ""  # where the business is (ignored when `online` is set)
+    online: bool = False  # the business operates online — there is no physical address
 
     def __post_init__(self) -> None:
         if self.lead_time_minutes < 0:

@@ -160,6 +160,14 @@ def _menu_line(service: Service) -> str:
     return f"{line} — {service.description}" if service.description else line
 
 
+def _location_line(business: Business) -> str:
+    if business.online:
+        return "\n\nThis business is online — appointments are remote; there is no address."
+    if business.address:
+        return f"\n\nLocation: {business.address}"
+    return ""
+
+
 def _system_prompt(business: Business, services: Sequence[Service]) -> str:
     menu = "\n".join(_menu_line(s) for s in services) or "- (none yet)"
     knowledge = "\n".join(f"Q: {item.question}\nA: {item.answer}" for item in business.knowledge)
@@ -168,7 +176,7 @@ def _system_prompt(business: Business, services: Sequence[Service]) -> str:
         f"You are the front desk for {business.name}. Be brief and warm, and reply in the "
         "customer's language. Use the tools to check real availability and to book — never "
         "invent times, prices, services, or facts. Escalate when you cannot help."
-        f"{about}\n\n"
+        f"{about}{_location_line(business)}\n\n"
         "These are the ONLY services we offer. Never offer, suggest, or search for anything "
         f"not on this list — if a customer asks for something else, say we don't offer it:\n{menu}"
         "\n\nFree times change as time passes. Always read availability from find_availability "

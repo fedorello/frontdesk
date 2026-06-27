@@ -57,6 +57,16 @@ async def test_business_address_roundtrips() -> None:
         )
         got = (await client.get("/api/businesses/ana")).json()
         assert got["address"] == "12 Rivera St, Montevideo"
+        assert got["online"] is False
+
+
+async def test_business_online_roundtrips() -> None:
+    async with _client() as client:
+        await client.put(
+            "/api/businesses/ana", json={"name": "Ana", "timezone": "UTC", "online": True}
+        )
+        got = (await client.get("/api/businesses/ana")).json()
+        assert got["online"] is True
 
 
 async def test_services_crud() -> None:
