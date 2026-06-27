@@ -21,6 +21,7 @@ class IntakeAnswerView(BaseModel):
 
 
 class AppointmentView(BaseModel):
+    id: str
     service: str
     starts_at: str
     ends_at: str
@@ -61,6 +62,7 @@ def build_read_router(
         names = {s.id: s.name for s in await services.for_business(bid)}
         return [
             AppointmentView(
+                id=str(appointment.id),
                 service=names.get(appointment.service_id, str(appointment.service_id)),
                 starts_at=appointment.slot.starts_at.isoformat(),
                 ends_at=appointment.slot.ends_at.isoformat(),

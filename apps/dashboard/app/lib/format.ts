@@ -1,8 +1,8 @@
 import type { Locale } from "./i18n";
 
-// Appointment instants are stored in UTC; we render the stored wall-clock time
-// (timeZone: "UTC") locale-formatted, so the owner sees the time they configured.
-export function formatTime(iso: string, locale: Locale): string {
+// Instants are stored in UTC; render them in the given IANA time zone (default UTC),
+// locale-formatted — so the schedule shows the business's local wall-clock time.
+export function formatTime(iso: string, locale: Locale, timeZone = "UTC"): string {
   const date = new Date(iso);
   if (Number.isNaN(date.getTime())) {
     return iso;
@@ -11,11 +11,11 @@ export function formatTime(iso: string, locale: Locale): string {
     hour: "2-digit",
     minute: "2-digit",
     hour12: false,
-    timeZone: "UTC",
+    timeZone,
   }).format(date);
 }
 
-export function formatDay(iso: string, locale: Locale): string {
+export function formatDay(iso: string, locale: Locale, timeZone = "UTC"): string {
   const date = new Date(iso);
   if (Number.isNaN(date.getTime())) {
     return iso;
@@ -24,6 +24,6 @@ export function formatDay(iso: string, locale: Locale): string {
     weekday: "short",
     day: "numeric",
     month: "short",
-    timeZone: "UTC",
+    timeZone,
   }).format(date);
 }

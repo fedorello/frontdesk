@@ -3,7 +3,7 @@
 import { useEffect, useState } from "react";
 
 import { api, type AppointmentView } from "@/app/lib/api";
-import { formatTime } from "@/app/lib/format";
+import { formatDay, formatTime } from "@/app/lib/format";
 import type { Locale } from "@/app/lib/i18n";
 import { useI18n } from "@/app/lib/I18nProvider";
 import { getSession } from "@/app/lib/session";
@@ -24,6 +24,7 @@ export default function CalendarPage() {
   const { t, locale } = useI18n();
   const [state, setState] = useState<LoadState>("loading");
   const [appointments, setAppointments] = useState<AppointmentView[]>([]);
+  const [timeZone, setTimeZone] = useState("UTC");
 
   useEffect(() => {
     const session = getSession();
@@ -32,13 +33,15 @@ export default function CalendarPage() {
       setState("anon");
       return;
     }
-    api
-      .appointments(session.businessId, session.token)
-      .catch(() => [])
-      .then((items) => {
-        setAppointments(items);
-        setState("ready");
-      });
+    void (async () => {
+      const [items, business] = await Promise.all([
+        api.appointments(session.businessId, session.token).catch(() => []),
+        api.getBusiness(session.businessId, session.token).catch(() => null),
+      ]);
+      setAppointments(items);
+      if (business) setTimeZone(business.timezone);
+      setState("ready");
+    })();
   }, []);
 
   return (
@@ -59,8 +62,14 @@ export default function CalendarPage() {
 
       {state === "ready" && appointments.length > 0 && (
         <div className="space-y-2.5">
-          {appointments.map((appointment, index) => (
-            <AppointmentCard key={index} appointment={appointment} locale={locale} />
+          {appointments.map((appointment) => (
+            <AppointmentCard
+              key={appointment.id}
+              appointment={appointment}
+              locale={locale}
+              timeZone={timeZone}
+              refLabel={t("calendar.ref")}
+            />
           ))}
         </div>
       )}
@@ -71,21 +80,31 @@ export default function CalendarPage() {
 function AppointmentCard({
   appointment,
   locale,
+  timeZone,
+  refLabel,
 }: {
   appointment: AppointmentView;
   locale: Locale;
+  timeZone: string;
+  refLabel: string;
 }) {
   const minutes = durationMinutes(appointment.starts_at, appointment.ends_at);
   return (
     <div className="flex items-stretch gap-4 rounded-2xl border border-line bg-surface p-4 shadow-card">
-      <div className="flex min-w-14 flex-col items-center justify-center border-r border-line pr-4">
+      <div className="flex min-w-16 flex-col items-center justify-center border-r border-line pr-4 text-center">
+        <span className="text-xs font-medium capitalize text-muted">
+          {formatDay(appointment.starts_at, locale, timeZone)}
+        </span>
         <span className="font-extrabold tabular-nums">
-          {formatTime(appointment.starts_at, locale)}
+          {formatTime(appointment.starts_at, locale, timeZone)}
         </span>
         <span className="text-xs text-faint">{minutes}m</span>
       </div>
       <div className="flex min-w-0 flex-1 flex-col justify-center">
         <span className="font-semibold">{appointment.service}</span>
+        <span className="font-mono text-xs text-faint" title={appointment.id}>
+          {refLabel}: {appointment.id}
+        </span>
         {appointment.intake && appointment.intake.length > 0 && (
           <dl className="mt-1.5 space-y-0.5">
             {appointment.intake.map((answer, index) => (

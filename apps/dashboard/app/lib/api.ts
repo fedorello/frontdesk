@@ -72,6 +72,7 @@ export interface TelegramStatus {
 }
 
 export interface AppointmentView {
+  id: string;
   service: string;
   starts_at: string;
   ends_at: string;
