@@ -53,7 +53,12 @@ from frontdesk.infrastructure.postgres.adapters import (
 from frontdesk.infrastructure.providers.anthropic import AnthropicProvider
 from frontdesk.infrastructure.providers.openai import OpenAiProvider
 from frontdesk.infrastructure.secrets import FernetCipher
-from frontdesk.infrastructure.system import FixedClock, SystemClock, UuidIdGenerator
+from frontdesk.infrastructure.system import (
+    FixedClock,
+    SystemClock,
+    SystemRandom,
+    UuidIdGenerator,
+)
 from frontdesk.interface.approvals import build_approvals_router
 from frontdesk.interface.auth import build_auth_router, make_owner_guard
 from frontdesk.interface.business_config import build_llm_config_router
@@ -185,7 +190,7 @@ def create_production_app() -> FastAPI:
         allow_methods=["*"],
         allow_headers=["*"],
     )
-    telegram_inbound = TelegramInbound(deps, llm_configs, usage, settings, client)
+    telegram_inbound = TelegramInbound(deps, llm_configs, usage, settings, client, SystemRandom())
     app.include_router(build_chat_router(deps, settings.demo_to_address, clock))
     app.include_router(build_approvals_router(pending_approvals))
     app.include_router(build_telegram_router(telegram_inbound, telegram_bots))

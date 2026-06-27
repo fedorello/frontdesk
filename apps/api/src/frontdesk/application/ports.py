@@ -51,6 +51,7 @@ class InboundMessage:
     text: str
     received_at: datetime
     provider_message_id: str
+    language: str | None = None  # the sender's client language (e.g. Telegram language_code)
 
 
 @dataclass(frozen=True, slots=True)
@@ -130,6 +131,12 @@ class Clock(Protocol):
 
 class IdGenerator(Protocol):
     def new(self) -> str: ...
+
+
+class Random(Protocol):
+    """Source of randomness, injected so e.g. phrase selection is deterministic in tests."""
+
+    def choice(self, items: Sequence[str]) -> str: ...
 
 
 class SecretCipher(Protocol):

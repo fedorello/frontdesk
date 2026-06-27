@@ -18,6 +18,7 @@ from frontdesk.infrastructure.memory import (
     InMemoryTelegramBotRepository,
     InMemoryUsageStore,
 )
+from frontdesk.infrastructure.system import FixedRandom
 from frontdesk.interface.telegram_inbound import TelegramInbound
 from frontdesk.interface.telegram_webhook import build_telegram_router
 from tests.assistant_deps import build_assistant_deps
@@ -35,6 +36,7 @@ def _inbound(
         InMemoryUsageStore(),
         settings,
         client,
+        FixedRandom(),
     )
 
 

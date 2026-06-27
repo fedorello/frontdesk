@@ -50,6 +50,7 @@ def parse_telegram_inbound(
     """Normalize a Telegram update to an InboundMessage, or None for non-text updates."""
     try:
         message = payload["message"]
+        sender = message.get("from") or {}
         return InboundMessage(
             channel=Channel.TELEGRAM,
             from_address=str(message["chat"]["id"]),
@@ -57,6 +58,7 @@ def parse_telegram_inbound(
             text=message["text"],
             received_at=datetime.fromtimestamp(int(message["date"]), tz=UTC),
             provider_message_id=f"{message['chat']['id']}:{message['message_id']}",
+            language=sender.get("language_code"),
         )
     except KeyError, TypeError:
         return None
@@ -129,3 +131,33 @@ async def telegram_get_updates(
         _logger.warning("telegram getUpdates failed: %s", exc)
         return []
     return list(data["result"]) if data.get("ok") else []
+
+
+async def telegram_send_message(
+    token: str, chat_id: str, text: str, client: httpx.AsyncClient, base: str = _TELEGRAM_API
+) -> int | None:
+    """Send a plain text message; return its message_id (to delete it later), or None."""
+    try:
+        response = await client.post(
+            f"{base.rstrip('/')}/bot{token}/sendMessage",
+            json={"chat_id": chat_id, "text": text},
+        )
+        data = response.json()
+    except httpx.HTTPError as exc:
+        _logger.warning("telegram sendMessage failed: %s", exc)
+        return None
+    message_id = data.get("result", {}).get("message_id") if data.get("ok") else None
+    return int(message_id) if message_id is not None else None
+
+
+async def telegram_delete_message(
+    token: str, chat_id: str, message_id: int, client: httpx.AsyncClient, base: str = _TELEGRAM_API
+) -> None:
+    """Delete a previously sent message (best-effort; a failure is logged, not raised)."""
+    try:
+        await client.post(
+            f"{base.rstrip('/')}/bot{token}/deleteMessage",
+            json={"chat_id": chat_id, "message_id": message_id},
+        )
+    except httpx.HTTPError as exc:
+        _logger.warning("telegram deleteMessage failed: %s", exc)

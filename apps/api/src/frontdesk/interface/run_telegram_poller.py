@@ -19,7 +19,7 @@ from frontdesk.infrastructure.postgres.adapters import (
     SqlTelegramBotRepository,
     SqlUsageStore,
 )
-from frontdesk.infrastructure.system import UuidIdGenerator
+from frontdesk.infrastructure.system import SystemRandom, UuidIdGenerator
 from frontdesk.interface.app import build_assistant_deps, build_cipher, build_clock
 from frontdesk.interface.telegram_inbound import TelegramInbound
 from frontdesk.interface.telegram_poller import TelegramPoller
@@ -51,7 +51,12 @@ async def run() -> None:
         AirlockApprovalGate(PendingApprovals()),
     )
     inbound = TelegramInbound(
-        deps, SqlLlmConfigRepository(sessions, cipher), SqlUsageStore(sessions), settings, client
+        deps,
+        SqlLlmConfigRepository(sessions, cipher),
+        SqlUsageStore(sessions),
+        settings,
+        client,
+        SystemRandom(),
     )
     poller = TelegramPoller(SqlTelegramBotRepository(sessions, cipher), inbound, client, settings)
 

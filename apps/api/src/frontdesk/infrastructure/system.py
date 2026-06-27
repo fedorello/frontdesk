@@ -1,7 +1,26 @@
 """Clock and id-generator adapters — a real one and a deterministic fake each."""
 
+import random
 import uuid
+from collections.abc import Sequence
 from datetime import UTC, datetime
+
+
+class SystemRandom:
+    """The real source of randomness (non-crypto; fine for picking filler phrases)."""
+
+    def __init__(self) -> None:
+        self._rng = random.Random()
+
+    def choice(self, items: Sequence[str]) -> str:
+        return self._rng.choice(list(items))
+
+
+class FixedRandom:
+    """A deterministic Random for tests: always returns the first item."""
+
+    def choice(self, items: Sequence[str]) -> str:
+        return next(iter(items))
 
 
 class SystemClock:

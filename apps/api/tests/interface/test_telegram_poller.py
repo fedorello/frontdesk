@@ -1,10 +1,12 @@
-"""The polling transport: long-poll getUpdates, dispatch to the assistant, advance offset."""
+"""The polling transport: concurrent dispatch, offset, placeholder, and busy feedback."""
 
+import asyncio
 import json
+from datetime import UTC, datetime
 
 import httpx
 
-from frontdesk.application.ports import TelegramBotConfig
+from frontdesk.application.ports import InboundMessage, TelegramBotConfig, TelegramBotRepository
 from frontdesk.core.settings import Settings
 from frontdesk.domain.enums import Channel
 from frontdesk.domain.ids import BusinessId
@@ -15,7 +17,9 @@ from frontdesk.infrastructure.memory import (
     InMemoryTelegramBotRepository,
     InMemoryUsageStore,
 )
+from frontdesk.infrastructure.system import FixedRandom
 from frontdesk.interface.telegram_inbound import TelegramInbound
+from frontdesk.interface.telegram_phrases import BUSY, WAIT
 from frontdesk.interface.telegram_poller import TelegramPoller
 from tests.assistant_deps import build_assistant_deps
 
@@ -24,6 +28,37 @@ ONE_UPDATE = {
     "update_id": 100,
     "message": {"message_id": 1, "date": 1782000000, "chat": {"id": 555}, "text": "hi"},
 }
+
+
+def _businesses() -> InMemoryBusinessRepository:
+    return InMemoryBusinessRepository(
+        [Business(BusinessId("biz1"), "Ana", "UTC")],
+        {(Channel.TELEGRAM, "ana_bot"): BusinessId("biz1")},
+    )
+
+
+def _inbound(businesses: InMemoryBusinessRepository, client: httpx.AsyncClient) -> TelegramInbound:
+    return TelegramInbound(
+        build_assistant_deps(businesses),
+        InMemoryLlmConfigRepository(),
+        InMemoryUsageStore(),
+        SETTINGS,
+        client,
+        FixedRandom(),
+    )
+
+
+async def _connected_bot(bots: TelegramBotRepository) -> TelegramBotConfig:
+    await bots.upsert(TelegramBotConfig(BusinessId("biz1"), "111:AAA", "sec", "ana_bot"))
+    bot = await bots.get(BusinessId("biz1"))
+    assert bot is not None
+    return bot
+
+
+async def _drain(poller: TelegramPoller) -> None:
+    """Wait for the poller's in-flight dispatch tasks to finish."""
+    if poller._tasks:
+        await asyncio.gather(*poller._tasks)
 
 
 async def test_poll_dispatches_a_message_and_advances_the_offset() -> None:
@@ -39,30 +74,22 @@ async def test_poll_dispatches_a_message_and_advances_the_offset() -> None:
             return httpx.Response(200, json={"choices": [{"message": {"content": "Hello!"}}]})
         if "sendMessage" in url:
             sent.append(json.loads(request.content)["text"])
+            return httpx.Response(200, json={"ok": True, "result": {"message_id": 7}})
+        if "deleteMessage" in url:
             return httpx.Response(200, json={"ok": True})
         return httpx.Response(404)
 
     client = httpx.AsyncClient(transport=httpx.MockTransport(handler))
-    businesses = InMemoryBusinessRepository(
-        [Business(BusinessId("biz1"), "Ana", "UTC")],
-        {(Channel.TELEGRAM, "ana_bot"): BusinessId("biz1")},
-    )
+    businesses = _businesses()
     bots = InMemoryTelegramBotRepository()
-    await bots.upsert(TelegramBotConfig(BusinessId("biz1"), "111:AAA", "sec", "ana_bot"))
-    inbound = TelegramInbound(
-        build_assistant_deps(businesses),
-        InMemoryLlmConfigRepository(),
-        InMemoryUsageStore(),
-        SETTINGS,
-        client,
-    )
-    poller = TelegramPoller(bots, inbound, client, SETTINGS)
+    bot = await _connected_bot(bots)
+    poller = TelegramPoller(bots, _inbound(businesses, client), client, SETTINGS)
 
-    bot = await bots.get(BusinessId("biz1"))
-    assert bot is not None
     await poller._poll_bot(bot)
+    await _drain(poller)
 
-    assert sent == ["Hello!"]  # the assistant replied via the bot
+    assert WAIT["en"][0] in sent  # a placeholder was shown first
+    assert "Hello!" in sent  # then the real reply
     after = await bots.get(BusinessId("biz1"))
     assert after is not None
     assert after.last_update_id == 100  # cursor advanced past the handled update
@@ -82,24 +109,12 @@ async def test_poll_advances_offset_even_when_dispatch_fails() -> None:
         return httpx.Response(404)
 
     client = httpx.AsyncClient(transport=httpx.MockTransport(handler))
-    businesses = InMemoryBusinessRepository(
-        [Business(BusinessId("biz1"), "Ana", "UTC")],
-        {(Channel.TELEGRAM, "ana_bot"): BusinessId("biz1")},
-    )
     bots = InMemoryTelegramBotRepository()
-    await bots.upsert(TelegramBotConfig(BusinessId("biz1"), "111:AAA", "sec", "ana_bot"))
-    inbound = TelegramInbound(
-        build_assistant_deps(businesses),
-        InMemoryLlmConfigRepository(),
-        InMemoryUsageStore(),
-        SETTINGS,
-        client,
-    )
-    poller = TelegramPoller(bots, inbound, client, SETTINGS)
+    bot = await _connected_bot(bots)
+    poller = TelegramPoller(bots, _inbound(_businesses(), client), client, SETTINGS)
 
-    bot = await bots.get(BusinessId("biz1"))
-    assert bot is not None
     await poller._poll_bot(bot)
+    await _drain(poller)
 
     after = await bots.get(BusinessId("biz1"))
     assert after is not None
@@ -107,8 +122,6 @@ async def test_poll_advances_offset_even_when_dispatch_fails() -> None:
 
 
 async def test_run_polls_until_stopped() -> None:
-    import asyncio
-
     calls = 0
 
     def handler(request: httpx.Request) -> httpx.Response:
@@ -122,24 +135,15 @@ async def test_run_polls_until_stopped() -> None:
         if "chat/completions" in url:
             return httpx.Response(200, json={"choices": [{"message": {"content": "Hi"}}]})
         if "sendMessage" in url:
+            return httpx.Response(200, json={"ok": True, "result": {"message_id": 7}})
+        if "deleteMessage" in url:
             return httpx.Response(200, json={"ok": True})
         return httpx.Response(404)
 
     client = httpx.AsyncClient(transport=httpx.MockTransport(handler))
-    businesses = InMemoryBusinessRepository(
-        [Business(BusinessId("biz1"), "Ana", "UTC")],
-        {(Channel.TELEGRAM, "ana_bot"): BusinessId("biz1")},
-    )
     bots = InMemoryTelegramBotRepository()
-    await bots.upsert(TelegramBotConfig(BusinessId("biz1"), "111:AAA", "sec", "ana_bot"))
-    inbound = TelegramInbound(
-        build_assistant_deps(businesses),
-        InMemoryLlmConfigRepository(),
-        InMemoryUsageStore(),
-        SETTINGS,
-        client,
-    )
-    poller = TelegramPoller(bots, inbound, client, SETTINGS)
+    await _connected_bot(bots)
+    poller = TelegramPoller(bots, _inbound(_businesses(), client), client, SETTINGS)
 
     stop = asyncio.Event()
     task = asyncio.create_task(poller.run(stop))
@@ -157,8 +161,6 @@ async def test_run_polls_until_stopped() -> None:
 
 
 async def test_run_idles_when_no_bots_are_connected() -> None:
-    import asyncio
-
     client = httpx.AsyncClient(transport=httpx.MockTransport(lambda r: httpx.Response(404)))
     settings = Settings(telegram_idle_poll_seconds=0)  # don't slow the test
     poller = TelegramPoller(
@@ -169,6 +171,7 @@ async def test_run_idles_when_no_bots_are_connected() -> None:
             InMemoryUsageStore(),
             settings,
             client,
+            FixedRandom(),
         ),
         client,
         settings,
@@ -205,8 +208,6 @@ class _FlakyBots:
 
 
 async def test_run_survives_a_transient_repo_error() -> None:
-    import asyncio
-
     client = httpx.AsyncClient(transport=httpx.MockTransport(lambda r: httpx.Response(404)))
     settings = Settings(telegram_idle_poll_seconds=0)
     bots = _FlakyBots()
@@ -218,6 +219,7 @@ async def test_run_survives_a_transient_repo_error() -> None:
             InMemoryUsageStore(),
             settings,
             client,
+            FixedRandom(),
         ),
         client,
         settings,
@@ -233,3 +235,50 @@ async def test_run_survives_a_transient_repo_error() -> None:
     await asyncio.wait_for(task, timeout=2)
 
     assert bots.calls >= 2  # the loop did not die on the first error
+
+
+class _BlockingLlm(httpx.AsyncBaseTransport):
+    """Holds the LLM call open until `release` is set, so a message stays mid-flight."""
+
+    def __init__(self, release: asyncio.Event, sent: list[str]) -> None:
+        self._release = release
+        self._sent = sent
+
+    async def handle_async_request(self, request: httpx.Request) -> httpx.Response:
+        url = str(request.url)
+        if "chat/completions" in url:
+            await self._release.wait()
+            return httpx.Response(200, json={"choices": [{"message": {"content": "done"}}]})
+        if "sendMessage" in url:
+            self._sent.append(json.loads(request.content)["text"])
+            return httpx.Response(200, json={"ok": True, "result": {"message_id": 7}})
+        if "deleteMessage" in url:
+            return httpx.Response(200, json={"ok": True})
+        return httpx.Response(404)
+
+
+async def test_second_message_while_busy_gets_the_busy_phrase() -> None:
+    release = asyncio.Event()
+    sent: list[str] = []
+    client = httpx.AsyncClient(transport=_BlockingLlm(release, sent))
+    inbound = _inbound(_businesses(), client)
+    bot = TelegramBotConfig(BusinessId("biz1"), "111:AAA", "sec", "ana_bot")
+    when = datetime(2026, 6, 26, tzinfo=UTC)
+    first = InboundMessage(
+        Channel.TELEGRAM, "555", "ana_bot", "first", when, "555:1", language="en"
+    )
+    second = InboundMessage(
+        Channel.TELEGRAM, "555", "ana_bot", "second", when, "555:2", language="en"
+    )
+
+    task1 = asyncio.create_task(inbound.handle(bot, first))
+    for _ in range(200):
+        await asyncio.sleep(0.01)
+        if sent:  # the placeholder is out → the first message is in flight (busy)
+            break
+    await inbound.handle(bot, second)  # arrives while the first is still being answered
+    release.set()
+    await asyncio.wait_for(task1, timeout=2)
+
+    assert WAIT["en"][0] in sent  # the first got a placeholder
+    assert BUSY["en"][0] in sent  # the second got the busy line

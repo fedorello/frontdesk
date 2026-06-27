@@ -6,11 +6,12 @@ public URL is needed (ideal for self-hosting and local development). See ADR-001
 
 import asyncio
 import logging
+from collections.abc import Coroutine
 from typing import Any
 
 import httpx
 
-from frontdesk.application.ports import TelegramBotConfig, TelegramBotRepository
+from frontdesk.application.ports import InboundMessage, TelegramBotConfig, TelegramBotRepository
 from frontdesk.core.settings import Settings
 from frontdesk.infrastructure.channels.telegram import parse_telegram_inbound, telegram_get_updates
 from frontdesk.interface.telegram_inbound import TelegramInbound
@@ -34,6 +35,7 @@ class TelegramPoller:
         self._base = settings.telegram_api_base
         self._poll_timeout = settings.telegram_poll_timeout_seconds
         self._idle_seconds = settings.telegram_idle_poll_seconds
+        self._tasks: set[asyncio.Task[None]] = set()  # in-flight dispatches
 
     async def run(self, stop: asyncio.Event) -> None:
         """Poll all connected bots until `stop` is set, surviving transient failures."""
@@ -64,14 +66,21 @@ class TelegramPoller:
             base=self._base,
         )
         for update in updates:
-            await self._handle_update(bot, update)
-
-    async def _handle_update(self, bot: TelegramBotConfig, update: dict[str, Any]) -> None:
-        message = parse_telegram_inbound(update, bot_address=bot.username)
-        try:
+            message = parse_telegram_inbound(update, bot_address=bot.username)
+            # Dispatch concurrently so a follow-up message can arrive (and get the "busy"
+            # reply) while the previous one is still being answered.
             if message is not None:
-                await self._inbound.handle(bot, message)
+                self._spawn(self._dispatch(bot, message))
+            # Advance past the update now; the dispatch task runs on its own.
+            await self._bots.set_offset(bot.business_id, int(update["update_id"]))
+
+    def _spawn(self, coro: Coroutine[Any, Any, None]) -> None:
+        task = asyncio.create_task(coro)
+        self._tasks.add(task)  # keep a reference so the task isn't GC'd mid-flight
+        task.add_done_callback(self._tasks.discard)
+
+    async def _dispatch(self, bot: TelegramBotConfig, message: InboundMessage) -> None:
+        try:
+            await self._inbound.handle(bot, message)
         except Exception as exc:
             _logger.warning("telegram update failed business=%s: %s", bot.business_id, exc)
-        # Advance the cursor regardless, so a poison update is skipped, not retried forever.
-        await self._bots.set_offset(bot.business_id, int(update["update_id"]))
