@@ -14,6 +14,7 @@ from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
 from frontdesk.application.appointments import (
     BookAppointment,
     CancelAppointment,
+    ConfirmAppointment,
     ReminderScheduler,
     RescheduleAppointment,
 )
@@ -59,6 +60,7 @@ from frontdesk.infrastructure.system import (
     SystemRandom,
     UuidIdGenerator,
 )
+from frontdesk.interface.appointments_api import build_appointments_router
 from frontdesk.interface.approvals import build_approvals_router
 from frontdesk.interface.auth import build_auth_router, make_owner_guard
 from frontdesk.interface.business_config import build_llm_config_router
@@ -215,6 +217,11 @@ def create_production_app() -> FastAPI:
             SqlServiceRepository(sessions),
             SqlConversationRepository(sessions),
             guard,
+        )
+    )
+    app.include_router(
+        build_appointments_router(
+            ConfirmAppointment(deps.appointments, deps.calendar, deps.events), guard
         )
     )
     app.include_router(build_metrics_router(usage, settings, clock, guard))

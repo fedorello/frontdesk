@@ -104,6 +104,7 @@ class ServiceIO(BaseModel):
     working_hours: list[WorkingHoursIO] = []
     max_advance_days: int = 30
     intake_fields: list[IntakeFieldIO] = Field(default=[], max_length=MAX_INTAKE_FIELDS)
+    requires_confirmation: bool = False
 
     @field_validator("max_advance_days")
     @classmethod
@@ -162,6 +163,7 @@ def _service_view(service: Service) -> ServiceView:
             IntakeFieldIO(name=f.name, description=f.description, ask=f.ask)
             for f in service.intake_fields
         ],
+        requires_confirmation=service.requires_confirmation,
     )
 
 
@@ -242,6 +244,7 @@ def build_config_router(
             intake_fields=tuple(
                 IntakeField(f.name, f.description, f.ask) for f in body.intake_fields
             ),
+            requires_confirmation=body.requires_confirmation,
         )
         await services.upsert(service)
         return _service_view(service)

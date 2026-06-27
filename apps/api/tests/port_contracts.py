@@ -103,7 +103,7 @@ async def check_calendar(calendar: Calendar) -> None:
     first = slots[0]
 
     appointment = await calendar.book(service, resource_id, customer, first)
-    assert appointment.status == AppointmentStatus.PENDING
+    assert appointment.status == AppointmentStatus.CONFIRMED  # auto-confirmed by default
 
     with pytest.raises(DomainError):
         await calendar.book(service, resource_id, customer, first)  # double-book rejected
@@ -247,6 +247,7 @@ async def check_service_write(repo: ServiceRepository) -> None:
             working_hours=(WorkingHours(1, time(10), time(15)),),
             max_advance_days=14,
             intake_fields=(IntakeField("Birth date", "DOB", "When were you born?"),),
+            requires_confirmation=True,
         )
     )
     stored = next(s for s in await repo.for_business(BusinessId("biz")) if s.id == sid)
@@ -255,6 +256,7 @@ async def check_service_write(repo: ServiceRepository) -> None:
     assert stored.working_hours == (WorkingHours(1, time(10), time(15)),)  # schedule round-trips
     assert stored.max_advance_days == 14  # booking horizon round-trips
     assert stored.intake_fields == (IntakeField("Birth date", "DOB", "When were you born?"),)
+    assert stored.requires_confirmation is True  # confirmation flag round-trips
 
     await repo.remove(sid)
     assert all(s.id != sid for s in await repo.for_business(BusinessId("biz")))

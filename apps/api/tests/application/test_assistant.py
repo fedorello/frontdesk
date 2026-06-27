@@ -53,7 +53,7 @@ async def test_booking_flow_books_and_schedules_reminders() -> None:
     assert world.messaging.sent[-1][1].text == "You're booked!"
     appointments = list(world.appointments.appointments.values())
     assert len(appointments) == 1
-    assert appointments[0].status == AppointmentStatus.PENDING
+    assert appointments[0].status == AppointmentStatus.CONFIRMED  # auto-confirmed by default
     assert any(isinstance(event, AppointmentBooked) for event in world.events.events)
     assert len(world.reminders.reminders) == 1  # only the future 2h reminder
 

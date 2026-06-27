@@ -110,6 +110,11 @@ class AppointmentCancelled(DomainEvent):
 
 
 @dataclass(frozen=True, slots=True)
+class AppointmentConfirmed(DomainEvent):
+    appointment_id: AppointmentId
+
+
+@dataclass(frozen=True, slots=True)
 class Escalated(DomainEvent):
     customer_id: CustomerId
     reason: str
@@ -185,6 +190,7 @@ class Calendar(Protocol):
     ) -> Appointment: ...
     async def move(self, appointment_id: AppointmentId, slot: TimeSlot) -> Appointment: ...
     async def cancel(self, appointment_id: AppointmentId) -> Appointment: ...
+    async def confirm(self, appointment_id: AppointmentId) -> Appointment: ...
 
 
 class BusinessRepository(Protocol):

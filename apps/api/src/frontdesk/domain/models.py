@@ -2,10 +2,11 @@
 
 from __future__ import annotations
 
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 from datetime import datetime, time
 
 from .enums import AppointmentStatus, Channel, MessageRole, ReminderStatus
+from .errors import InvalidTransition
 from .ids import (
     AppointmentId,
     BusinessId,
@@ -94,6 +95,7 @@ class Service:
     working_hours: tuple[WorkingHours, ...] = ()  # the weekly schedule this service is bookable in
     max_advance_days: int = 30  # how far ahead a customer may book this service
     intake_fields: tuple[IntakeField, ...] = ()  # info to collect before booking
+    requires_confirmation: bool = False  # if True, bookings stay pending until the owner confirms
 
     def __post_init__(self) -> None:
         if self.duration_minutes <= 0:
@@ -160,6 +162,23 @@ class Appointment:
     slot: TimeSlot
     status: AppointmentStatus = AppointmentStatus.PENDING
     intake: tuple[IntakeAnswer, ...] = ()  # the customer's answers to the service's intake fields
+
+    def confirmed(self) -> Appointment:
+        """Return this appointment marked confirmed.
+
+        Idempotent: confirming an already-confirmed appointment is a no-op.
+        Raises InvalidTransition for a cancelled or completed appointment.
+        """
+        if self.status in (AppointmentStatus.CANCELLED, AppointmentStatus.COMPLETED):
+            raise InvalidTransition(f"cannot confirm a {self.status.value} appointment")
+        return replace(self, status=AppointmentStatus.CONFIRMED)
+
+
+def initial_appointment_status(service: Service) -> AppointmentStatus:
+    """A booking is confirmed on creation unless the service requires manual confirmation."""
+    return (
+        AppointmentStatus.PENDING if service.requires_confirmation else AppointmentStatus.CONFIRMED
+    )
 
 
 @dataclass(frozen=True, slots=True)

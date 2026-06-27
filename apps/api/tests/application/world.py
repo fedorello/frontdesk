@@ -67,6 +67,7 @@ def build_world(
     *,
     gate_approves: bool = False,
     intake_fields: tuple[IntakeField, ...] = (),
+    requires_confirmation: bool = False,
 ) -> World:
     business = Business(
         BusinessId("biz"),
@@ -90,6 +91,7 @@ def build_world(
         resource_ids=(ResourceId("res"),),
         working_hours=tuple(WorkingHours(day, time(9), time(17)) for day in range(7)),
         intake_fields=intake_fields,
+        requires_confirmation=requires_confirmation,
     )
 
     clock = FixedClock(NOW)

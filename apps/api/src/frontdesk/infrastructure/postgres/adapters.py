@@ -47,6 +47,7 @@ from frontdesk.domain.models import (
     Service,
     TimeSlot,
     WorkingHours,
+    initial_appointment_status,
 )
 from frontdesk.domain.money import Money
 
@@ -138,6 +139,7 @@ def _to_service(row: Row) -> Service:
         working_hours=_to_hours(row["working_hours"]),
         max_advance_days=row["max_advance_days"],
         intake_fields=_to_intake_fields(row["intake_fields"]),
+        requires_confirmation=row["requires_confirmation"],
     )
 
 
@@ -315,13 +317,14 @@ class SqlServiceRepository:
                 text(
                     "INSERT INTO service (id, business_id, name, duration_minutes, price_cents, "
                     "currency, resource_ids, description, working_hours, max_advance_days, "
-                    "intake_fields) "
+                    "intake_fields, requires_confirmation) "
                     "VALUES (:id, :bid, :name, :dur, :cents, :cur, CAST(:rids AS jsonb), :desc, "
-                    "CAST(:wh AS jsonb), :adv, CAST(:intake AS jsonb)) "
+                    "CAST(:wh AS jsonb), :adv, CAST(:intake AS jsonb), :confirm) "
                     "ON CONFLICT (id) DO UPDATE SET name = :name, duration_minutes = :dur, "
                     "price_cents = :cents, currency = :cur, resource_ids = CAST(:rids AS jsonb), "
                     "description = :desc, working_hours = CAST(:wh AS jsonb), "
-                    "max_advance_days = :adv, intake_fields = CAST(:intake AS jsonb)"
+                    "max_advance_days = :adv, intake_fields = CAST(:intake AS jsonb), "
+                    "requires_confirmation = :confirm"
                 ),
                 {
                     "id": str(service.id),
@@ -335,6 +338,7 @@ class SqlServiceRepository:
                     "wh": _hours_json(service.working_hours),
                     "adv": service.max_advance_days,
                     "intake": _intake_fields_json(service.intake_fields),
+                    "confirm": service.requires_confirmation,
                 },
             )
             await session.commit()
@@ -700,6 +704,7 @@ class SqlCalendar:
                 resource_id,
                 customer.id,
                 slot,
+                status=initial_appointment_status(service),
                 intake=intake,
             )
             try:
@@ -765,6 +770,17 @@ class SqlCalendar:
             )
             await session.commit()
             return await self._get(session, appointment_id)
+
+    async def confirm(self, appointment_id: AppointmentId) -> Appointment:
+        async with self._sf() as session:
+            # Load first so the domain rule (no confirming a cancelled one) is enforced.
+            confirmed = (await self._get(session, appointment_id)).confirmed()
+            await session.execute(
+                text("UPDATE appointment SET status = :status WHERE id = :id"),
+                {"status": confirmed.status.value, "id": str(appointment_id)},
+            )
+            await session.commit()
+            return confirmed
 
     async def _get(self, session: AsyncSession, appointment_id: AppointmentId) -> Appointment:
         row = (

@@ -21,7 +21,7 @@ async def test_book_schedules_two_reminders_and_publishes() -> None:
         world.service, ResourceId("res"), make_customer(), _future_slot(26)
     )
 
-    assert appointment.status == AppointmentStatus.PENDING
+    assert appointment.status == AppointmentStatus.CONFIRMED  # auto-confirmed by default
     assert len(world.reminders.reminders) == 2  # 24h + 2h, both in the future
     assert any(isinstance(event, AppointmentBooked) for event in world.events.events)
 
@@ -66,4 +66,4 @@ async def test_send_due_reminders_delivers_and_marks_sent() -> None:
     assert sent == 1
     assert world.messaging.sent[-1][1].buttons == ("Confirm", "Reschedule")
     assert any(r.status == ReminderStatus.SENT for r in world.reminders.reminders.values())
-    assert appointment.status == AppointmentStatus.PENDING
+    assert appointment.status == AppointmentStatus.CONFIRMED  # auto-confirmed by default

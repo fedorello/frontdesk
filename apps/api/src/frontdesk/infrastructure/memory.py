@@ -44,6 +44,7 @@ from frontdesk.domain.models import (
     Resource,
     Service,
     TimeSlot,
+    initial_appointment_status,
 )
 
 
@@ -393,6 +394,7 @@ class InMemoryCalendar:
             resource_id,
             customer.id,
             slot,
+            status=initial_appointment_status(service),
             intake=intake,
         )
         self._store.appointments[appointment.id] = appointment
@@ -413,6 +415,11 @@ class InMemoryCalendar:
         cancelled = replace(appointment, status=AppointmentStatus.CANCELLED)
         self._store.appointments[appointment_id] = cancelled
         return cancelled
+
+    async def confirm(self, appointment_id: AppointmentId) -> Appointment:
+        confirmed = self._store.appointments[appointment_id].confirmed()
+        self._store.appointments[appointment_id] = confirmed
+        return confirmed
 
 
 class AutoDecisionGate:

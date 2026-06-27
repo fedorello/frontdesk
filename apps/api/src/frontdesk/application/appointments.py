@@ -5,13 +5,16 @@ from datetime import timedelta
 from frontdesk.application.ports import (
     AppointmentBooked,
     AppointmentCancelled,
+    AppointmentConfirmed,
+    AppointmentRepository,
     Calendar,
     Clock,
     EventPublisher,
     IdGenerator,
     ReminderStore,
 )
-from frontdesk.domain.ids import AppointmentId, ReminderId, ResourceId
+from frontdesk.domain.errors import TenantMismatch
+from frontdesk.domain.ids import AppointmentId, BusinessId, ReminderId, ResourceId
 from frontdesk.domain.models import (
     Appointment,
     Customer,
@@ -98,3 +101,25 @@ class CancelAppointment:
         await self._store.cancel_for(appointment_id)
         await self._events.publish(AppointmentCancelled(cancelled.business_id, appointment_id))
         return cancelled
+
+
+class ConfirmAppointment:
+    """Owner-driven transition: pending → confirmed, scoped to the owner's business."""
+
+    def __init__(
+        self,
+        appointments: AppointmentRepository,
+        calendar: Calendar,
+        events: EventPublisher,
+    ) -> None:
+        self._appointments = appointments
+        self._calendar = calendar
+        self._events = events
+
+    async def __call__(self, business_id: BusinessId, appointment_id: AppointmentId) -> Appointment:
+        appointment = await self._appointments.get(appointment_id)
+        if appointment.business_id != business_id:
+            raise TenantMismatch("appointment belongs to another business")
+        confirmed = await self._calendar.confirm(appointment_id)
+        await self._events.publish(AppointmentConfirmed(confirmed.business_id, appointment_id))
+        return confirmed

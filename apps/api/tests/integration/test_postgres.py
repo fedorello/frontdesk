@@ -1,6 +1,7 @@
 """The SQL adapters pass the shared port contracts on a real Postgres, plus the
 database-level guarantees (the exclusion constraint and SKIP LOCKED)."""
 
+from dataclasses import replace
 from datetime import UTC, datetime, time, timedelta
 
 import pytest
@@ -8,7 +9,7 @@ from sqlalchemy import text
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
 
-from frontdesk.domain.enums import Channel
+from frontdesk.domain.enums import AppointmentStatus, Channel
 from frontdesk.domain.errors import DoubleBooking
 from frontdesk.domain.ids import (
     AppointmentId,
@@ -150,6 +151,21 @@ async def test_booking_a_one_hour_slot_removes_overlapping_15min_slots(
     after = await calendar.find_availability(service, NOW)
     assert all(not slot.overlaps(booked) for slot in after)  # no slot inside the booked hour
     assert after[0].starts_at >= booked.ends_at  # the next free slot starts after it ends
+
+
+async def test_confirming_a_pending_booking_persists(sessionmaker: Factory) -> None:
+    calendar = SqlCalendar(sessionmaker, SequentialIdGenerator("ap"), FixedClock(NOW))
+    service = replace(_service(), requires_confirmation=True)
+    slot = (await calendar.find_availability(service, NOW))[0]
+    booked = await calendar.book(service, _resource_id(), _customer(), slot)
+    assert booked.status == AppointmentStatus.PENDING  # owner must confirm
+
+    confirmed = await calendar.confirm(booked.id)
+
+    assert confirmed.status == AppointmentStatus.CONFIRMED
+    # Re-read from Postgres: the status stuck.
+    stored = await SqlAppointmentRepository(sessionmaker).for_business(booked.business_id)
+    assert next(a for a in stored if a.id == booked.id).status == AppointmentStatus.CONFIRMED
 
 
 async def test_booking_persists_intake_answers(sessionmaker: Factory) -> None:
