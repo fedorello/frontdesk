@@ -83,7 +83,7 @@ async def test_failed_booking_returns_current_availability() -> None:
 def test_system_prompt_lists_only_real_services() -> None:
     world = build_world([])
 
-    prompt = _system_prompt(world.business, [world.service])
+    prompt = _system_prompt(world.business, [world.service], NOW)
 
     assert "Haircut" in prompt
     assert "ONLY services" in prompt

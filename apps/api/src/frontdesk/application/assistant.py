@@ -247,10 +247,16 @@ def _intake_block(services: Sequence[Service]) -> str:
     return "\n\nIntake required before booking:\n" + "\n\n".join(blocks) if blocks else ""
 
 
-def _system_prompt(business: Business, services: Sequence[Service]) -> str:
+def _system_prompt(business: Business, services: Sequence[Service], now: datetime) -> str:
     menu = "\n".join(_menu_line(s) for s in services) or "- (none yet)"
     knowledge = "\n".join(f"Q: {item.question}\nA: {item.answer}" for item in business.knowledge)
     about = f"\n\nAbout {business.name}:\n{business.description}" if business.description else ""
+    local_now = now.astimezone(ZoneInfo(business.timezone))
+    now_line = (
+        f"\n\nRight now it is {local_now.strftime('%A, %d %B %Y, %H:%M')} in the business's time "
+        f"zone ({business.timezone}). Use this to turn relative dates like 'today', 'tomorrow', "
+        "or a weekday name into exact ISO datetimes for find_availability and book."
+    )
     return (
         f"You are the front desk for {business.name}. Be brief and warm, and reply in the "
         "customer's language. Use the tools to check real availability and to book — never "
@@ -269,6 +275,7 @@ def _system_prompt(business: Business, services: Sequence[Service]) -> str:
         f"\n\nThe time shown before each '(start=...)' is the FINAL local time in the business's "
         f"zone ({business.timezone}) — show exactly that time to the customer. Never ask the "
         "customer what time zone they are in, and never offer to convert times for them."
+        f"{now_line}"
         f"{_intake_block(services)}"
         f"\n\nKnowledge base:\n{knowledge}"
     )
@@ -311,7 +318,9 @@ class Assistant:
 
     async def _run(self, business: Business, customer: Customer) -> str:
         messages = list(await self._d.conversations.history(customer))
-        system = _system_prompt(business, await self._d.services.for_business(business.id))
+        system = _system_prompt(
+            business, await self._d.services.for_business(business.id), self._d.clock.now()
+        )
         for _ in range(MAX_STEPS):
             completion = await self._d.llm.complete(
                 system=system, messages=messages, tools=TOOL_SPECS
