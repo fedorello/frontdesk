@@ -2,9 +2,10 @@
 
 import { useEffect, useState } from "react";
 
-// Set these to the real destinations before launch.
-const APP_URL = "https://app.tovayo.com";
-const GITHUB_URL = "https://github.com/fedorello/tovayo";
+// Real destinations are set per environment; these are the production defaults.
+const APP_URL = process.env.NEXT_PUBLIC_APP_URL ?? "https://app.tovayo.com";
+const GITHUB_URL =
+  process.env.NEXT_PUBLIC_GITHUB_URL ?? "https://github.com/fedorello/tovayo";
 
 /* ---------- icons ---------- */
 
