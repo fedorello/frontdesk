@@ -11,6 +11,7 @@ from frontdesk.infrastructure.db import create_engine, make_session_factory
 from frontdesk.infrastructure.logging_setup import configure_logging
 from frontdesk.infrastructure.postgres.adapters import (
     SqlAppointmentRepository,
+    SqlBusinessRepository,
     SqlCustomerRepository,
     SqlReminderStore,
     SqlServiceRepository,
@@ -35,6 +36,7 @@ async def run() -> None:
         SqlAppointmentRepository(sessions),
         SqlCustomerRepository(sessions, ids),
         SqlServiceRepository(sessions),
+        SqlBusinessRepository(sessions),  # for the reminder's locale + time zone
         # each reminder via its business's own bot
         TenantTelegramMessaging(telegram_bots, client, settings.telegram_api_base),
     )

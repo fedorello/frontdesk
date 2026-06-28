@@ -59,7 +59,12 @@ async def test_send_due_reminders_delivers_and_marks_sent() -> None:
     appointment = await world.book(world.service, ResourceId("res"), customer, _future_slot(26))
 
     worker = SendDueReminders(
-        world.reminders, world.appointments, world.customers, world.services, world.messaging
+        world.reminders,
+        world.appointments,
+        world.customers,
+        world.services,
+        world.deps.businesses,
+        world.messaging,
     )
     sent = await worker(NOW + timedelta(hours=3))  # the 24h reminder (due NOW+2h) is now due
 
