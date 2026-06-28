@@ -11,7 +11,7 @@ import { useI18n } from "@/app/lib/I18nProvider";
 import { LanguageSwitcher } from "@/app/lib/LanguageSwitcher";
 import { setSession } from "@/app/lib/session";
 import { TIME_ZONE_OPTIONS } from "@/app/lib/timezones";
-import { Logo } from "@/components/Logo";
+import { BrandHome } from "@/components/BrandHome";
 
 const STEPS: MessageKey[] = [
   "onboarding.step.account",
@@ -126,10 +126,7 @@ export default function OnboardingPage() {
     <main className="min-h-screen bg-canvas px-6 py-10">
       <div className="mx-auto w-full max-w-lg">
         <div className="mb-6 flex items-center justify-between">
-          <div className="flex items-center gap-2">
-            <Logo size={30} />
-            <span className="text-lg font-extrabold tracking-tight">Tovayo</span>
-          </div>
+          <BrandHome />
           <LanguageSwitcher />
         </div>
 
