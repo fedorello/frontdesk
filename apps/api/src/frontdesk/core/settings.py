@@ -54,6 +54,9 @@ class Settings(BaseSettings):
     signup_rate_window_seconds: int = 3600  # 1 hour
     # If set, the real data-flow logs (events, messaging, agent, webhook) also go here.
     log_file: str = ""
+    # Diagnostic: log the full prompt sent to the LLM + its reply (incl. tool calls). Off by
+    # default (verbose + customer PII); enable temporarily via FRONTDESK_LOG_LLM_PROMPTS=true.
+    log_llm_prompts: bool = False
 
     # The business the web chat demo talks to (matches the seeded channel binding).
     demo_to_address: str = "+BIZ"

@@ -38,6 +38,7 @@ def provider_from_config(
             client=client,
             base_url=settings.llm_base_url,
             max_tokens=settings.llm_max_tokens,
+            log_prompts=settings.log_llm_prompts,
         )
     if config.provider == "anthropic":
         return AnthropicProvider(
@@ -55,6 +56,7 @@ def provider_from_config(
         client=client,
         base_url=base_url,
         max_tokens=settings.llm_max_tokens,
+        log_prompts=settings.log_llm_prompts,
     )
 
 

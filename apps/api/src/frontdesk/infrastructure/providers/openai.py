@@ -1,6 +1,7 @@
 """OpenAI-compatible chat-completions adapter (OpenAI, OpenRouter, local)."""
 
 import json
+import logging
 from collections.abc import Sequence
 
 import httpx
@@ -8,6 +9,8 @@ import httpx
 from frontdesk.application.ports import Completion, ToolCall, ToolSpec
 from frontdesk.domain.enums import MessageRole
 from frontdesk.domain.models import Message
+
+_logger = logging.getLogger("frontdesk.llm")
 
 _ROLE = {
     MessageRole.CUSTOMER: "user",
@@ -36,6 +39,7 @@ class OpenAiProvider:
         client: httpx.AsyncClient,
         base_url: str = "https://api.openai.com/v1",
         max_tokens: int = 2048,
+        log_prompts: bool = False,
     ) -> None:
         self._key = api_key
         self._model = model
@@ -44,17 +48,20 @@ class OpenAiProvider:
         # Reasoning models spend tokens thinking before the tool call; a small
         # budget truncates (finish_reason="length") before the call is emitted.
         self._max_tokens = max_tokens
+        # Diagnostic: log the exact prompt sent and the reply (incl. whether a tool was called).
+        self._log_prompts = log_prompts
 
     async def complete(
         self, *, system: str, messages: Sequence[Message], tools: Sequence[ToolSpec]
     ) -> Completion:
+        wire_messages: list[dict[str, object]] = [
+            {"role": "system", "content": system},
+            *(_to_message(message) for message in messages),
+        ]
         payload: dict[str, object] = {
             "model": self._model,
             "max_tokens": self._max_tokens,
-            "messages": [
-                {"role": "system", "content": system},
-                *(_to_message(message) for message in messages),
-            ],
+            "messages": wire_messages,
             "tools": [
                 {
                     "type": "function",
@@ -67,6 +74,14 @@ class OpenAiProvider:
                 for tool in tools
             ],
         }
+        if self._log_prompts:
+            _logger.info(
+                "LLM REQUEST model=%s\n--- system ---\n%s\n--- messages ---\n%s\n--- tools ---\n%s",
+                self._model,
+                system,
+                "\n".join(f"[{m['role']}] {m['content']}" for m in wire_messages[1:]),
+                ", ".join(tool.name for tool in tools),
+            )
         response = await self._client.post(
             f"{self._base}/chat/completions",
             json=payload,
@@ -82,4 +97,10 @@ class OpenAiProvider:
             )
             for call in message.get("tool_calls") or []
         )
+        if self._log_prompts:
+            _logger.info(
+                "LLM REPLY text=%r tool_calls=%s",
+                message.get("content"),
+                [(c.name, c.args) for c in tool_calls],
+            )
         return Completion(text=message.get("content"), tool_calls=tool_calls)
