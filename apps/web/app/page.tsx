@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 
+import { writeCookie } from "@/app/lib/cookie";
 import { I18nProvider, useI18n } from "@/app/lib/i18n";
 import { LanguageSwitcher } from "@/components/LanguageSwitcher";
 import { Logo } from "@/components/Logo";
@@ -158,11 +159,7 @@ function useTheme(): [boolean, () => void] {
       "data-theme",
       next ? "dark" : "light",
     );
-    try {
-      localStorage.setItem("tovayo.theme", next ? "dark" : "light");
-    } catch {
-      // ignore: private mode / storage disabled — the toggle still applies for the session
-    }
+    writeCookie("tovayo.theme", next ? "dark" : "light"); // shared with the app
   };
   return [dark, toggle];
 }

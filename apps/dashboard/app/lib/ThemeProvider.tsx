@@ -2,6 +2,8 @@
 
 import { createContext, useContext, useEffect, useState, type ReactNode } from "react";
 
+import { readCookie, writeCookie } from "./cookie";
+
 export type Theme = "light" | "dark";
 
 interface ThemeContextValue {
@@ -10,15 +12,11 @@ interface ThemeContextValue {
 }
 
 const ThemeContext = createContext<ThemeContextValue | null>(null);
-const STORAGE_KEY = "tovayo.theme";
+const THEME_COOKIE = "tovayo.theme";
 
 function readStoredTheme(): Theme | null {
-  try {
-    const stored = window.localStorage?.getItem(STORAGE_KEY);
-    return stored === "light" || stored === "dark" ? stored : null;
-  } catch {
-    return null;
-  }
+  const stored = readCookie(THEME_COOKIE);
+  return stored === "light" || stored === "dark" ? stored : null;
 }
 
 export function ThemeProvider({ children }: { children: ReactNode }) {
@@ -40,11 +38,7 @@ export function ThemeProvider({ children }: { children: ReactNode }) {
   const toggle = () => {
     setTheme((current) => {
       const next = current === "light" ? "dark" : "light";
-      try {
-        window.localStorage?.setItem(STORAGE_KEY, next);
-      } catch {
-        // storage unavailable — keep the in-memory choice
-      }
+      writeCookie(THEME_COOKIE, next); // shared with the marketing site
       return next;
     });
   };
