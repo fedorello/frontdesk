@@ -9,8 +9,11 @@ RUN pnpm build
 
 FROM node:24-slim AS run
 WORKDIR /app
+# HOSTNAME=0.0.0.0 so Next's standalone server binds all interfaces (Docker otherwise sets
+# HOSTNAME to the container id, which a proxy like Railway can't reach).
 ENV NODE_ENV=production \
-    PORT=3000
+    PORT=3000 \
+    HOSTNAME=0.0.0.0
 COPY --from=build /app/public ./public
 COPY --from=build /app/.next/standalone ./
 COPY --from=build /app/.next/static ./.next/static
