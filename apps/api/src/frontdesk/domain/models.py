@@ -90,9 +90,8 @@ class Service:
     name: str
     duration_minutes: int
     price: Money | None = None
-    resource_ids: tuple[ResourceId, ...] = ()
+    resource_ids: tuple[ResourceId, ...] = ()  # the single group this service belongs to
     description: str = ""  # what the service is — given to the assistant and shown to owners
-    working_hours: tuple[WorkingHours, ...] = ()  # the weekly schedule this service is bookable in
     max_advance_days: int = 30  # how far ahead a customer may book this service
     intake_fields: tuple[IntakeField, ...] = ()  # info to collect before booking
     requires_confirmation: bool = False  # if True, bookings stay pending until the owner confirms
@@ -108,6 +107,13 @@ class Service:
 
 @dataclass(frozen=True, slots=True)
 class Resource:
+    """A service group: one specialist/calendar that owns a weekly schedule.
+
+    Services in the same group share this schedule and one booking calendar (the
+    ``no_double_book`` exclusion constraint keys on the group), so they can't overlap.
+    Services in different groups are independent. See docs/SERVICE_GROUPS.md.
+    """
+
     id: ResourceId
     business_id: BusinessId
     name: str

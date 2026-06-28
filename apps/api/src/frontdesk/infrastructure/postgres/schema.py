@@ -90,7 +90,6 @@ CREATE_STATEMENTS: tuple[str, ...] = (
         currency text,
         resource_ids jsonb NOT NULL DEFAULT '[]',
         description text NOT NULL DEFAULT '',
-        working_hours jsonb NOT NULL DEFAULT '[]',
         max_advance_days integer NOT NULL DEFAULT 30,
         intake_fields jsonb NOT NULL DEFAULT '[]',
         requires_confirmation boolean NOT NULL DEFAULT false

@@ -41,13 +41,12 @@ async def sessionmaker() -> AsyncIterator[async_sessionmaker[AsyncSession]]:
             {"wh": _HOURS},
         )
         await conn.execute(
+            # No working_hours on the service — the schedule lives on its group ("res").
             text(
                 "INSERT INTO service "
-                "(id, business_id, name, duration_minutes, resource_ids, working_hours) "
-                "VALUES ('svc', 'biz', 'Haircut', 60, CAST('[\"res\"]' AS jsonb), "
-                "CAST(:wh AS jsonb))"
-            ),
-            {"wh": _HOURS},
+                "(id, business_id, name, duration_minutes, resource_ids) "
+                "VALUES ('svc', 'biz', 'Haircut', 60, CAST('[\"res\"]' AS jsonb))"
+            )
         )
         await conn.execute(
             text(

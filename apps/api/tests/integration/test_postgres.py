@@ -2,7 +2,7 @@
 database-level guarantees (the exclusion constraint and SKIP LOCKED)."""
 
 from dataclasses import replace
-from datetime import UTC, datetime, time, timedelta
+from datetime import UTC, datetime, timedelta
 
 import pytest
 from sqlalchemy import text
@@ -24,7 +24,6 @@ from frontdesk.domain.models import (
     IntakeAnswer,
     Reminder,
     Service,
-    WorkingHours,
 )
 from frontdesk.infrastructure.postgres.adapters import (
     SqlAccountRepository,
@@ -226,8 +225,7 @@ def _service() -> Service:
         BusinessId("biz"),
         "Haircut",
         60,
-        resource_ids=(ResourceId("res"),),
-        working_hours=tuple(WorkingHours(day, time(9), time(17)) for day in range(7)),
+        resource_ids=(ResourceId("res"),),  # the group "res" owns the schedule
     )
 
 

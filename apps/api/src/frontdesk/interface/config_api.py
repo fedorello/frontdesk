@@ -100,9 +100,8 @@ class ServiceIO(BaseModel):
     duration_minutes: int
     price_cents: int | None = None
     currency: str | None = None
-    resource_ids: list[str] = []
+    resource_ids: list[str] = []  # the single group this service belongs to
     description: str = Field(default="", max_length=MAX_DESCRIPTION)
-    working_hours: list[WorkingHoursIO] = []
     max_advance_days: int = 30
     intake_fields: list[IntakeFieldIO] = Field(default=[], max_length=MAX_INTAKE_FIELDS)
     requires_confirmation: bool = False
@@ -131,8 +130,14 @@ class ServiceView(ServiceIO):
 
 
 class ResourceIO(BaseModel):
+    """A service group: a name + the weekly schedule shared by its services."""
+
     name: str
     working_hours: list[WorkingHoursIO] = []
+
+
+class ResourceView(ResourceIO):
+    id: str
 
 
 def _to_hours(items: list[WorkingHoursIO]) -> tuple[WorkingHours, ...]:
@@ -158,7 +163,6 @@ def _service_view(service: Service) -> ServiceView:
         currency=service.price.currency if service.price else None,
         resource_ids=[str(r) for r in service.resource_ids],
         description=service.description,
-        working_hours=_hours_io(service.working_hours),
         max_advance_days=service.max_advance_days,
         intake_fields=[
             IntakeFieldIO(name=f.name, description=f.description, ask=f.ask)
@@ -242,7 +246,6 @@ def build_config_router(
             price,
             tuple(ResourceId(r) for r in body.resource_ids),
             description=body.description,
-            working_hours=_to_hours(body.working_hours),
             max_advance_days=body.max_advance_days,
             intake_fields=tuple(
                 IntakeField(f.name, f.description, f.ask) for f in body.intake_fields
@@ -258,9 +261,9 @@ def build_config_router(
         return {"status": "deleted"}
 
     @router.get("/api/businesses/{business_id}/resources")
-    async def list_resources(business_id: str) -> list[ResourceIO]:
+    async def list_resources(business_id: str) -> list[ResourceView]:
         return [
-            ResourceIO(name=r.name, working_hours=_hours_io(r.working_hours))
+            ResourceView(id=str(r.id), name=r.name, working_hours=_hours_io(r.working_hours))
             for r in await resources.for_business(BusinessId(business_id))
         ]
 
@@ -275,5 +278,19 @@ def build_config_router(
             )
         )
         return body
+
+    @router.delete("/api/businesses/{business_id}/resources/{resource_id}")
+    async def delete_resource(business_id: str, resource_id: str) -> dict[str, str]:
+        # A group with services can't be deleted out from under them (and its services'
+        # appointments) — the owner reassigns those services to another group first.
+        members = [
+            s
+            for s in await services.for_business(BusinessId(business_id))
+            if ResourceId(resource_id) in s.resource_ids
+        ]
+        if members:
+            raise HTTPException(409, "move this group's services to another group first")
+        await resources.remove(ResourceId(resource_id), BusinessId(business_id))
+        return {"status": "deleted"}
 
     return router

@@ -63,14 +63,12 @@ def make_resource() -> Resource:
 
 
 def make_service() -> Service:
-    hours = tuple(WorkingHours(day, time(9), time(17)) for day in range(7))
     return Service(
         ServiceId("svc"),
         BusinessId("biz"),
         "Haircut",
         60,
-        resource_ids=(ResourceId("res"),),
-        working_hours=hours,
+        resource_ids=(ResourceId("res"),),  # the group "res" owns the schedule
     )
 
 
@@ -248,7 +246,6 @@ async def check_service_write(repo: ServiceRepository) -> None:
             price=Money(80000, "UYU"),
             resource_ids=(ResourceId("res"),),
             description="A relaxing massage.",
-            working_hours=(WorkingHours(1, time(10), time(15)),),
             max_advance_days=14,
             intake_fields=(IntakeField("Birth date", "DOB", "When were you born?"),),
             requires_confirmation=True,
@@ -257,7 +254,6 @@ async def check_service_write(repo: ServiceRepository) -> None:
     stored = next(s for s in await repo.for_business(BusinessId("biz")) if s.id == sid)
     assert stored.description == "A relaxing massage."  # round-trips through storage
     assert stored.price == Money(80000, "UYU")  # price + currency round-trip
-    assert stored.working_hours == (WorkingHours(1, time(10), time(15)),)  # schedule round-trips
     assert stored.max_advance_days == 14  # booking horizon round-trips
     assert stored.intake_fields == (IntakeField("Birth date", "DOB", "When were you born?"),)
     assert stored.requires_confirmation is True  # confirmation flag round-trips
@@ -274,11 +270,18 @@ async def check_resource_write(repo: ResourceRepository) -> None:
     rid = ResourceId("res-y")
     hours = (WorkingHours(0, time(9), time(17)),)
     await repo.upsert(Resource(rid, BusinessId("biz"), "Room", hours))
-    assert any(r.id == rid for r in await repo.for_business(BusinessId("biz")))
+    stored = next(r for r in await repo.for_business(BusinessId("biz")) if r.id == rid)
+    assert stored.working_hours == hours  # the group owns the schedule — it round-trips
 
     await repo.upsert(Resource(rid, BusinessId("biz"), "Suite", hours))
     updated = [r for r in await repo.for_business(BusinessId("biz")) if r.id == rid]
     assert updated[0].name == "Suite"  # upsert updates in place
+
+    # Tenant isolation: another business cannot delete this group by id.
+    await repo.remove(rid, BusinessId("intruder"))
+    assert any(r.id == rid for r in await repo.for_business(BusinessId("biz")))  # still there
+    await repo.remove(rid, BusinessId("biz"))  # the owner deletes its own
+    assert all(r.id != rid for r in await repo.for_business(BusinessId("biz")))
 
 
 async def check_account_repository(repo: AccountRepository) -> None:

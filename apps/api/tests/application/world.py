@@ -88,8 +88,7 @@ def build_world(
         BusinessId("biz"),
         "Haircut",
         60,
-        resource_ids=(ResourceId("res"),),
-        working_hours=tuple(WorkingHours(day, time(9), time(17)) for day in range(7)),
+        resource_ids=(ResourceId("res"),),  # the group "res" owns the schedule
         intake_fields=intake_fields,
         requires_confirmation=requires_confirmation,
     )

@@ -44,6 +44,7 @@ from frontdesk.domain.models import (
     Resource,
     Service,
     TimeSlot,
+    WorkingHours,
     initial_appointment_status,
 )
 
@@ -272,6 +273,11 @@ class InMemoryResourceRepository:
             return  # tenant guard: don't overwrite another business's resource (matches SQL)
         self._by_id[resource.id] = resource
 
+    async def remove(self, resource_id: ResourceId, business_id: BusinessId) -> None:
+        resource = self._by_id.get(resource_id)
+        if resource is not None and resource.business_id == business_id:
+            del self._by_id[resource_id]
+
 
 class InMemoryConversationRepository:
     def __init__(self) -> None:
@@ -380,14 +386,20 @@ class InMemoryCalendar:
             and appointment.id != ignore
         ]
 
-    def _reject_overlap(self, service: Service, slot: TimeSlot, busy: Sequence[TimeSlot]) -> None:
+    def _reject_overlap(
+        self,
+        service: Service,
+        working_hours: Sequence[WorkingHours],
+        slot: TimeSlot,
+        busy: Sequence[TimeSlot],
+    ) -> None:
         buffer = timedelta(minutes=self._business.buffer_minutes)
         for taken in busy:
             if slot.overlaps(TimeSlot(taken.starts_at - buffer, taken.ends_at + buffer)):
                 raise DoubleBooking("the resource is already booked for that time")
         ensure_bookable(
             business=self._business,
-            working_hours=service.working_hours,
+            working_hours=working_hours,  # the group's schedule, not the service's
             busy=[],
             slot=slot,
             now=self._clock.now(),
@@ -397,11 +409,11 @@ class InMemoryCalendar:
     async def find_availability(
         self, service: Service, around: datetime, *, limit: int = 5
     ) -> list[TimeSlot]:
-        resource = self._resources[service.resource_ids[0]]
+        group = self._resources[service.resource_ids[0]]
         return free_slots(
             business=self._business,
-            working_hours=service.working_hours,
-            busy=self._busy(resource.id),
+            working_hours=group.working_hours,  # availability uses the group's schedule
+            busy=self._busy(group.id),
             duration_minutes=service.duration_minutes,
             now=self._clock.now(),
             around=around,
@@ -417,7 +429,8 @@ class InMemoryCalendar:
         slot: TimeSlot,
         intake: tuple[IntakeAnswer, ...] = (),
     ) -> Appointment:
-        self._reject_overlap(service, slot, self._busy(resource_id))
+        group = self._resources[resource_id]
+        self._reject_overlap(service, group.working_hours, slot, self._busy(resource_id))
         appointment = Appointment(
             AppointmentId(self._ids.new()),
             self._business.id,
@@ -434,8 +447,12 @@ class InMemoryCalendar:
     async def move(self, appointment_id: AppointmentId, slot: TimeSlot) -> Appointment:
         appointment = self._store.appointments[appointment_id]
         service = await self._services.get(appointment.service_id)
+        group = self._resources[appointment.resource_id]
         self._reject_overlap(
-            service, slot, self._busy(appointment.resource_id, ignore=appointment_id)
+            service,
+            group.working_hours,
+            slot,
+            self._busy(appointment.resource_id, ignore=appointment_id),
         )
         moved = replace(appointment, slot=slot)
         self._store.appointments[appointment_id] = moved

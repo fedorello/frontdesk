@@ -97,18 +97,18 @@ async def test_services_crud() -> None:
                 "description": "Wash, cut and style.",
                 "price_cents": 80000,
                 "currency": "uyu",  # lower-case is normalised
-                "working_hours": [{"weekday": 1, "opens": "10:00:00", "closes": "15:00:00"}],
                 "max_advance_days": 14,
             },
         )
         listed = (await client.get("/api/businesses/ana/services")).json()
         assert len(listed) == 1
         assert listed[0]["id"] == "svc1"
+        assert listed[0]["resource_ids"] == ["res"]  # belongs to the "res" group
         assert listed[0]["description"] == "Wash, cut and style."  # round-trips
         assert listed[0]["price_cents"] == 80000
         assert listed[0]["currency"] == "UYU"  # normalised to ISO 4217
-        assert listed[0]["working_hours"][0]["weekday"] == 1  # schedule round-trips
         assert listed[0]["max_advance_days"] == 14  # booking horizon round-trips
+        assert "working_hours" not in listed[0]  # the schedule lives on the group, not the service
 
         bad = await client.put(
             "/api/businesses/ana/services/svc2",
@@ -129,7 +129,7 @@ async def test_invalid_currency_is_rejected() -> None:
         assert bad.status_code == 422  # not an ISO 4217 code
 
 
-async def test_resources_and_hours() -> None:
+async def test_groups_crud_and_guarded_delete() -> None:
     async with _client() as client:
         await client.put(
             "/api/businesses/ana/resources/res1",
@@ -139,8 +139,23 @@ async def test_resources_and_hours() -> None:
             },
         )
         listed = (await client.get("/api/businesses/ana/resources")).json()
+        assert listed[0]["id"] == "res1"  # the group id is exposed so services can reference it
         assert listed[0]["name"] == "Ana"
-        assert listed[0]["working_hours"][0]["weekday"] == 0
+        assert listed[0]["working_hours"][0]["weekday"] == 0  # the group owns the schedule
+
+        # A group with services can't be deleted out from under them.
+        await client.put(
+            "/api/businesses/ana/services/svc1",
+            json={"name": "Cut", "duration_minutes": 30, "resource_ids": ["res1"]},
+        )
+        blocked = await client.delete("/api/businesses/ana/resources/res1")
+        assert blocked.status_code == 409
+
+        # Once its services are moved away, the group deletes.
+        await client.delete("/api/businesses/ana/services/svc1")
+        ok = await client.delete("/api/businesses/ana/resources/res1")
+        assert ok.status_code == 200
+        assert (await client.get("/api/businesses/ana/resources")).json() == []
 
 
 async def test_oversized_name_and_descriptions_are_rejected() -> None:

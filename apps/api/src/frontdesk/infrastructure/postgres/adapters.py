@@ -144,7 +144,6 @@ def _to_service(row: Row) -> Service:
         price,
         resource_ids,
         description=row["description"],
-        working_hours=_to_hours(row["working_hours"]),
         max_advance_days=row["max_advance_days"],
         intake_fields=_to_intake_fields(row["intake_fields"]),
         requires_confirmation=row["requires_confirmation"],
@@ -326,13 +325,13 @@ class SqlServiceRepository:
             await session.execute(
                 text(
                     "INSERT INTO service (id, business_id, name, duration_minutes, price_cents, "
-                    "currency, resource_ids, description, working_hours, max_advance_days, "
+                    "currency, resource_ids, description, max_advance_days, "
                     "intake_fields, requires_confirmation) "
                     "VALUES (:id, :bid, :name, :dur, :cents, :cur, CAST(:rids AS jsonb), :desc, "
-                    "CAST(:wh AS jsonb), :adv, CAST(:intake AS jsonb), :confirm) "
+                    ":adv, CAST(:intake AS jsonb), :confirm) "
                     "ON CONFLICT (id) DO UPDATE SET name = :name, duration_minutes = :dur, "
                     "price_cents = :cents, currency = :cur, resource_ids = CAST(:rids AS jsonb), "
-                    "description = :desc, working_hours = CAST(:wh AS jsonb), "
+                    "description = :desc, "
                     "max_advance_days = :adv, intake_fields = CAST(:intake AS jsonb), "
                     "requires_confirmation = :confirm "
                     # Tenant guard: only the owning business may update an existing service,
@@ -348,7 +347,6 @@ class SqlServiceRepository:
                     "cur": service.price.currency if service.price else None,
                     "rids": rids,
                     "desc": service.description,
-                    "wh": _hours_json(service.working_hours),
                     "adv": service.max_advance_days,
                     "intake": _intake_fields_json(service.intake_fields),
                     "confirm": service.requires_confirmation,
@@ -402,6 +400,15 @@ class SqlResourceRepository:
                     "name": resource.name,
                     "wh": hours,
                 },
+            )
+            await session.commit()
+
+    async def remove(self, resource_id: ResourceId, business_id: BusinessId) -> None:
+        # Scoped by business so one owner can't delete another tenant's group by id.
+        async with self._sf() as session:
+            await session.execute(
+                text("DELETE FROM resource WHERE id = :id AND business_id = :bid"),
+                {"id": str(resource_id), "bid": str(business_id)},
             )
             await session.commit()
 
@@ -683,6 +690,20 @@ class SqlCalendar:
         assert row is not None
         return _to_service(row)
 
+    async def _load_resource(self, session: AsyncSession, resource_id: str) -> Resource:
+        """Load the service group whose schedule + calendar the booking is checked against."""
+        row = (
+            (
+                await session.execute(
+                    text("SELECT * FROM resource WHERE id = :id"), {"id": resource_id}
+                )
+            )
+            .mappings()
+            .first()
+        )
+        assert row is not None
+        return _to_resource(row)
+
     async def _busy(
         self, session: AsyncSession, resource_id: str, *, ignore: str | None = None
     ) -> list[TimeSlot]:
@@ -702,10 +723,11 @@ class SqlCalendar:
     ) -> list[TimeSlot]:
         async with self._sf() as session:
             business = await self._load_business(session, str(service.business_id))
-            busy = await self._busy(session, str(service.resource_ids[0]))
+            group = await self._load_resource(session, str(service.resource_ids[0]))
+            busy = await self._busy(session, str(group.id))
         return free_slots(
             business=business,
-            working_hours=service.working_hours,
+            working_hours=group.working_hours,  # availability uses the group's schedule
             busy=busy,
             duration_minutes=service.duration_minutes,
             now=self._clock.now(),
@@ -724,6 +746,7 @@ class SqlCalendar:
     ) -> Appointment:
         async with self._sf() as session:
             business = await self._load_business(session, str(service.business_id))
+            group = await self._load_resource(session, str(resource_id))
             # Buffer + working-hours + lead are application rules; the DB exclusion
             # constraint is the race-safe guarantee against exact overlaps.
             busy = await self._busy(session, str(resource_id))
@@ -733,7 +756,7 @@ class SqlCalendar:
                     raise DoubleBooking("the resource is already booked for that time")
             ensure_bookable(
                 business=business,
-                working_hours=service.working_hours,
+                working_hours=group.working_hours,  # the group's schedule
                 busy=[],
                 slot=slot,
                 now=self._clock.now(),
@@ -784,6 +807,7 @@ class SqlCalendar:
             current = await self._get(session, appointment_id)
             business = await self._load_business(session, str(current.business_id))
             service = await self._load_service(session, str(current.service_id))
+            group = await self._load_resource(session, str(current.resource_id))
             busy = await self._busy(session, str(current.resource_id), ignore=str(appointment_id))
             buffer = timedelta(minutes=business.buffer_minutes)
             for taken in busy:
@@ -791,7 +815,7 @@ class SqlCalendar:
                     raise DoubleBooking("the resource is already booked for that time")
             ensure_bookable(
                 business=business,
-                working_hours=service.working_hours,
+                working_hours=group.working_hours,  # the group's schedule
                 busy=[],
                 slot=slot,
                 now=self._clock.now(),
