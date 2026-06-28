@@ -22,6 +22,7 @@ from frontdesk.application.ports import (
 from frontdesk.core.settings import Settings
 from frontdesk.domain.ids import AccountId, BusinessId
 from frontdesk.domain.models import Business
+from frontdesk.infrastructure.keys import session_signing_key
 from frontdesk.infrastructure.security import (
     hash_password,
     issue_token,
@@ -74,6 +75,7 @@ def build_auth_router(
     limiter: RateLimiter,
 ) -> APIRouter:
     router = APIRouter()
+    signing_key = session_signing_key(settings.secret_key)  # purpose-separated from encryption
 
     async def _throttle(request: Request, action: str, limit: int, window: int) -> None:
         ip = client_ip(request)
@@ -94,7 +96,7 @@ def build_auth_router(
         account = Account(AccountId(ids.new()), email, hash_password(body.password), business_id)
         await accounts.upsert(account)
         set_session_cookie(
-            response, issue_token(account.id, settings.secret_key, int(time.time())), settings
+            response, issue_token(account.id, signing_key, int(time.time())), settings
         )
         _logger.info("signup account=%s business=%s", account.id, business_id)
         return AuthView(business_id=business_id, email=account.email)
@@ -109,7 +111,7 @@ def build_auth_router(
             _logger.warning("login failed (bad credentials)")
             raise HTTPException(401, "invalid email or password")
         set_session_cookie(
-            response, issue_token(account.id, settings.secret_key, int(time.time())), settings
+            response, issue_token(account.id, signing_key, int(time.time())), settings
         )
         _logger.info("login ok account=%s", account.id)
         return AuthView(business_id=str(account.business_id), email=account.email)

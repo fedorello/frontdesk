@@ -9,6 +9,7 @@ import httpx
 from fastapi import FastAPI
 
 from frontdesk.core.settings import Settings
+from frontdesk.infrastructure.keys import session_signing_key
 from frontdesk.infrastructure.memory import (
     InMemoryAccountRepository,
     InMemoryBusinessRepository,
@@ -43,7 +44,7 @@ def _telegram_mock() -> httpx.AsyncClient:
 def _app(client: httpx.AsyncClient) -> FastAPI:
     accounts = InMemoryAccountRepository()
     businesses = InMemoryBusinessRepository([], {})
-    guard = make_owner_guard(accounts, SETTINGS.secret_key)
+    guard = make_owner_guard(accounts, session_signing_key(SETTINGS.secret_key))
     app = FastAPI()
     app.include_router(
         build_auth_router(

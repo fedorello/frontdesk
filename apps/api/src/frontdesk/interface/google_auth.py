@@ -25,6 +25,7 @@ from frontdesk.application.ports import (
 from frontdesk.core.settings import Settings
 from frontdesk.domain.ids import AccountId, BusinessId
 from frontdesk.domain.models import Business
+from frontdesk.infrastructure.keys import oauth_state_key, session_signing_key
 from frontdesk.infrastructure.security import issue_token, verify_token
 from frontdesk.interface.client_ip import client_ip
 from frontdesk.interface.cookies import (
@@ -51,6 +52,8 @@ def build_google_auth_router(
 ) -> APIRouter:
     router = APIRouter()
     enabled = bool(settings.google_client_id and settings.google_redirect_uri)
+    state_key = oauth_state_key(settings.secret_key)  # purpose-separated signing keys (§3.4)
+    signing_key = session_signing_key(settings.secret_key)
 
     def _back(path: str) -> RedirectResponse:
         return RedirectResponse(f"{settings.dashboard_url.rstrip('/')}{path}", status_code=_FOUND)
@@ -65,7 +68,7 @@ def build_google_auth_router(
         ):
             _logger.warning("rate limited: oauth ip=%s", ip)
             return _back("/login?error=google")
-        state = issue_token(ids.new(), settings.secret_key, int(time.time()))
+        state = issue_token(ids.new(), state_key, int(time.time()))
         params = urlencode(
             {
                 "client_id": settings.google_client_id,
@@ -91,9 +94,7 @@ def build_google_auth_router(
             return _back("/login?error=google")
         # State must match this browser's cookie (CSRF binding) AND be a token we signed + fresh.
         signed_ok = (
-            verify_token(
-                state, settings.secret_key, now=int(time.time()), max_age=OAUTH_STATE_MAX_AGE
-            )
+            verify_token(state, state_key, now=int(time.time()), max_age=OAUTH_STATE_MAX_AGE)
             is not None
         )
         if not (state_cookie and hmac.compare_digest(state, state_cookie) and signed_ok):
@@ -121,7 +122,7 @@ def build_google_auth_router(
             account = Account(AccountId(ids.new()), identity.email, "", business_id)
             await accounts.upsert(account)
 
-        token = issue_token(account.id, settings.secret_key, int(time.time()))
+        token = issue_token(account.id, signing_key, int(time.time()))
         # No token in the URL — it goes in the HttpOnly cookie. Only non-secret display data.
         query = urlencode(
             {

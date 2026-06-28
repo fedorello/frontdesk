@@ -44,6 +44,7 @@ from frontdesk.infrastructure.channels.whatsapp import WhatsAppMessaging
 from frontdesk.infrastructure.db import create_engine, make_session_factory
 from frontdesk.infrastructure.events import LoggingEventPublisher
 from frontdesk.infrastructure.google_oauth import HttpGoogleOAuthClient
+from frontdesk.infrastructure.keys import session_signing_key
 from frontdesk.infrastructure.logging_setup import configure_logging
 from frontdesk.infrastructure.memory import InMemoryIdempotency
 from frontdesk.infrastructure.postgres.adapters import (
@@ -189,7 +190,9 @@ def create_production_app() -> FastAPI:
     llm_configs = SqlLlmConfigRepository(sessions, cipher)
     accounts = SqlAccountRepository(sessions)
     usage = SqlUsageStore(sessions)
-    guard = make_owner_guard(accounts, settings.secret_key, settings.token_max_age_seconds)
+    guard = make_owner_guard(
+        accounts, session_signing_key(settings.secret_key), settings.token_max_age_seconds
+    )
     rate_limiter = InMemoryRateLimiter()
 
     # Dogfoods airlock-hitl (ADR-0005): sensitive actions gated for human approval.

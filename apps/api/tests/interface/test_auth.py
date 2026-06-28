@@ -4,6 +4,7 @@ import httpx
 from fastapi import Depends, FastAPI
 
 from frontdesk.core.settings import Settings
+from frontdesk.infrastructure.keys import session_signing_key
 from frontdesk.infrastructure.memory import (
     InMemoryAccountRepository,
     InMemoryBusinessRepository,
@@ -50,7 +51,7 @@ def _app() -> FastAPI:
             InMemoryRateLimiter(),
         )
     )
-    guard = make_owner_guard(accounts, SETTINGS.secret_key)
+    guard = make_owner_guard(accounts, session_signing_key(SETTINGS.secret_key))
 
     @app.get("/api/businesses/{business_id}/secret", dependencies=[Depends(guard)])
     async def secret(business_id: str) -> dict[str, str]:
