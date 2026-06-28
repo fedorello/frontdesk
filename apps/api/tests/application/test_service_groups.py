@@ -24,13 +24,14 @@ _ALL_WEEK = tuple(WorkingHours(day, time(9), time(17)) for day in range(7))
 _CUSTOMER = Customer(CustomerId("cus"), BusinessId("biz"), Channel.WHATSAPP, "+1")
 
 
-def _service(service_id: str, group_id: str) -> Service:
+def _service(service_id: str, group_id: str, *, requires_confirmation: bool = False) -> Service:
     return Service(
         ServiceId(service_id),
         BusinessId("biz"),
         service_id,
         60,
         resource_ids=(ResourceId(group_id),),
+        requires_confirmation=requires_confirmation,
     )
 
 
@@ -84,3 +85,17 @@ async def test_availability_follows_the_groups_schedule() -> None:
         slots = await calendar.find_availability(_service(service_id, "ana"), NOW)
         assert slots  # there are slots within the booking horizon
         assert all(slot.starts_at.weekday() == 1 for slot in slots)  # all on Tuesday
+
+
+async def test_a_pending_booking_still_blocks_the_slot() -> None:
+    # When a service needs the owner's confirmation, the booking is PENDING — but it must still
+    # remove that time from availability so a second customer can't grab the same slot.
+    group = Resource(ResourceId("ana"), BusinessId("biz"), "Ana", _ALL_WEEK)
+    service = _service("consult", "ana", requires_confirmation=True)
+    calendar = _calendar([service], [group])
+
+    slot = (await calendar.find_availability(service, NOW))[0]
+    booked = await calendar.book(service, ResourceId("ana"), _CUSTOMER, slot)
+
+    assert booked.status.value == "pending"  # awaiting the owner's confirmation
+    assert all(not s.overlaps(slot) for s in await calendar.find_availability(service, NOW))

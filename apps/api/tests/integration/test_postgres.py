@@ -383,3 +383,34 @@ async def test_backfill_default_groups_repairs_orphaned_services(sessionmaker: F
     # The seeded, already-valid service "svc" (points at its own group "res") is untouched.
     valid = await SqlServiceRepository(sessionmaker).for_business(BusinessId("biz"))
     assert next(s for s in valid if s.id == ServiceId("svc")).resource_ids == (ResourceId("res"),)
+
+
+async def test_repoint_appointments_to_their_service_group(sessionmaker: Factory) -> None:
+    """Migration 0018: an appointment left on an old resource_id (its service now points at a
+    different group) is repointed, so it blocks availability again."""
+    async with sessionmaker() as session:
+        # Service "svc" is in group "res" (seed); put an appointment on the OLD "main" id.
+        await session.execute(
+            text(
+                "INSERT INTO appointment (id, business_id, service_id, resource_id, customer_id, "
+                "starts_at, ends_at) VALUES ('a-drift', 'biz', 'svc', 'main', 'cus', :start, :end)"
+            ),
+            {
+                "start": datetime(2026, 6, 29, 13, tzinfo=UTC),
+                "end": datetime(2026, 6, 29, 14, tzinfo=UTC),
+            },
+        )
+        await session.execute(
+            text(
+                "UPDATE appointment a SET resource_id = sub.group_id "
+                "FROM (SELECT s.id AS service_id, (s.resource_ids ->> 0) AS group_id "
+                "FROM service s) sub "
+                "WHERE a.service_id = sub.service_id AND a.status <> 'cancelled' "
+                "AND a.resource_id <> sub.group_id AND sub.group_id IS NOT NULL"
+            )
+        )
+        await session.commit()
+
+    appointments = await SqlAppointmentRepository(sessionmaker).for_business(BusinessId("biz"))
+    drifted = next(a for a in appointments if a.id == AppointmentId("a-drift"))
+    assert drifted.resource_id == ResourceId("res")  # repointed onto the service's group
