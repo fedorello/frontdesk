@@ -5,6 +5,7 @@ how* it happens. It answers only from the knowledge base and the real calendar,
 and escalates when unsure. See ADR-0007.
 """
 
+import logging
 from collections.abc import Awaitable, Callable, Sequence
 from dataclasses import dataclass, replace
 from datetime import UTC, datetime, timedelta
@@ -50,6 +51,8 @@ from frontdesk.domain.models import (
     Service,
     TimeSlot,
 )
+
+_logger = logging.getLogger("frontdesk.supervisor")
 
 MAX_STEPS = 6
 SLOT_FORMAT = "%a %d %b %H:%M"  # rendered in the business's local time zone
@@ -415,6 +418,9 @@ class Assistant:
                 )
                 if note is None:
                     return reply
+                _logger.info(
+                    "supervisor corrected a stale-availability reply (business=%s)", business.id
+                )
                 system, corrected = system + note, True
                 continue
             if completion.text:
