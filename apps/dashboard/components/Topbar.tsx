@@ -4,6 +4,7 @@ import Link from "next/link";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { useEffect, useState } from "react";
 
+import { api } from "@/app/lib/api";
 import type { MessageKey } from "@/app/lib/i18n";
 import { useI18n } from "@/app/lib/I18nProvider";
 import { LanguageSwitcher } from "@/app/lib/LanguageSwitcher";
@@ -38,6 +39,7 @@ export function Topbar() {
   const signedIn = session !== null;
 
   const logOut = () => {
+    void api.logout().catch(() => {}); // clear the HttpOnly cookie server-side (best-effort)
     clearSession();
     setSession(null);
     router.push("/login");

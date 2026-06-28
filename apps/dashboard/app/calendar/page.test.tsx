@@ -29,7 +29,7 @@ function renderCalendar() {
 }
 
 function signIn() {
-  window.localStorage.setItem("tovayo.session", JSON.stringify({ token: "t", businessId: "b" }));
+  window.localStorage.setItem("tovayo.session", JSON.stringify({ businessId: "b" }));
 }
 
 describe("Calendar page", () => {
@@ -82,7 +82,7 @@ describe("Calendar page", () => {
     fireEvent.click(await screen.findByRole("button", { name: "Confirm" }));
 
     await waitFor(() => expect(screen.getByText("Confirmed")).toBeInTheDocument());
-    expect(confirmAppointment).toHaveBeenCalledWith("b", "apt-1", "t");
+    expect(confirmAppointment).toHaveBeenCalledWith("b", "apt-1");
     expect(screen.queryByRole("button", { name: "Confirm" })).not.toBeInTheDocument();
   });
 

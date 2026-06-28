@@ -34,7 +34,7 @@ export function I18nProvider({ children }: { children: ReactNode }) {
     // No shared choice yet: signed-in owners fall back to the language saved on their
     // business (DB, cross-device), and that seeds the cookie so both sites agree afterwards.
     const session = getSession();
-    const pending = session && api.getBusiness?.(session.businessId, session.token);
+    const pending = session && api.getBusiness?.(session.businessId);
     if (!pending) return;
     pending
       .then((business) => {
@@ -52,7 +52,7 @@ export function I18nProvider({ children }: { children: ReactNode }) {
     const session = getSession();
     if (session !== null) {
       // Also persist on the business so it follows the owner across devices and drives the bot.
-      void api.setLocale?.(session.businessId, next, session.token)?.catch(() => {});
+      void api.setLocale?.(session.businessId, next)?.catch(() => {});
     }
   };
 

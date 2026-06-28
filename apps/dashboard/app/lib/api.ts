@@ -14,8 +14,8 @@ export class ApiError extends Error {
 }
 
 export interface AuthResult {
-  token: string;
   business_id: string;
+  email: string;
 }
 
 export interface WorkingHours {
@@ -99,18 +99,12 @@ export interface MessageView {
   handled: boolean;
 }
 
-async function request<T>(
-  method: string,
-  path: string,
-  body?: unknown,
-  token?: string,
-): Promise<T> {
+async function request<T>(method: string, path: string, body?: unknown): Promise<T> {
   const response = await fetch(`${API_URL}${path}`, {
     method,
-    headers: {
-      "content-type": "application/json",
-      ...(token ? { authorization: `Bearer ${token}` } : {}),
-    },
+    // Send the HttpOnly session cookie cross-subdomain (app.tovayo.com → api.tovayo.com).
+    credentials: "include",
+    headers: { "content-type": "application/json" },
     ...(body === undefined ? {} : { body: JSON.stringify(body) }),
   });
   if (!response.ok) {
@@ -136,6 +130,8 @@ async function readDetail(response: Response): Promise<string> {
   return response.statusText;
 }
 
+// Auth rides the HttpOnly session cookie (set by the API on login/signup/OAuth), so no
+// method takes a token — the browser attaches the cookie automatically (credentials: include).
 export const api = {
   signup: (body: {
     email: string;
@@ -147,113 +143,74 @@ export const api = {
   login: (body: { email: string; password: string }): Promise<AuthResult> =>
     request("POST", "/api/login", body),
 
-  getBusiness: (id: string, token: string): Promise<BusinessProfile> =>
-    request("GET", `/api/businesses/${id}`, undefined, token),
+  logout: (): Promise<{ ok: boolean }> => request("POST", "/api/logout"),
 
-  putBusiness: (id: string, body: BusinessProfile, token: string): Promise<BusinessProfile> =>
-    request("PUT", `/api/businesses/${id}`, body, token),
+  getBusiness: (id: string): Promise<BusinessProfile> => request("GET", `/api/businesses/${id}`),
 
-  deleteAccount: (id: string, token: string): Promise<unknown> =>
-    request("DELETE", `/api/businesses/${id}`, undefined, token),
+  putBusiness: (id: string, body: BusinessProfile): Promise<BusinessProfile> =>
+    request("PUT", `/api/businesses/${id}`, body),
 
-  setLocale: (id: string, locale: string, token: string): Promise<{ locale: string }> =>
-    request("PUT", `/api/businesses/${id}/locale`, { locale }, token),
+  deleteAccount: (id: string): Promise<unknown> => request("DELETE", `/api/businesses/${id}`),
 
-  getServices: (id: string, token: string): Promise<(ServiceInput & { id: string })[]> =>
-    request("GET", `/api/businesses/${id}/services`, undefined, token),
+  setLocale: (id: string, locale: string): Promise<{ locale: string }> =>
+    request("PUT", `/api/businesses/${id}/locale`, { locale }),
 
-  deleteService: (id: string, serviceId: string, token: string): Promise<unknown> =>
-    request("DELETE", `/api/businesses/${id}/services/${serviceId}`, undefined, token),
+  getServices: (id: string): Promise<(ServiceInput & { id: string })[]> =>
+    request("GET", `/api/businesses/${id}/services`),
 
-  getLlm: (id: string, token: string): Promise<{ mode: string; api_key_hint?: string | null }> =>
-    request("GET", `/api/businesses/${id}/llm`, undefined, token),
+  deleteService: (id: string, serviceId: string): Promise<unknown> =>
+    request("DELETE", `/api/businesses/${id}/services/${serviceId}`),
 
-  putService: (
-    id: string,
-    serviceId: string,
-    body: ServiceInput,
-    token: string,
-  ): Promise<unknown> => request("PUT", `/api/businesses/${id}/services/${serviceId}`, body, token),
+  getLlm: (id: string): Promise<{ mode: string; api_key_hint?: string | null }> =>
+    request("GET", `/api/businesses/${id}/llm`),
+
+  putService: (id: string, serviceId: string, body: ServiceInput): Promise<unknown> =>
+    request("PUT", `/api/businesses/${id}/services/${serviceId}`, body),
 
   putResource: (
     id: string,
     resourceId: string,
     body: { name: string; working_hours: WorkingHours[] },
-    token: string,
-  ): Promise<unknown> =>
-    request("PUT", `/api/businesses/${id}/resources/${resourceId}`, body, token),
+  ): Promise<unknown> => request("PUT", `/api/businesses/${id}/resources/${resourceId}`, body),
 
-  putLlm: (id: string, body: LlmConfigInput, token: string): Promise<unknown> =>
-    request("PUT", `/api/businesses/${id}/llm`, body, token),
+  putLlm: (id: string, body: LlmConfigInput): Promise<unknown> =>
+    request("PUT", `/api/businesses/${id}/llm`, body),
 
-  connectTelegram: (id: string, botToken: string, token: string): Promise<TelegramStatus> =>
-    request("POST", `/api/businesses/${id}/telegram/connect`, { bot_token: botToken }, token),
+  connectTelegram: (id: string, botToken: string): Promise<TelegramStatus> =>
+    request("POST", `/api/businesses/${id}/telegram/connect`, { bot_token: botToken }),
 
-  telegramStatus: (id: string, token: string): Promise<TelegramStatus> =>
-    request("GET", `/api/businesses/${id}/telegram`, undefined, token),
+  telegramStatus: (id: string): Promise<TelegramStatus> =>
+    request("GET", `/api/businesses/${id}/telegram`),
 
-  appointments: (id: string, token: string): Promise<AppointmentView[]> =>
-    request("GET", `/api/businesses/${id}/appointments`, undefined, token),
+  appointments: (id: string): Promise<AppointmentView[]> =>
+    request("GET", `/api/businesses/${id}/appointments`),
 
   confirmAppointment: (
     id: string,
     appointmentId: string,
-    token: string,
   ): Promise<{ id: string; status: string }> =>
-    request(
-      "POST",
-      `/api/businesses/${id}/appointments/${appointmentId}/confirm`,
-      undefined,
-      token,
-    ),
+    request("POST", `/api/businesses/${id}/appointments/${appointmentId}/confirm`),
 
   cancelAppointment: (
     id: string,
     appointmentId: string,
     reason: string,
-    token: string,
   ): Promise<AppointmentResult> =>
-    request(
-      "POST",
-      `/api/businesses/${id}/appointments/${appointmentId}/cancel`,
-      { reason },
-      token,
-    ),
+    request("POST", `/api/businesses/${id}/appointments/${appointmentId}/cancel`, { reason }),
 
   rescheduleAppointment: (
     id: string,
     appointmentId: string,
     start: string,
-    token: string,
   ): Promise<AppointmentResult> =>
-    request(
-      "POST",
-      `/api/businesses/${id}/appointments/${appointmentId}/reschedule`,
-      { start },
-      token,
-    ),
+    request("POST", `/api/businesses/${id}/appointments/${appointmentId}/reschedule`, { start }),
 
-  conversations: (id: string, token: string): Promise<MessageView[]> =>
-    request("GET", `/api/businesses/${id}/conversations`, undefined, token),
+  conversations: (id: string): Promise<MessageView[]> =>
+    request("GET", `/api/businesses/${id}/conversations`),
 
-  sendOwnerMessage: (
-    id: string,
-    customerId: string,
-    text: string,
-    token: string,
-  ): Promise<{ handled: boolean }> =>
-    request("POST", `/api/businesses/${id}/conversations/${customerId}/messages`, { text }, token),
+  sendOwnerMessage: (id: string, customerId: string, text: string): Promise<{ handled: boolean }> =>
+    request("POST", `/api/businesses/${id}/conversations/${customerId}/messages`, { text }),
 
-  setHandoff: (
-    id: string,
-    customerId: string,
-    handled: boolean,
-    token: string,
-  ): Promise<{ handled: boolean }> =>
-    request(
-      "POST",
-      `/api/businesses/${id}/conversations/${customerId}/handoff`,
-      { handled },
-      token,
-    ),
+  setHandoff: (id: string, customerId: string, handled: boolean): Promise<{ handled: boolean }> =>
+    request("POST", `/api/businesses/${id}/conversations/${customerId}/handoff`, { handled }),
 };

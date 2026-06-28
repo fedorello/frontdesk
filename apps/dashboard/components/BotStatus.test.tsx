@@ -30,7 +30,7 @@ function renderBot() {
 }
 
 function signIn() {
-  window.localStorage.setItem("tovayo.session", JSON.stringify({ token: "t", businessId: "b" }));
+  window.localStorage.setItem("tovayo.session", JSON.stringify({ businessId: "b" }));
 }
 
 describe("BotStatus", () => {

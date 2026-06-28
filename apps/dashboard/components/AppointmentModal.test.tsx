@@ -38,7 +38,6 @@ function renderModal(onChanged = vi.fn(), appointment: AppointmentView = APPOINT
         timeZone="America/Montevideo"
         locale="en"
         businessId="b"
-        token="t"
         onClose={vi.fn()}
         onChanged={onChanged}
       />
@@ -63,7 +62,7 @@ describe("AppointmentModal", () => {
     fireEvent.click(screen.getByRole("button", { name: "Cancel booking" }));
 
     await waitFor(() => expect(onChanged).toHaveBeenCalled());
-    expect(cancelAppointment).toHaveBeenCalledWith("b", "apt-1", "Specialist away", "t");
+    expect(cancelAppointment).toHaveBeenCalledWith("b", "apt-1", "Specialist away");
   });
 
   it("confirms a pending booking", async () => {
@@ -78,7 +77,7 @@ describe("AppointmentModal", () => {
     fireEvent.click(screen.getByRole("button", { name: "Confirm booking" }));
 
     await waitFor(() => expect(onChanged).toHaveBeenCalled());
-    expect(confirmAppointment).toHaveBeenCalledWith("b", "apt-1", "t");
+    expect(confirmAppointment).toHaveBeenCalledWith("b", "apt-1");
   });
 
   it("hides the confirm action for a non-pending booking", () => {
@@ -105,7 +104,6 @@ describe("AppointmentModal", () => {
         "b",
         "apt-1",
         "2026-06-28T19:00:00.000Z", // converted to UTC
-        "t",
       ),
     );
   });

@@ -32,7 +32,7 @@ describe("Topbar", () => {
   });
 
   it("shows Log out when signed in and clears the session on click", async () => {
-    window.localStorage.setItem("tovayo.session", JSON.stringify({ token: "t", businessId: "b" }));
+    window.localStorage.setItem("tovayo.session", JSON.stringify({ businessId: "b" }));
     renderTopbar();
 
     const logout = await screen.findByRole("button", { name: "Log out" });

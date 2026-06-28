@@ -8,7 +8,7 @@ import { useBotStatus } from "@/app/lib/BotStatusProvider";
 import { errorMessageKey } from "@/app/lib/errors";
 import { useI18n } from "@/app/lib/I18nProvider";
 import { MAX_BUSINESS_NAME, MAX_DESCRIPTION } from "@/app/lib/limits";
-import { clearSession, getSession } from "@/app/lib/session";
+import { clearSession, getSession, type Session } from "@/app/lib/session";
 import { TIME_ZONE_OPTIONS } from "@/app/lib/timezones";
 import { AutoTextarea } from "@/components/AutoTextarea";
 import { CharCount } from "@/components/CharCount";
@@ -31,14 +31,14 @@ export default function SettingsPage() {
     if (current === null) return;
     setDeleting(true);
     try {
-      await api.deleteAccount(current.businessId, current.token);
+      await api.deleteAccount(current.businessId);
       clearSession();
       router.push("/login");
     } finally {
       setDeleting(false);
     }
   };
-  const [session, setSession] = useState<{ token: string; businessId: string } | null>(null);
+  const [session, setSession] = useState<Session | null>(null);
   const [name, setName] = useState("");
   const [ownerName, setOwnerName] = useState("");
   const [timezone, setTimezone] = useState("UTC");
@@ -61,9 +61,9 @@ export default function SettingsPage() {
     setSession(current);
     void (async () => {
       const [profile, list, llm] = await Promise.all([
-        api.getBusiness(current.businessId, current.token).catch(() => null),
-        api.getServices(current.businessId, current.token).catch(() => []),
-        api.getLlm(current.businessId, current.token).catch(() => ({ mode: "default" })),
+        api.getBusiness(current.businessId).catch(() => null),
+        api.getServices(current.businessId).catch(() => []),
+        api.getLlm(current.businessId).catch(() => ({ mode: "default" })),
       ]);
       if (profile) {
         setName(profile.name);
@@ -89,19 +89,15 @@ export default function SettingsPage() {
   const saveProfile = async () => {
     setSaveError(null);
     try {
-      await api.putBusiness(
-        session.businessId,
-        {
-          name,
-          owner_name: ownerName,
-          timezone,
-          description,
-          address: online ? "" : address,
-          online,
-          locale,
-        },
-        session.token,
-      );
+      await api.putBusiness(session.businessId, {
+        name,
+        owner_name: ownerName,
+        timezone,
+        description,
+        address: online ? "" : address,
+        online,
+        locale,
+      });
       setSaved(true);
       setTimeout(() => setSaved(false), 1500);
     } catch (caught) {
@@ -110,12 +106,7 @@ export default function SettingsPage() {
   };
 
   const saveService = async (service: Service) => {
-    await api.putService(
-      session.businessId,
-      service.id,
-      { ...service, resource_ids: ["main"] },
-      session.token,
-    );
+    await api.putService(session.businessId, service.id, { ...service, resource_ids: ["main"] });
     setServices((current) => current.map((s) => (s.id === service.id ? service : s)));
   };
 
@@ -125,7 +116,7 @@ export default function SettingsPage() {
   };
 
   const removeService = async (id: string) => {
-    await api.deleteService(session.businessId, id, session.token);
+    await api.deleteService(session.businessId, id);
     setServices((current) => current.filter((service) => service.id !== id));
   };
 
@@ -133,7 +124,7 @@ export default function SettingsPage() {
     setConnecting(true);
     setConnectError(null);
     try {
-      setTelegram(await api.connectTelegram(session.businessId, botToken, session.token));
+      setTelegram(await api.connectTelegram(session.businessId, botToken));
       setBotToken("");
     } catch (caught) {
       setConnectError(t(errorMessageKey(caught)));

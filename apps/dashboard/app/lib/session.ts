@@ -1,9 +1,12 @@
-// The owner's session (token + business id), persisted client-side. SSR-safe.
+// The owner's session context, persisted client-side. SSR-safe.
+//
+// NOTE: the auth token is NOT here — it lives only in the HttpOnly `tovayo.session` cookie,
+// which JavaScript cannot read. This holds only the non-secret business id + display identity
+// the UI needs to build request paths and render the topbar.
 
 const KEY = "tovayo.session";
 
 export interface Session {
-  token: string;
   businessId: string;
   // Owner identity for the topbar avatar. From Google on social sign-in; email-only otherwise.
   email?: string;

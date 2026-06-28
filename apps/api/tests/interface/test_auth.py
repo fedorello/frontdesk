@@ -62,7 +62,8 @@ async def test_signup_login_and_scoping() -> None:
             json={"email": "a@x.com", "password": "test-pw-123", "business_name": "Ana"},
         )
         assert signup.status_code == 200
-        token = signup.json()["token"]
+        assert "tovayo.session" in signup.cookies  # token delivered as an HttpOnly cookie
+        assert "token" not in signup.json()  # never in the response body
         business_id = signup.json()["business_id"]
 
         dup = await client.post(
@@ -71,16 +72,16 @@ async def test_signup_login_and_scoping() -> None:
         )
         assert dup.status_code == 409  # email taken
 
+        bad = await client.post("/api/login", json={"email": "a@x.com", "password": "WRONG"})
+        assert bad.status_code == 401
         login = await client.post(
             "/api/login", json={"email": "a@x.com", "password": "test-pw-123"}
         )
         assert login.status_code == 200
-        bad = await client.post("/api/login", json={"email": "a@x.com", "password": "WRONG"})
-        assert bad.status_code == 401
 
-        auth = {"authorization": f"Bearer {token}"}
-        assert (
-            await client.get(f"/api/businesses/{business_id}/secret", headers=auth)
-        ).status_code == 200
-        assert (await client.get("/api/businesses/other/secret", headers=auth)).status_code == 403
+        # The session cookie (carried by the client jar) authenticates — no Authorization header.
+        assert (await client.get(f"/api/businesses/{business_id}/secret")).status_code == 200
+        assert (await client.get("/api/businesses/other/secret")).status_code == 403  # not mine
+
+        await client.post("/api/logout")  # clears the cookie
         assert (await client.get(f"/api/businesses/{business_id}/secret")).status_code == 401

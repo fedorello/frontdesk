@@ -90,9 +90,10 @@ async def test_callback_creates_account_then_reuses_it() -> None:
         dest = first.headers["location"]
         assert dest.startswith("https://app.test/auth/callback?")
         first_q = _query(dest)
-        token, business_id = first_q["token"][0], first_q["business_id"][0]
-        assert token
+        business_id = first_q["business_id"][0]
         assert business_id
+        assert "token" not in first_q  # the token is in the cookie, never the URL
+        assert "tovayo.session" in first.cookies  # session delivered as an HttpOnly cookie
 
         account = await accounts.by_email("new@x.com")
         assert account is not None

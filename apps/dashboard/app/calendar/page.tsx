@@ -70,8 +70,8 @@ function CalendarContent() {
     }
     void (async () => {
       const [items, business] = await Promise.all([
-        api.appointments(session.businessId, session.token).catch(() => []),
-        api.getBusiness(session.businessId, session.token).catch(() => null),
+        api.appointments(session.businessId).catch(() => []),
+        api.getBusiness(session.businessId).catch(() => null),
       ]);
       setAppointments(items);
       if (business) setTimeZone(business.timezone);
@@ -83,7 +83,7 @@ function CalendarContent() {
   const confirm = async (appointmentId: string) => {
     const session = getSession();
     if (session === null) return;
-    const result = await api.confirmAppointment(session.businessId, appointmentId, session.token);
+    const result = await api.confirmAppointment(session.businessId, appointmentId);
     setAppointments((previous) =>
       previous.map((item) =>
         item.id === appointmentId ? { ...item, status: result.status } : item,
@@ -180,7 +180,6 @@ function CalendarContent() {
           timeZone={timeZone}
           locale={locale}
           businessId={session.businessId}
-          token={session.token}
           onClose={() => setSelected(null)}
           onChanged={(result) => {
             setAppointments((previous) =>

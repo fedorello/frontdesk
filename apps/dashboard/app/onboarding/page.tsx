@@ -50,8 +50,7 @@ export default function OnboardingPage() {
   const [botToken, setBotToken] = useState("");
   const [connectedAs, setConnectedAs] = useState<string | null>(null);
 
-  // Session
-  const [token, setToken] = useState("");
+  // Session — the auth token lives in the HttpOnly cookie the API sets on signup.
   const [businessId, setBusinessId] = useState("");
 
   async function guarded(action: () => Promise<void>) {
@@ -74,33 +73,26 @@ export default function OnboardingPage() {
         business_name: businessName,
         timezone,
       });
-      setToken(result.token);
       setBusinessId(result.business_id);
-      setSession({ token: result.token, businessId: result.business_id, email });
+      setSession({ businessId: result.business_id, email: result.email });
       setStep(1);
     });
 
   const submitService = () =>
     guarded(async () => {
-      await api.putResource(
-        businessId,
-        "main",
-        {
-          name: "Main",
-          working_hours: WEEKDAYS.map((weekday) => ({
-            weekday,
-            opens: "09:00:00",
-            closes: "17:00:00",
-          })),
-        },
-        token,
-      );
-      await api.putService(
-        businessId,
-        "svc-1",
-        { name: serviceName, duration_minutes: duration, resource_ids: ["main"] },
-        token,
-      );
+      await api.putResource(businessId, "main", {
+        name: "Main",
+        working_hours: WEEKDAYS.map((weekday) => ({
+          weekday,
+          opens: "09:00:00",
+          closes: "17:00:00",
+        })),
+      });
+      await api.putService(businessId, "svc-1", {
+        name: serviceName,
+        duration_minutes: duration,
+        resource_ids: ["main"],
+      });
       setStep(2);
     });
 
@@ -109,14 +101,13 @@ export default function OnboardingPage() {
       await api.putLlm(
         businessId,
         aiMode === "own" ? { mode: "own", provider, model, api_key: apiKey } : { mode: "default" },
-        token,
       );
       setStep(3);
     });
 
   const submitTelegram = () =>
     guarded(async () => {
-      const status = await api.connectTelegram(businessId, botToken, token);
+      const status = await api.connectTelegram(businessId, botToken);
       setConnectedAs(status.username ?? null);
     });
 

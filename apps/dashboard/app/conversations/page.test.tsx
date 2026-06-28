@@ -38,7 +38,7 @@ function renderPage() {
 }
 
 function signIn() {
-  window.localStorage.setItem("tovayo.session", JSON.stringify({ token: "t", businessId: "b" }));
+  window.localStorage.setItem("tovayo.session", JSON.stringify({ businessId: "b" }));
 }
 
 // Newest-first feed (as the API returns it), two messages from one customer.
@@ -113,7 +113,7 @@ describe("Conversations page", () => {
     fireEvent.change(screen.getByLabelText("Reply"), { target: { value: "On my way" } });
     fireEvent.click(screen.getByRole("button", { name: /Send/ }));
 
-    await waitFor(() => expect(sendOwnerMessage).toHaveBeenCalledWith("b", "c1", "On my way", "t"));
+    await waitFor(() => expect(sendOwnerMessage).toHaveBeenCalledWith("b", "c1", "On my way"));
   });
 
   it("sends on Cmd/Ctrl+Enter from the composer", async () => {
@@ -137,9 +137,7 @@ describe("Conversations page", () => {
     fireEvent.change(composer, { target: { value: "Two minutes" } });
     fireEvent.keyDown(composer, { key: "Enter", metaKey: true });
 
-    await waitFor(() =>
-      expect(sendOwnerMessage).toHaveBeenCalledWith("b", "c1", "Two minutes", "t"),
-    );
+    await waitFor(() => expect(sendOwnerMessage).toHaveBeenCalledWith("b", "c1", "Two minutes"));
   });
 
   it("filters the thread list by the ?q search param", async () => {

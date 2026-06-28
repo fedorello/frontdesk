@@ -52,7 +52,8 @@ class Settings(BaseSettings):
 
     # The business the web chat demo talks to (matches the seeded channel binding).
     demo_to_address: str = "+BIZ"
-    cors_allow_origins: str = "*"
+    # Comma-separated allowed origins for credentialed CORS; empty falls back to dashboard_url.
+    cors_allow_origins: str = ""
     # Where the OAuth callback sends the owner back (the dashboard origin).
     dashboard_url: str = "http://localhost:3000"
     # Sign in with Google (OAuth 2.0). An empty client id disables the feature.

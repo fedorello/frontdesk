@@ -34,7 +34,6 @@ export function AppointmentModal({
   timeZone,
   locale,
   businessId,
-  token,
   onClose,
   onChanged,
 }: {
@@ -42,7 +41,6 @@ export function AppointmentModal({
   timeZone: string;
   locale: Locale;
   businessId: string;
-  token: string;
   onClose: () => void;
   onChanged: (result: AppointmentResult) => void;
 }) {
@@ -128,11 +126,7 @@ export function AppointmentModal({
                   onClick={() =>
                     run(async () => {
                       // Confirm only flips the status; the time is unchanged, so carry it over.
-                      const result = await api.confirmAppointment(
-                        businessId,
-                        appointment.id,
-                        token,
-                      );
+                      const result = await api.confirmAppointment(businessId, appointment.id);
                       return {
                         id: result.id,
                         status: result.status,
@@ -167,7 +161,6 @@ export function AppointmentModal({
                       businessId,
                       appointment.id,
                       zonedToUtcIso(newTime, timeZone),
-                      token,
                     ),
                   )
                 }
@@ -191,9 +184,7 @@ export function AppointmentModal({
               <p className="text-xs text-muted">{t("calendar.cancelReasonHint")}</p>
               <button
                 type="button"
-                onClick={() =>
-                  run(() => api.cancelAppointment(businessId, appointment.id, reason, token))
-                }
+                onClick={() => run(() => api.cancelAppointment(businessId, appointment.id, reason))}
                 disabled={busy}
                 className="rounded-lg bg-danger-soft px-4 py-2 text-sm font-bold text-danger disabled:opacity-50"
               >

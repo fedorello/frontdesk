@@ -20,7 +20,7 @@ export default function ApprovalsPage() {
     if (session === null) return;
     try {
       const response = await fetch(`${API_URL}/api/businesses/${session.businessId}/approvals`, {
-        headers: { Authorization: `Bearer ${session.token}` },
+        credentials: "include", // the HttpOnly session cookie authenticates
       });
       setApprovals((await response.json()) as Approval[]);
       setReachable(true);
@@ -40,10 +40,8 @@ export default function ApprovalsPage() {
     try {
       await fetch(`${API_URL}/api/businesses/${session.businessId}/approvals/${id}`, {
         method: "POST",
-        headers: {
-          "content-type": "application/json",
-          Authorization: `Bearer ${session.token}`,
-        },
+        credentials: "include", // the HttpOnly session cookie authenticates
+        headers: { "content-type": "application/json" },
         body: JSON.stringify({ approved: decision === "approve" }),
       });
     } finally {

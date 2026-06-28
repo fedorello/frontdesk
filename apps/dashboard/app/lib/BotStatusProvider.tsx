@@ -31,7 +31,7 @@ export function BotStatusProvider({ children }: { children: ReactNode }) {
       return;
     }
     try {
-      setStatus(await api.telegramStatus(session.businessId, session.token));
+      setStatus(await api.telegramStatus(session.businessId));
     } catch {
       setStatus(null);
     }

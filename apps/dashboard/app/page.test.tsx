@@ -34,7 +34,7 @@ describe("Overview page", () => {
   });
 
   it("shows real bookings + messages when signed in", async () => {
-    window.localStorage.setItem("tovayo.session", JSON.stringify({ token: "t", businessId: "b" }));
+    window.localStorage.setItem("tovayo.session", JSON.stringify({ businessId: "b" }));
     appointments.mockResolvedValue([
       {
         id: "apt-1",

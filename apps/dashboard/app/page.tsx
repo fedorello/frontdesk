@@ -36,9 +36,9 @@ export default function Home() {
       return;
     }
     Promise.all([
-      api.appointments(session.businessId, session.token).catch(() => []),
-      api.conversations(session.businessId, session.token).catch(() => []),
-      api.getBusiness(session.businessId, session.token).catch(() => null),
+      api.appointments(session.businessId).catch(() => []),
+      api.conversations(session.businessId).catch(() => []),
+      api.getBusiness(session.businessId).catch(() => null),
     ]).then(([appts, msgs, business]) => {
       setAppointments(appts);
       setMessages(msgs);
@@ -146,7 +146,6 @@ export default function Home() {
           timeZone={timeZone}
           locale={locale}
           businessId={session.businessId}
-          token={session.token}
           onClose={() => setSelected(null)}
           onChanged={(result) => {
             setAppointments((previous) =>

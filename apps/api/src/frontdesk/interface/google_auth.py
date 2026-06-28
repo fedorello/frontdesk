@@ -5,12 +5,13 @@ account and business, issues our session token, and bounces back to the dashboar
 client secret never leaves the server.
 """
 
+import hmac
 import logging
 import time
 from urllib.parse import urlencode
 
 import httpx
-from fastapi import APIRouter
+from fastapi import APIRouter, Cookie
 from fastapi.responses import RedirectResponse
 
 from frontdesk.application.ports import (
@@ -24,9 +25,15 @@ from frontdesk.core.settings import Settings
 from frontdesk.domain.ids import AccountId, BusinessId
 from frontdesk.domain.models import Business
 from frontdesk.infrastructure.security import issue_token, verify_token
+from frontdesk.interface.cookies import (
+    OAUTH_STATE_COOKIE,
+    OAUTH_STATE_MAX_AGE,
+    clear_oauth_state_cookie,
+    set_oauth_state_cookie,
+    set_session_cookie,
+)
 
 _AUTH_ENDPOINT = "https://accounts.google.com/o/oauth2/v2/auth"
-_STATE_MAX_AGE = 600  # the round-trip to Google should take well under 10 minutes
 _PLACEHOLDER_BUSINESS_NAME = "My business"  # the owner renames it in Settings
 _FOUND = 302
 _logger = logging.getLogger("frontdesk.google_auth")
@@ -60,16 +67,28 @@ def build_google_auth_router(
                 "prompt": "select_account",
             }
         )
-        return RedirectResponse(f"{_AUTH_ENDPOINT}?{params}", status_code=_FOUND)
+        redirect = RedirectResponse(f"{_AUTH_ENDPOINT}?{params}", status_code=_FOUND)
+        set_oauth_state_cookie(redirect, state, settings)  # bind the state to this browser
+        return redirect
 
     @router.get("/api/auth/google/callback")
-    async def callback(code: str = "", state: str = "", error: str = "") -> RedirectResponse:
+    async def callback(
+        code: str = "",
+        state: str = "",
+        error: str = "",
+        state_cookie: str = Cookie(default="", alias=OAUTH_STATE_COOKIE),
+    ) -> RedirectResponse:
         if not enabled or error or not code:
             return _back("/login?error=google")
-        if (
-            verify_token(state, settings.secret_key, now=int(time.time()), max_age=_STATE_MAX_AGE)
-            is None
-        ):
+        # State must match this browser's cookie (CSRF binding) AND be a token we signed + fresh.
+        signed_ok = (
+            verify_token(
+                state, settings.secret_key, now=int(time.time()), max_age=OAUTH_STATE_MAX_AGE
+            )
+            is not None
+        )
+        if not (state_cookie and hmac.compare_digest(state, state_cookie) and signed_ok):
+            _logger.warning("google callback: state mismatch or expired")
             return _back("/login?error=google")
         try:
             identity = await oauth.exchange_code(code)
@@ -94,15 +113,19 @@ def build_google_auth_router(
             await accounts.upsert(account)
 
         token = issue_token(account.id, settings.secret_key, int(time.time()))
+        # No token in the URL — it goes in the HttpOnly cookie. Only non-secret display data.
         query = urlencode(
             {
-                "token": token,
                 "business_id": str(account.business_id),
                 "name": identity.name,
                 "email": identity.email,
                 "avatar": identity.picture,
             }
         )
-        return _back(f"/auth/callback?{query}")
+        redirect = _back(f"/auth/callback?{query}")
+        set_session_cookie(redirect, token, settings)
+        clear_oauth_state_cookie(redirect, settings)
+        _logger.info("google sign-in account=%s", account.id)
+        return redirect
 
     return router

@@ -200,9 +200,15 @@ def create_production_app() -> FastAPI:
         telegram_bot_address=settings.telegram_bot_address,
     )
     app = create_app(assistant=Assistant(deps), idempotency=InMemoryIdempotency(), config=config)
+    # Credentialed CORS for the cookie session: the origin must be explicit (never "*"),
+    # so fall back to the dashboard origin when none is configured.
+    cors_origins = [
+        o.strip() for o in settings.cors_allow_origins.split(",") if o.strip() and o.strip() != "*"
+    ]
     app.add_middleware(
         CORSMiddleware,
-        allow_origins=[o.strip() for o in settings.cors_allow_origins.split(",")],
+        allow_origins=cors_origins or [settings.dashboard_url],
+        allow_credentials=True,
         allow_methods=["*"],
         allow_headers=["*"],
     )

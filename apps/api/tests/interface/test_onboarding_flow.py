@@ -77,29 +77,22 @@ async def test_full_onboarding_completes() -> None:
             },
         )
         assert signup.status_code == 200
-        token = signup.json()["token"]
         business_id = signup.json()["business_id"]
-        auth = {"authorization": f"Bearer {token}"}
 
         resource = await web.put(
             f"/api/businesses/{business_id}/resources/main",
-            headers=auth,
             json={"name": "Main", "working_hours": WORKING_HOURS},
         )
         service = await web.put(
             f"/api/businesses/{business_id}/services/svc1",
-            headers=auth,
             json={"name": "Haircut", "duration_minutes": 60, "resource_ids": ["main"]},
         )
-        ai = await web.put(
-            f"/api/businesses/{business_id}/llm", headers=auth, json={"mode": "default"}
-        )
+        ai = await web.put(f"/api/businesses/{business_id}/llm", json={"mode": "default"})
         assert (resource.status_code, service.status_code, ai.status_code) == (200, 200, 200)
 
         # The step that crashed before — now completes (no 500), bot validated.
         connect = await web.post(
             f"/api/businesses/{business_id}/telegram/connect",
-            headers=auth,
             json={"bot_token": "123:REAL-LOOKING-TOKEN"},
         )
         assert connect.status_code == 200

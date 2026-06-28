@@ -88,8 +88,8 @@ function ConversationsContent() {
     }
     void (async () => {
       const [feed, business] = await Promise.all([
-        api.conversations(session.businessId, session.token).catch(() => []),
-        api.getBusiness(session.businessId, session.token).catch(() => null),
+        api.conversations(session.businessId).catch(() => []),
+        api.getBusiness(session.businessId).catch(() => null),
       ]);
       setMessages(feed);
       if (business) setTimeZone(business.timezone);
@@ -100,7 +100,7 @@ function ConversationsContent() {
   const reload = async () => {
     const session = getSession();
     if (session === null) return;
-    setMessages(await api.conversations(session.businessId, session.token).catch(() => []));
+    setMessages(await api.conversations(session.businessId).catch(() => []));
   };
 
   // Poll so incoming customer messages appear live — essential while the owner is handling
@@ -110,7 +110,7 @@ function ConversationsContent() {
       const session = getSession();
       if (session === null) return;
       void api
-        .conversations(session.businessId, session.token)
+        .conversations(session.businessId)
         .then(setMessages)
         .catch(() => {});
     }, POLL_MS);
@@ -159,7 +159,6 @@ function ConversationsContent() {
           customerId={selectedThread.customerId}
           handled={selectedThread.handled}
           businessId={session.businessId}
-          token={session.token}
           messages={threadMessages(messages, selected)}
           locale={locale}
           timeZone={timeZone}
@@ -250,7 +249,6 @@ function ThreadDetail({
   customerId,
   handled,
   businessId,
-  token,
   messages,
   locale,
   timeZone,
@@ -262,7 +260,6 @@ function ThreadDetail({
   customerId: string;
   handled: boolean;
   businessId: string;
-  token: string;
   messages: MessageView[];
   locale: Locale;
   timeZone: string;
@@ -323,7 +320,7 @@ function ThreadDetail({
     const text = draft.trim();
     if (!text) return;
     void run(async () => {
-      await api.sendOwnerMessage(businessId, customerId, text, token);
+      await api.sendOwnerMessage(businessId, customerId, text);
       setDraft("");
     });
   };
@@ -354,7 +351,7 @@ function ThreadDetail({
         {handled && (
           <button
             type="button"
-            onClick={() => run(() => api.setHandoff(businessId, customerId, false, token))}
+            onClick={() => run(() => api.setHandoff(businessId, customerId, false))}
             disabled={busy}
             className="rounded-lg border border-line-strong px-3 py-1.5 text-sm font-medium hover:bg-canvas disabled:opacity-50"
           >
