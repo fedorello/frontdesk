@@ -4,6 +4,7 @@ import { useSearchParams } from "next/navigation";
 import { Suspense, useEffect, useState } from "react";
 
 import { api, type AppointmentView } from "@/app/lib/api";
+import { readCache, writeCache } from "@/app/lib/cache";
 import { isCancelled, PENDING, STATUS_LABEL } from "@/app/lib/appointments";
 import { formatDay, formatTime } from "@/app/lib/format";
 import type { Locale } from "@/app/lib/i18n";
@@ -68,14 +69,25 @@ function CalendarContent() {
       setState("anon");
       return;
     }
+    const bid = session.businessId;
+    const key = `calendar.${bid}`;
+    // Stale-while-revalidate: show the last-known bookings immediately, then refetch.
+    const cached = readCache<{ appointments: AppointmentView[]; timeZone: string }>(key);
+    if (cached) {
+      setAppointments(cached.appointments);
+      setTimeZone(cached.timeZone);
+      setState("ready");
+    }
     void (async () => {
       const [items, business] = await Promise.all([
-        api.appointments(session.businessId).catch(() => []),
-        api.getBusiness(session.businessId).catch(() => null),
+        api.appointments(bid).catch(() => []),
+        api.getBusiness(bid).catch(() => null),
       ]);
+      const timeZone = business ? business.timezone : (cached?.timeZone ?? "UTC");
       setAppointments(items);
-      if (business) setTimeZone(business.timezone);
+      setTimeZone(timeZone);
       setState("ready");
+      writeCache(key, { appointments: items, timeZone });
     })();
   }, []);
 

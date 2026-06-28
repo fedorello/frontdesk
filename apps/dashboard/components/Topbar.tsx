@@ -5,6 +5,7 @@ import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { useEffect, useState } from "react";
 
 import { api } from "@/app/lib/api";
+import { clearCache } from "@/app/lib/cache";
 import type { MessageKey } from "@/app/lib/i18n";
 import { useI18n } from "@/app/lib/I18nProvider";
 import { LanguageSwitcher } from "@/app/lib/LanguageSwitcher";
@@ -41,6 +42,7 @@ export function Topbar() {
   const logOut = () => {
     void api.logout().catch(() => {}); // clear the HttpOnly cookie server-side (best-effort)
     clearSession();
+    clearCache(); // drop cached business data so the next account starts clean
     setSession(null);
     router.push("/login");
   };

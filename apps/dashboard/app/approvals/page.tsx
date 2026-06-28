@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useState } from "react";
 
 import { API_URL } from "@/app/lib/api";
+import { readCache, writeCache } from "@/app/lib/cache";
 import { useI18n } from "@/app/lib/I18nProvider";
 import { getSession } from "@/app/lib/session";
 import { Icon } from "@/components/icons";
@@ -22,7 +23,9 @@ export default function ApprovalsPage() {
       const response = await fetch(`${API_URL}/api/businesses/${session.businessId}/approvals`, {
         credentials: "include", // the HttpOnly session cookie authenticates
       });
-      setApprovals((await response.json()) as Approval[]);
+      const data = (await response.json()) as Approval[];
+      setApprovals(data);
+      writeCache(`approvals.${session.businessId}`, data);
       setReachable(true);
     } catch {
       setReachable(false);
@@ -30,7 +33,13 @@ export default function ApprovalsPage() {
   }, []);
 
   useEffect(() => {
-    // eslint-disable-next-line react-hooks/set-state-in-effect -- one-shot fetch on mount
+    const session = getSession();
+    if (session !== null) {
+      const cached = readCache<Approval[]>(`approvals.${session.businessId}`);
+      // eslint-disable-next-line react-hooks/set-state-in-effect -- paint last-known immediately
+      if (cached) setApprovals(cached);
+    }
+
     void load();
   }, [load]);
 

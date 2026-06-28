@@ -4,6 +4,7 @@ import { useSearchParams } from "next/navigation";
 import { type KeyboardEvent, Suspense, useEffect, useLayoutEffect, useRef, useState } from "react";
 
 import { api, type MessageView } from "@/app/lib/api";
+import { readCache, writeCache } from "@/app/lib/cache";
 import { formatDay, formatTime } from "@/app/lib/format";
 import type { Locale } from "@/app/lib/i18n";
 import { useI18n } from "@/app/lib/I18nProvider";
@@ -86,21 +87,34 @@ function ConversationsContent() {
       setState("anon");
       return;
     }
+    const bid = session.businessId;
+    const key = `conversations.${bid}`;
+    // Stale-while-revalidate: show the last-known threads immediately, then refetch.
+    const cached = readCache<{ messages: MessageView[]; timeZone: string }>(key);
+    if (cached) {
+      setMessages(cached.messages);
+      setTimeZone(cached.timeZone);
+      setState("ready");
+    }
     void (async () => {
       const [feed, business] = await Promise.all([
-        api.conversations(session.businessId).catch(() => []),
-        api.getBusiness(session.businessId).catch(() => null),
+        api.conversations(bid).catch(() => []),
+        api.getBusiness(bid).catch(() => null),
       ]);
+      const timeZone = business ? business.timezone : (cached?.timeZone ?? "UTC");
       setMessages(feed);
-      if (business) setTimeZone(business.timezone);
+      setTimeZone(timeZone);
       setState("ready");
+      writeCache(key, { messages: feed, timeZone });
     })();
   }, []);
 
   const reload = async () => {
     const session = getSession();
     if (session === null) return;
-    setMessages(await api.conversations(session.businessId).catch(() => []));
+    const feed = await api.conversations(session.businessId).catch(() => []);
+    setMessages(feed);
+    writeCache(`conversations.${session.businessId}`, { messages: feed, timeZone });
   };
 
   // Poll so incoming customer messages appear live — essential while the owner is handling

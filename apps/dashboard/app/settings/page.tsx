@@ -3,7 +3,8 @@
 import { useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
 
-import { api } from "@/app/lib/api";
+import { api, type BusinessProfile } from "@/app/lib/api";
+import { clearCache, readCache, writeCache } from "@/app/lib/cache";
 import { useBotStatus } from "@/app/lib/BotStatusProvider";
 import { errorMessageKey } from "@/app/lib/errors";
 import { useI18n } from "@/app/lib/I18nProvider";
@@ -33,6 +34,7 @@ export default function SettingsPage() {
     try {
       await api.deleteAccount(current.businessId);
       clearSession();
+      clearCache();
       router.push("/login");
     } finally {
       setDeleting(false);
@@ -59,12 +61,8 @@ export default function SettingsPage() {
     if (current === null) return;
     // eslint-disable-next-line react-hooks/set-state-in-effect
     setSession(current);
-    void (async () => {
-      const [profile, list, llm] = await Promise.all([
-        api.getBusiness(current.businessId).catch(() => null),
-        api.getServices(current.businessId).catch(() => []),
-        api.getLlm(current.businessId).catch(() => ({ mode: "default" })),
-      ]);
+    const key = `settings.${current.businessId}`;
+    const apply = (profile: BusinessProfile | null, list: Service[], aiMode: string) => {
       if (profile) {
         setName(profile.name);
         setOwnerName(profile.owner_name ?? "");
@@ -74,7 +72,23 @@ export default function SettingsPage() {
         setOnline(profile.online ?? false);
       }
       setServices(list);
-      setAiMode(llm.mode);
+      setAiMode(aiMode);
+    };
+    // Stale-while-revalidate: fill the form from the last-known values, then refetch.
+    const cached = readCache<{
+      profile: BusinessProfile | null;
+      services: Service[];
+      aiMode: string;
+    }>(key);
+    if (cached) apply(cached.profile, cached.services, cached.aiMode);
+    void (async () => {
+      const [profile, list, llm] = await Promise.all([
+        api.getBusiness(current.businessId).catch(() => null),
+        api.getServices(current.businessId).catch(() => []),
+        api.getLlm(current.businessId).catch(() => ({ mode: "default" })),
+      ]);
+      apply(profile, list, llm.mode);
+      writeCache(key, { profile, services: list, aiMode: llm.mode });
     })();
   }, []);
 

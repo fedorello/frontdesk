@@ -4,6 +4,7 @@ import Link from "next/link";
 import { useEffect, useState } from "react";
 
 import { api, type AppointmentView, type MessageView } from "@/app/lib/api";
+import { readCache, writeCache } from "@/app/lib/cache";
 import { isCancelled, STATUS_LABEL } from "@/app/lib/appointments";
 import { formatDay, formatTime } from "@/app/lib/format";
 import type { Locale } from "@/app/lib/i18n";
@@ -35,15 +36,31 @@ export default function Home() {
       setState("anon");
       return;
     }
+    const bid = session.businessId;
+    const key = `overview.${bid}`;
+    // Stale-while-revalidate: paint the last-known data immediately, then refetch.
+    const cached = readCache<{
+      appointments: AppointmentView[];
+      messages: MessageView[];
+      timeZone: string;
+    }>(key);
+    if (cached) {
+      setAppointments(cached.appointments);
+      setMessages(cached.messages);
+      setTimeZone(cached.timeZone);
+      setState("ready");
+    }
     Promise.all([
-      api.appointments(session.businessId).catch(() => []),
-      api.conversations(session.businessId).catch(() => []),
-      api.getBusiness(session.businessId).catch(() => null),
+      api.appointments(bid).catch(() => []),
+      api.conversations(bid).catch(() => []),
+      api.getBusiness(bid).catch(() => null),
     ]).then(([appts, msgs, business]) => {
+      const timeZone = business ? business.timezone : (cached?.timeZone ?? "UTC");
       setAppointments(appts);
       setMessages(msgs);
-      if (business) setTimeZone(business.timezone);
+      setTimeZone(timeZone);
       setState("ready");
+      writeCache(key, { appointments: appts, messages: msgs, timeZone });
     });
   }, []);
 

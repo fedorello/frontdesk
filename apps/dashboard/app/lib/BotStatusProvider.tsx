@@ -4,6 +4,7 @@ import { usePathname } from "next/navigation";
 import { createContext, useCallback, useContext, useEffect, useState, type ReactNode } from "react";
 
 import { api, type TelegramStatus } from "@/app/lib/api";
+import { readCache, writeCache } from "@/app/lib/cache";
 import { getSession } from "@/app/lib/session";
 
 interface BotStatusValue {
@@ -31,14 +32,21 @@ export function BotStatusProvider({ children }: { children: ReactNode }) {
       return;
     }
     try {
-      setStatus(await api.telegramStatus(session.businessId));
+      const fresh = await api.telegramStatus(session.businessId);
+      setStatus(fresh);
+      writeCache(`botstatus.${session.businessId}`, fresh);
     } catch {
-      setStatus(null);
+      // Keep showing the last-known status on a transient error — don't flash "offline".
     }
   }, []);
 
   useEffect(() => {
-    // eslint-disable-next-line react-hooks/set-state-in-effect -- refresh fetches; the no-session path clears synchronously
+    const session = getSession();
+    if (session !== null) {
+      const cached = readCache<TelegramStatus>(`botstatus.${session.businessId}`);
+      // eslint-disable-next-line react-hooks/set-state-in-effect -- paint last-known immediately
+      if (cached) setStatus(cached);
+    }
     void refresh();
   }, [refresh, pathname]);
 
