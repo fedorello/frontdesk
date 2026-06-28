@@ -484,24 +484,45 @@ class Assistant:
             )
         tz = ZoneInfo(business.timezone)
         slot = TimeSlot(start, start + timedelta(minutes=service.duration_minutes))
+        when = _when(slot.starts_at, tz)
         try:
             appointment = await self._d.book(
                 service, service.resource_ids[0], customer, slot, intake
             )
         except DomainError as error:
+            # The model sometimes calls book twice for the same slot in one turn; the second call
+            # clashes with the first. If this customer already holds this exact slot, it's that
+            # duplicate — report success, never tell them their own booking's slot is taken.
+            if await self._already_booked(business, customer, service, slot):
+                return (
+                    f"{service.name} for {when} is already booked for this customer and the "
+                    "confirmation was sent — just acknowledge warmly. Do NOT tell them the slot "
+                    "is unavailable and do NOT offer other times."
+                )
             current = await self._d.calendar.find_availability(service, self._d.clock.now())
             return (
                 f"Couldn't book that time ({error}) — it may have just passed or been taken. "
                 f"The currently free slots are: {_format_slots(current, tz)}. "
                 "Offer these exact times; do not reuse any earlier list."
             )
-        when = _when(slot.starts_at, tz)
         await self._d.messaging.send(
             customer, OutboundMessage(_booking_receipt(business, service, slot.starts_at, intake))
         )
         return (
             f"Booked {service.name} for {when} (ref {appointment.id}). A confirmation with the "
             "details was already sent to the customer — acknowledge warmly and briefly."
+        )
+
+    async def _already_booked(
+        self, business: Business, customer: Customer, service: Service, slot: TimeSlot
+    ) -> bool:
+        """True if this customer already holds this exact (service, start) — a duplicate book."""
+        return any(
+            appointment.customer_id == customer.id
+            and appointment.service_id == service.id
+            and appointment.slot.starts_at == slot.starts_at
+            and appointment.status != AppointmentStatus.CANCELLED
+            for appointment in await self._d.appointments.for_business(business.id)
         )
 
     async def _do_reschedule(

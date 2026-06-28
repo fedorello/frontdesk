@@ -13,8 +13,8 @@ from frontdesk.application.ports import (
     ToolCall,
 )
 from frontdesk.domain.enums import AppointmentStatus, Channel, MessageRole
-from frontdesk.domain.ids import AppointmentId
-from frontdesk.domain.models import IntakeAnswer, IntakeField, Message, TimeSlot
+from frontdesk.domain.ids import AppointmentId, BusinessId, CustomerId
+from frontdesk.domain.models import Customer, IntakeAnswer, IntakeField, Message, TimeSlot
 from frontdesk.infrastructure.memory import ScriptedLlmProvider
 from tests.application.world import NOW, build_world, inbound, make_customer
 
@@ -75,14 +75,31 @@ async def test_escalation_flow_hands_off() -> None:
 
 async def test_failed_booking_returns_current_availability() -> None:
     world = build_world([])
+    args: dict[str, object] = {"service": "Haircut", "start": "2026-06-26T12:00:00+00:00"}
+
+    first = await world.assistant._do_book(world.business, make_customer(), args)
+    # A DIFFERENT customer hits the taken slot — a genuine clash, not a duplicate.
+    other = Customer(CustomerId("cus-2"), BusinessId("biz"), Channel.WHATSAPP, "+other")
+    retry = await world.assistant._do_book(world.business, other, args)
+
+    assert "Booked" in first
+    assert "currently free" in retry.lower()  # the model gets ground truth, not a stale list
+
+
+async def test_duplicate_book_by_same_customer_is_idempotent() -> None:
+    # The model sometimes calls book twice for the same slot in one turn. The second call must
+    # NOT tell the customer their own just-booked slot is taken — it reports the booking instead.
+    world = build_world([])
     customer = make_customer()
     args: dict[str, object] = {"service": "Haircut", "start": "2026-06-26T12:00:00+00:00"}
 
     first = await world.assistant._do_book(world.business, customer, args)
-    retry = await world.assistant._do_book(world.business, customer, args)  # same slot → taken
+    again = await world.assistant._do_book(world.business, customer, args)  # same customer + slot
 
     assert "Booked" in first
-    assert "currently free" in retry.lower()  # the model gets ground truth, not a stale list
+    assert "already booked" in again.lower()
+    assert "currently free" not in again.lower()  # not the clash path
+    assert len(world.appointments.appointments) == 1  # no duplicate appointment created
 
 
 def test_system_prompt_lists_only_real_services() -> None:
