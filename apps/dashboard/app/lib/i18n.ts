@@ -75,6 +75,8 @@ const MESSAGES = {
     "settings.save": "Save",
     "settings.saved": "Saved",
     "settings.remove": "Remove",
+    "settings.duplicate": "Duplicate",
+    "settings.copySuffix": "(copy)",
     "settings.businessDescription": "About your business",
     "settings.businessDescriptionHint":
       "The assistant uses this in every reply — what you do, your style, anything customers should know.",
@@ -227,6 +229,8 @@ const MESSAGES = {
     "settings.save": "Guardar",
     "settings.saved": "Guardado",
     "settings.remove": "Quitar",
+    "settings.duplicate": "Duplicar",
+    "settings.copySuffix": "(copia)",
     "settings.businessDescription": "Sobre tu negocio",
     "settings.businessDescriptionHint":
       "El asistente usa esto en cada respuesta — qué haces, tu estilo y lo que el cliente debería saber.",
@@ -378,6 +382,8 @@ const MESSAGES = {
     "settings.save": "Сохранить",
     "settings.saved": "Сохранено",
     "settings.remove": "Удалить",
+    "settings.duplicate": "Дублировать",
+    "settings.copySuffix": "(копия)",
     "settings.businessDescription": "О вашем бизнесе",
     "settings.businessDescriptionHint":
       "Ассистент использует это в каждом ответе — чем вы занимаетесь, ваш стиль, что важно знать клиенту.",
@@ -529,6 +535,8 @@ const MESSAGES = {
     "settings.save": "保存",
     "settings.saved": "已保存",
     "settings.remove": "移除",
+    "settings.duplicate": "复制",
+    "settings.copySuffix": "(副本)",
     "settings.businessDescription": "关于您的业务",
     "settings.businessDescriptionHint":
       "助手在每次回复中都会用到——您的业务内容、风格，以及客户需要了解的信息。",

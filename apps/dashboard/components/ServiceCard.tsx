@@ -29,11 +29,13 @@ export function ServiceCard({
   service,
   onSave,
   onRemove,
+  onDuplicate,
   startOpen = false,
 }: {
   service: Service;
   onSave: (service: Service) => Promise<void>;
   onRemove: (id: string) => void;
+  onDuplicate?: (service: Service) => void;
   startOpen?: boolean;
 }) {
   const { t, locale } = useI18n();
@@ -98,6 +100,15 @@ export function ServiceCard({
           >
             {open ? t("common.close") : t("settings.edit")}
           </button>
+          {onDuplicate && (
+            <button
+              type="button"
+              onClick={() => onDuplicate(service)}
+              className="text-ink hover:underline"
+            >
+              {t("settings.duplicate")}
+            </button>
+          )}
           <button
             type="button"
             onClick={() => onRemove(service.id)}

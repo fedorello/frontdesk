@@ -48,6 +48,7 @@ export default function SettingsPage() {
   const [address, setAddress] = useState("");
   const [online, setOnline] = useState(false);
   const [services, setServices] = useState<Service[]>([]);
+  const [openServiceId, setOpenServiceId] = useState<string | null>(null);
   const [aiMode, setAiMode] = useState("default");
   const [saved, setSaved] = useState(false);
   const [saveError, setSaveError] = useState<string | null>(null);
@@ -127,6 +128,18 @@ export default function SettingsPage() {
   const addService = () => {
     const id = `svc-${crypto.randomUUID()}`;
     setServices([...services, { id, name: "", duration_minutes: 60, working_hours: [] }]);
+  };
+
+  // Clone an existing service into a fresh, open card (pre-filled, name + "(copy)") so the
+  // owner only tweaks what differs; it persists when they hit Save.
+  const duplicateService = (service: Service) => {
+    const copy: Service = {
+      ...service,
+      id: `svc-${crypto.randomUUID()}`,
+      name: `${service.name} ${t("settings.copySuffix")}`.trim(),
+    };
+    setServices((current) => [...current, copy]);
+    setOpenServiceId(copy.id);
   };
 
   const removeService = async (id: string) => {
@@ -272,7 +285,8 @@ export default function SettingsPage() {
               service={service}
               onSave={saveService}
               onRemove={removeService}
-              startOpen={service.name === ""}
+              onDuplicate={duplicateService}
+              startOpen={service.name === "" || service.id === openServiceId}
             />
           ))}
         </div>
