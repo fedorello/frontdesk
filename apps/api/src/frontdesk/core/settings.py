@@ -53,6 +53,12 @@ class Settings(BaseSettings):
     # The business the web chat demo talks to (matches the seeded channel binding).
     demo_to_address: str = "+BIZ"
     cors_allow_origins: str = "*"
+    # Where the OAuth callback sends the owner back (the dashboard origin).
+    dashboard_url: str = "http://localhost:3000"
+    # Sign in with Google (OAuth 2.0). An empty client id disables the feature.
+    google_client_id: str = ""
+    google_client_secret: str = ""
+    google_redirect_uri: str = ""  # e.g. https://api.tovayo.com/api/auth/google/callback
     # Freeze "now" (ISO 8601) for a stable demo; empty = the real system clock.
     fixed_now: str = ""
 

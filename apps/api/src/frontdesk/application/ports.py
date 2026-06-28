@@ -179,6 +179,21 @@ class BusinessEraser(Protocol):
     async def erase(self, business_id: BusinessId) -> None: ...
 
 
+@dataclass(frozen=True, slots=True)
+class GoogleIdentity:
+    """The Google-verified identity returned after exchanging an authorization code."""
+
+    email: str
+    email_verified: bool
+    name: str
+
+
+class GoogleOAuthClient(Protocol):
+    """Exchanges a Google authorization code for the signed-in user's identity."""
+
+    async def exchange_code(self, code: str) -> GoogleIdentity: ...
+
+
 class LlmProvider(Protocol):
     async def complete(
         self,

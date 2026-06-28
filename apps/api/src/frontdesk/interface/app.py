@@ -43,6 +43,7 @@ from frontdesk.infrastructure.channels.telegram import (
 from frontdesk.infrastructure.channels.whatsapp import WhatsAppMessaging
 from frontdesk.infrastructure.db import create_engine, make_session_factory
 from frontdesk.infrastructure.events import LoggingEventPublisher
+from frontdesk.infrastructure.google_oauth import HttpGoogleOAuthClient
 from frontdesk.infrastructure.logging_setup import configure_logging
 from frontdesk.infrastructure.memory import InMemoryIdempotency
 from frontdesk.infrastructure.postgres.adapters import (
@@ -78,6 +79,7 @@ from frontdesk.interface.business_config import build_llm_config_router
 from frontdesk.interface.chat import build_chat_router
 from frontdesk.interface.config_api import build_config_router
 from frontdesk.interface.conversations_api import build_conversations_router
+from frontdesk.interface.google_auth import build_google_auth_router
 from frontdesk.interface.metrics_api import build_metrics_router
 from frontdesk.interface.read_api import build_read_router
 from frontdesk.interface.telegram_connect import build_telegram_connect_router
@@ -209,6 +211,20 @@ def create_production_app() -> FastAPI:
     app.include_router(build_approvals_router(pending_approvals))
     app.include_router(build_telegram_router(telegram_inbound, telegram_bots))
     app.include_router(build_auth_router(accounts, SqlBusinessRepository(sessions), ids, settings))
+    app.include_router(
+        build_google_auth_router(
+            HttpGoogleOAuthClient(
+                settings.google_client_id,
+                settings.google_client_secret,
+                settings.google_redirect_uri,
+                client,
+            ),
+            accounts,
+            SqlBusinessRepository(sessions),
+            ids,
+            settings,
+        )
+    )
     app.include_router(build_llm_config_router(llm_configs, guard))
     app.include_router(
         build_config_router(

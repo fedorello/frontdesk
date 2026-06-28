@@ -1,7 +1,7 @@
 // Typed client for the tovayo API (M5). One place that knows the endpoints and
 // shapes, reused by every screen regardless of how it looks.
 
-const API_URL = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:8000";
+export const API_URL = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:8000";
 
 export class ApiError extends Error {
   constructor(
