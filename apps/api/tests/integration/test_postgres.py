@@ -2,7 +2,7 @@
 database-level guarantees (the exclusion constraint and SKIP LOCKED)."""
 
 from dataclasses import replace
-from datetime import UTC, datetime, timedelta
+from datetime import UTC, datetime, time, timedelta
 
 import pytest
 from sqlalchemy import text
@@ -23,7 +23,9 @@ from frontdesk.domain.models import (
     Customer,
     IntakeAnswer,
     Reminder,
+    Resource,
     Service,
+    WorkingHours,
 )
 from frontdesk.infrastructure.postgres.adapters import (
     SqlAccountRepository,
@@ -291,3 +293,49 @@ async def test_approval_store(sessionmaker: Factory) -> None:
     assert decided is not None
     assert decided.status == "approved"
     assert await store.pending("biz") == []  # no longer pending
+
+
+async def test_service_groups_e2e_same_group_collides_different_group_parallel(
+    sessionmaker: Factory,
+) -> None:
+    """End-to-end on real Postgres: same-group services share one calendar (and the gist
+    exclusion constraint), so they can't overlap; different-group services book in parallel.
+    This is the core service-groups guarantee, through the real SqlCalendar + DB constraint."""
+    services = SqlServiceRepository(sessionmaker)
+    resources = SqlResourceRepository(sessionmaker)
+    calendar = SqlCalendar(sessionmaker, SequentialIdGenerator("ap"), FixedClock(NOW))
+    week = tuple(WorkingHours(day, time(9), time(17)) for day in range(7))
+
+    # The seed gives us group "res" + service "svc". Add a second group "res2" and two more
+    # services: one in the SAME group as "svc", one in the different group "res2".
+    await resources.upsert(Resource(ResourceId("res2"), BusinessId("biz"), "Bob", week))
+    same_group = Service(
+        ServiceId("svc-same"), BusinessId("biz"), "Reading", 60, resource_ids=(ResourceId("res"),)
+    )
+    other_group = Service(
+        ServiceId("svc-other"),
+        BusinessId("biz"),
+        "Coaching",
+        60,
+        resource_ids=(ResourceId("res2"),),
+    )
+    await services.upsert(same_group)
+    await services.upsert(other_group)
+
+    seeded = _service()  # "svc", in group "res"
+    slot = (await calendar.find_availability(seeded, NOW))[0]
+    await calendar.book(seeded, ResourceId("res"), _customer(), slot)
+
+    # SAME group: the slot vanishes from the sibling service's availability, and booking it
+    # raises DoubleBooking — one specialist can't be in two appointments at once.
+    sibling_slots = await calendar.find_availability(same_group, NOW)
+    assert all(not s.overlaps(slot) for s in sibling_slots)
+    with pytest.raises(DoubleBooking):
+        await calendar.book(same_group, ResourceId("res"), _customer(), slot)
+
+    # DIFFERENT group: still offered at the SAME time and bookable in parallel (a different
+    # specialist with an independent calendar).
+    other_slots = await calendar.find_availability(other_group, NOW)
+    assert any(s.starts_at == slot.starts_at for s in other_slots)
+    parallel = await calendar.book(other_group, ResourceId("res2"), _customer(), slot)
+    assert parallel.slot.starts_at == slot.starts_at

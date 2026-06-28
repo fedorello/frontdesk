@@ -57,6 +57,8 @@ test("can skip Telegram and still finish onboarding", async ({ page }) => {
 
 test("the wizard is internationalized via the language switcher", async ({ page }) => {
   await page.goto("/onboarding");
-  await page.getByLabel("Language").selectOption("ru");
+  // The switcher is a dropdown button (not a native <select>): open it, then pick Russian.
+  await page.getByLabel("Language").click();
+  await page.getByRole("button", { name: "Русский" }).click();
   await expect(page.getByRole("heading", { name: "Настройте вашего ресепшиониста" })).toBeVisible();
 });

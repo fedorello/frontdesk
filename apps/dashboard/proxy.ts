@@ -4,7 +4,8 @@ import { type NextRequest, NextResponse } from "next/server";
 // scripts (Next reads the CSP from the request header) and to our no-flash theme script
 // (the layout reads `x-nonce`). No 'unsafe-inline' for scripts. The dashboard talks to the
 // API (connect-src) and renders Google avatars (img-src https:).
-const API_ORIGIN = process.env.NEXT_PUBLIC_API_URL ?? "https://api.tovayo.com";
+// Must match the fetch base in app/lib/api.ts exactly, or connect-src blocks the API calls.
+const API_ORIGIN = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:8000";
 
 export function proxy(request: NextRequest): NextResponse {
   const nonce = btoa(crypto.randomUUID());
