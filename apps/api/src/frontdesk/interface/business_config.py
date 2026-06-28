@@ -42,7 +42,9 @@ def _view(config: LlmConfig) -> LlmConfigView:
     )
 
 
-def build_llm_config_router(llm_configs: LlmConfigRepository, guard: Guard = None) -> APIRouter:
+def build_llm_config_router(
+    llm_configs: LlmConfigRepository, allow_own_llm: bool = False, guard: Guard = None
+) -> APIRouter:
     router = APIRouter(dependencies=[Depends(guard)] if guard is not None else [])
 
     @router.get("/api/businesses/{business_id}/llm")
@@ -54,6 +56,9 @@ def build_llm_config_router(llm_configs: LlmConfigRepository, guard: Guard = Non
     async def put_llm(business_id: str, body: LlmConfigInput) -> LlmConfigView:
         if body.mode not in {"default", "own"}:
             raise HTTPException(422, "mode must be 'default' or 'own'")
+        if body.mode == "own" and not allow_own_llm:
+            # A custom provider/key isn't available yet — only the managed default is allowed.
+            raise HTTPException(403, "bringing your own provider is not available yet")
         if body.mode == "own":
             if body.provider not in _PROVIDERS:
                 raise HTTPException(422, f"provider must be one of {sorted(_PROVIDERS)}")

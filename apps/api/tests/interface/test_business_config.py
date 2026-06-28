@@ -8,9 +8,9 @@ from frontdesk.infrastructure.memory import InMemoryLlmConfigRepository
 from frontdesk.interface.business_config import build_llm_config_router
 
 
-def _client(repo: InMemoryLlmConfigRepository) -> httpx.AsyncClient:
+def _client(repo: InMemoryLlmConfigRepository, *, allow_own_llm: bool = True) -> httpx.AsyncClient:
     app = FastAPI()
-    app.include_router(build_llm_config_router(repo))
+    app.include_router(build_llm_config_router(repo, allow_own_llm=allow_own_llm))
     return httpx.AsyncClient(transport=httpx.ASGITransport(app=app), base_url="http://test")
 
 
@@ -70,3 +70,19 @@ async def test_own_mode_validates_inputs() -> None:
         bad_mode = await client.put("/api/businesses/biz/llm", json={"mode": "weird"})
 
     assert (bad_provider.status_code, no_key.status_code, bad_mode.status_code) == (422, 422, 422)
+
+
+async def test_own_mode_rejected_when_the_feature_is_off() -> None:
+    repo = InMemoryLlmConfigRepository()
+    async with _client(repo, allow_own_llm=False) as client:
+        # The "bring your own provider" feature isn't launched: own mode is forbidden...
+        own = await client.put(
+            "/api/businesses/biz/llm",
+            json={"mode": "own", "provider": "openai", "model": "gpt-4o", "api_key": "sk-x"},
+        )
+        assert own.status_code == 403
+        assert await repo.get(BusinessId("biz")) is None  # nothing stored
+
+        # ...but the managed default still works.
+        default = await client.put("/api/businesses/biz/llm", json={"mode": "default"})
+        assert default.status_code == 200

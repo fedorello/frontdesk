@@ -154,6 +154,7 @@ const MESSAGES = {
     "onboarding.addService": "Add service",
     "onboarding.chooseAi": "Choose the AI",
     "onboarding.defaultAi": "Use the managed default (recommended)",
+    "onboarding.defaultAiOnly": "Your assistant uses our managed AI — nothing to set up.",
     "onboarding.ownAi": "Bring my own provider & key",
     "onboarding.apiKey": "API key",
     "onboarding.connectTelegram": "Connect Telegram",
@@ -319,6 +320,8 @@ const MESSAGES = {
     "onboarding.addService": "Agregar servicio",
     "onboarding.chooseAi": "Elige la IA",
     "onboarding.defaultAi": "Usar la opción gestionada (recomendado)",
+    "onboarding.defaultAiOnly":
+      "Tu asistente usa nuestra IA gestionada — no hay que configurar nada.",
     "onboarding.ownAi": "Usar mi propio proveedor y clave",
     "onboarding.apiKey": "Clave de API",
     "onboarding.connectTelegram": "Conectar Telegram",
@@ -483,6 +486,8 @@ const MESSAGES = {
     "onboarding.addService": "Добавить услугу",
     "onboarding.chooseAi": "Выберите ИИ",
     "onboarding.defaultAi": "Использовать наш вариант (рекомендуется)",
+    "onboarding.defaultAiOnly":
+      "Ваш ассистент работает на нашем управляемом ИИ — настраивать ничего не нужно.",
     "onboarding.ownAi": "Свой провайдер и ключ",
     "onboarding.apiKey": "Ключ API",
     "onboarding.connectTelegram": "Подключить Telegram",
@@ -643,6 +648,7 @@ const MESSAGES = {
     "onboarding.addService": "添加服务",
     "onboarding.chooseAi": "选择 AI",
     "onboarding.defaultAi": "使用托管默认（推荐）",
+    "onboarding.defaultAiOnly": "您的助手使用我们托管的 AI——无需任何设置。",
     "onboarding.ownAi": "使用自己的提供商和密钥",
     "onboarding.apiKey": "API 密钥",
     "onboarding.connectTelegram": "连接 Telegram",

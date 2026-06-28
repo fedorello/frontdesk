@@ -68,6 +68,9 @@ class Settings(BaseSettings):
     # Freeze "now" (ISO 8601) for a stable demo; empty = the real system clock.
     fixed_now: str = ""
 
+    # Whether a business may bring its own LLM provider + key (vs the managed default).
+    # Off until the feature is launched; enable via FRONTDESK_ALLOW_OWN_LLM=true.
+    allow_own_llm: bool = False
     # LLM provider (model-agnostic; any OpenAI-compatible or Anthropic endpoint).
     llm_provider: str = "openai"  # "openai" | "anthropic"
     llm_api_key: str = ""

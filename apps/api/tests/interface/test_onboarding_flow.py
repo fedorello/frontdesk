@@ -56,7 +56,7 @@ def _app(client: httpx.AsyncClient) -> FastAPI:
             businesses, InMemoryServiceRepository([]), InMemoryResourceRepository(), guard
         )
     )
-    app.include_router(build_llm_config_router(InMemoryLlmConfigRepository(), guard))
+    app.include_router(build_llm_config_router(InMemoryLlmConfigRepository(), guard=guard))
     app.include_router(
         build_telegram_connect_router(
             InMemoryTelegramBotRepository(),

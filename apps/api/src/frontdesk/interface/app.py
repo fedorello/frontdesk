@@ -240,7 +240,7 @@ def create_production_app() -> FastAPI:
             rate_limiter,
         )
     )
-    app.include_router(build_llm_config_router(llm_configs, guard))
+    app.include_router(build_llm_config_router(llm_configs, settings.allow_own_llm, guard))
     app.include_router(
         build_config_router(
             SqlBusinessRepository(sessions),

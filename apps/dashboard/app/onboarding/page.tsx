@@ -23,6 +23,10 @@ const STEPS: MessageKey[] = [
 
 const WEEKDAYS = [0, 1, 2, 3, 4]; // Mon–Fri
 
+// Bringing your own LLM provider/key isn't launched yet — hide it until the flag is on.
+// (The API also rejects "own" mode unless FRONTDESK_ALLOW_OWN_LLM is set.)
+const ALLOW_OWN_LLM = process.env.NEXT_PUBLIC_ALLOW_OWN_LLM === "true";
+
 export default function OnboardingPage() {
   const { t } = useI18n();
   const router = useRouter();
@@ -98,9 +102,11 @@ export default function OnboardingPage() {
 
   const submitAi = () =>
     guarded(async () => {
+      // "own" is only possible when the feature is enabled; otherwise always the default.
+      const useOwn = ALLOW_OWN_LLM && aiMode === "own";
       await api.putLlm(
         businessId,
-        aiMode === "own" ? { mode: "own", provider, model, api_key: apiKey } : { mode: "default" },
+        useOwn ? { mode: "own", provider, model, api_key: apiKey } : { mode: "default" },
       );
       setStep(3);
     });
@@ -218,52 +224,59 @@ export default function OnboardingPage() {
             {step === 2 && (
               <>
                 <p className="text-sm font-medium">{t("onboarding.chooseAi")}</p>
-                <label className="flex items-center gap-2 text-sm">
-                  <input
-                    type="radio"
-                    name="ai"
-                    checked={aiMode === "default"}
-                    onChange={() => setAiMode("default")}
-                  />
-                  {t("onboarding.defaultAi")}
-                </label>
-                <label className="flex items-center gap-2 text-sm">
-                  <input
-                    type="radio"
-                    name="ai"
-                    checked={aiMode === "own"}
-                    onChange={() => setAiMode("own")}
-                  />
-                  {t("onboarding.ownAi")}
-                </label>
-                {aiMode === "own" && (
+                {ALLOW_OWN_LLM ? (
                   <>
-                    <Field label="Provider" id="provider">
+                    <label className="flex items-center gap-2 text-sm">
                       <input
-                        id="provider"
-                        value={provider}
-                        onChange={(e) => setProvider(e.target.value)}
-                        className={inputClass}
+                        type="radio"
+                        name="ai"
+                        checked={aiMode === "default"}
+                        onChange={() => setAiMode("default")}
                       />
-                    </Field>
-                    <Field label="Model" id="model">
+                      {t("onboarding.defaultAi")}
+                    </label>
+                    <label className="flex items-center gap-2 text-sm">
                       <input
-                        id="model"
-                        value={model}
-                        onChange={(e) => setModel(e.target.value)}
-                        className={inputClass}
+                        type="radio"
+                        name="ai"
+                        checked={aiMode === "own"}
+                        onChange={() => setAiMode("own")}
                       />
-                    </Field>
-                    <Field label={t("onboarding.apiKey")} id="apiKey">
-                      <input
-                        id="apiKey"
-                        type="password"
-                        value={apiKey}
-                        onChange={(e) => setApiKey(e.target.value)}
-                        className={inputClass}
-                      />
-                    </Field>
+                      {t("onboarding.ownAi")}
+                    </label>
+                    {aiMode === "own" && (
+                      <>
+                        <Field label="Provider" id="provider">
+                          <input
+                            id="provider"
+                            value={provider}
+                            onChange={(e) => setProvider(e.target.value)}
+                            className={inputClass}
+                          />
+                        </Field>
+                        <Field label="Model" id="model">
+                          <input
+                            id="model"
+                            value={model}
+                            onChange={(e) => setModel(e.target.value)}
+                            className={inputClass}
+                          />
+                        </Field>
+                        <Field label={t("onboarding.apiKey")} id="apiKey">
+                          <input
+                            id="apiKey"
+                            type="password"
+                            value={apiKey}
+                            onChange={(e) => setApiKey(e.target.value)}
+                            className={inputClass}
+                          />
+                        </Field>
+                      </>
+                    )}
                   </>
+                ) : (
+                  // Only the managed default for now; "own" is hidden until launched.
+                  <p className="text-sm text-muted">{t("onboarding.defaultAiOnly")}</p>
                 )}
                 <PrimaryButton onClick={submitAi} busy={busy}>
                   {t("common.next")}
