@@ -9,6 +9,7 @@ from __future__ import annotations
 from collections.abc import Sequence
 from dataclasses import dataclass
 from datetime import datetime
+from enum import StrEnum
 from typing import Protocol
 
 from frontdesk.domain.enums import Channel
@@ -214,10 +215,18 @@ class LlmProvider(Protocol):
     ) -> Completion: ...
 
 
-class AvailabilityClaimDetector(Protocol):
-    """Supervisor that decides whether a draft reply offers the customer bookable times."""
+class ReplyClaim(StrEnum):
+    """What a draft reply asserts to the customer — each must be backed by a tool call."""
 
-    async def mentions_available_slots(self, message: str) -> bool: ...
+    OFFERS_TIMES = "offers_times"  # lists specific available slots to pick
+    CONFIRMS_BOOKING = "confirms_booking"  # says a booking/reschedule/cancel is done
+    LISTS_APPOINTMENTS = "lists_appointments"  # states or counts the customer's appointments
+
+
+class ReplyClaimClassifier(Protocol):
+    """Supervisor that labels a draft reply's claims, so the loop can verify them with tools."""
+
+    async def classify(self, message: str) -> frozenset[ReplyClaim]: ...
 
 
 class Calendar(Protocol):

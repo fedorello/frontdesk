@@ -10,13 +10,14 @@ from frontdesk.application.ports import (
     Escalated,
     InboundMessage,
     MessageReceived,
+    ReplyClaim,
     ToolCall,
 )
 from frontdesk.domain.enums import AppointmentStatus, Channel, MessageRole
 from frontdesk.domain.ids import AppointmentId, BusinessId, CustomerId
 from frontdesk.domain.models import Customer, IntakeAnswer, IntakeField, Message, TimeSlot
 from frontdesk.infrastructure.memory import (
-    InMemoryAvailabilityClaimDetector,
+    InMemoryReplyClaimClassifier,
     ScriptedLlmProvider,
 )
 from tests.application.world import NOW, build_world, inbound, make_customer
@@ -330,7 +331,7 @@ async def test_supervisor_reruns_when_times_are_offered_without_a_check() -> Non
             Completion("Sure! Free slots: 10:00, 11:00"),  # final draft, no tool call
             Completion("Here are the real times for you."),  # the corrected answer
         ],
-        detector=InMemoryAvailabilityClaimDetector(triggers=["free slots"]),
+        classifier=InMemoryReplyClaimClassifier({"free slots": ReplyClaim.OFFERS_TIMES}),
     )
 
     await world.assistant.handle(inbound("when are you free tomorrow?"))
@@ -344,15 +345,15 @@ async def test_supervisor_reruns_when_times_are_offered_without_a_check() -> Non
 
 
 async def test_supervisor_allows_times_after_a_real_availability_check() -> None:
-    # When find_availability WAS called, offering times is legitimate — no rerun, and the
-    # deterministic check short-circuits before the supervisor is even consulted.
-    detector = InMemoryAvailabilityClaimDetector(triggers=["free slots"])
+    # When find_availability WAS called, offering times is legitimate: the supervisor still
+    # classifies the draft, but the claim is backed by the tool call, so there is no rerun.
+    classifier = InMemoryReplyClaimClassifier({"free slots": ReplyClaim.OFFERS_TIMES})
     world = build_world(
         [
             Completion(None, (ToolCall("c1", "find_availability", {"service": "Haircut"}),)),
             Completion("Sure! Free slots: 10:00, 11:00"),  # offered after a real check
         ],
-        detector=detector,
+        classifier=classifier,
     )
 
     await world.assistant.handle(inbound("when are you free tomorrow?"))
@@ -361,4 +362,43 @@ async def test_supervisor_allows_times_after_a_real_availability_check() -> None
     llm = world.deps.llm
     assert isinstance(llm, ScriptedLlmProvider)
     assert llm.calls == 2  # no corrective third call
-    assert detector.seen == []  # availability was checked, so the supervisor was skipped
+    assert classifier.seen == ["Sure! Free slots: 10:00, 11:00"]  # consulted, but claim is backed
+
+
+async def test_supervisor_reruns_when_appointments_listed_without_a_lookup() -> None:
+    # The model recites the customer's appointments from memory (the phantom-summary bug).
+    # The supervisor flags it, we run find_my_appointments, and the model redoes the recap.
+    world = build_world(
+        [
+            Completion("You have 3 appointments: ..."),  # listed from memory, no tool call
+            Completion("Here is your real schedule."),  # corrected
+        ],
+        classifier=InMemoryReplyClaimClassifier({"appointments": ReplyClaim.LISTS_APPOINTMENTS}),
+    )
+
+    await world.assistant.handle(inbound("what are my appointments?"))
+
+    assert "real schedule" in world.messaging.sent[-1][1].text
+    llm = world.deps.llm
+    assert isinstance(llm, ScriptedLlmProvider)
+    assert "REAL upcoming appointments" in llm.last_system  # the true list was injected
+    assert llm.calls == 2
+
+
+async def test_supervisor_reruns_when_booking_claimed_without_acting() -> None:
+    # The model says a booking is done but never called book (the phantom-booking bug).
+    world = build_world(
+        [
+            Completion("Done, you're booked!"),  # claims a booking, no tool call
+            Completion("Sorry — that is not booked yet."),  # corrected
+        ],
+        classifier=InMemoryReplyClaimClassifier({"booked": ReplyClaim.CONFIRMS_BOOKING}),
+    )
+
+    await world.assistant.handle(inbound("book it"))
+
+    assert "not booked" in world.messaging.sent[-1][1].text
+    llm = world.deps.llm
+    assert isinstance(llm, ScriptedLlmProvider)
+    assert "did NOT call book" in llm.last_system  # forced to actually act or recant
+    assert llm.calls == 2

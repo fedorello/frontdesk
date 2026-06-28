@@ -18,6 +18,7 @@ from frontdesk.application.ports import (
     LlmConfig,
     OutboundMessage,
     RecentMessage,
+    ReplyClaim,
     SensitiveAction,
     ServiceRepository,
     TelegramBotConfig,
@@ -131,17 +132,17 @@ class ScriptedLlmProvider:
         return completion
 
 
-class InMemoryAvailabilityClaimDetector:
-    """Supervisor fake: flags a message when it contains any configured trigger phrase."""
+class InMemoryReplyClaimClassifier:
+    """Supervisor fake: returns the claims whose trigger phrase appears in the message."""
 
-    def __init__(self, triggers: Sequence[str] = ()) -> None:
-        self._triggers = tuple(trigger.lower() for trigger in triggers)
+    def __init__(self, triggers: dict[str, ReplyClaim] | None = None) -> None:
+        self._triggers = {phrase.lower(): claim for phrase, claim in (triggers or {}).items()}
         self.seen: list[str] = []  # captured for assertions on what was classified
 
-    async def mentions_available_slots(self, message: str) -> bool:
+    async def classify(self, message: str) -> frozenset[ReplyClaim]:
         self.seen.append(message)
         lowered = message.lower()
-        return any(trigger in lowered for trigger in self._triggers)
+        return frozenset(claim for phrase, claim in self._triggers.items() if phrase in lowered)
 
 
 class InMemoryBusinessRepository:

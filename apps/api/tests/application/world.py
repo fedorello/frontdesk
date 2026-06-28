@@ -12,9 +12,9 @@ from frontdesk.application.appointments import (
 )
 from frontdesk.application.assistant import Assistant, AssistantDeps
 from frontdesk.application.ports import (
-    AvailabilityClaimDetector,
     Completion,
     InboundMessage,
+    ReplyClaimClassifier,
 )
 from frontdesk.domain.enums import Channel
 from frontdesk.domain.ids import BusinessId, CustomerId, ResourceId, ServiceId
@@ -30,7 +30,6 @@ from frontdesk.domain.models import (
 from frontdesk.infrastructure.memory import (
     AutoDecisionGate,
     InMemoryAppointmentRepository,
-    InMemoryAvailabilityClaimDetector,
     InMemoryBusinessRepository,
     InMemoryCalendar,
     InMemoryConversationRepository,
@@ -38,6 +37,7 @@ from frontdesk.infrastructure.memory import (
     InMemoryEventPublisher,
     InMemoryMessaging,
     InMemoryReminderStore,
+    InMemoryReplyClaimClassifier,
     InMemoryServiceRepository,
     ScriptedLlmProvider,
 )
@@ -73,7 +73,7 @@ def build_world(
     gate_approves: bool = False,
     intake_fields: tuple[IntakeField, ...] = (),
     requires_confirmation: bool = False,
-    detector: AvailabilityClaimDetector | None = None,
+    classifier: ReplyClaimClassifier | None = None,
 ) -> World:
     business = Business(
         BusinessId("biz"),
@@ -132,7 +132,7 @@ def build_world(
         events=events,
         gate=AutoDecisionGate(approved=gate_approves),
         clock=clock,
-        detector=detector or InMemoryAvailabilityClaimDetector(),
+        classifier=classifier or InMemoryReplyClaimClassifier(),
     )
     return World(
         assistant=Assistant(deps),

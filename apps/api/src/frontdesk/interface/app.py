@@ -27,11 +27,11 @@ from frontdesk.application.owner_actions import (
 )
 from frontdesk.application.ports import (
     ApprovalGate,
-    AvailabilityClaimDetector,
     Clock,
     IdGenerator,
     LlmProvider,
     MessagingPort,
+    ReplyClaimClassifier,
     SecretCipher,
 )
 from frontdesk.core.settings import Settings
@@ -67,8 +67,8 @@ from frontdesk.infrastructure.postgres.adapters import (
 )
 from frontdesk.infrastructure.providers.anthropic import AnthropicProvider
 from frontdesk.infrastructure.providers.groq import (
-    GroqAvailabilityDetector,
-    NullAvailabilityClaimDetector,
+    GroqReplyClaimClassifier,
+    NullReplyClaimClassifier,
 )
 from frontdesk.infrastructure.providers.openai import OpenAiProvider
 from frontdesk.infrastructure.rate_limit import InMemoryRateLimiter
@@ -145,13 +145,11 @@ def build_messaging(settings: Settings, client: httpx.AsyncClient) -> MessagingP
     return RoutingMessaging(whatsapp=whatsapp, telegram=telegram, fallback=LoggingMessaging())
 
 
-def build_availability_detector(
-    settings: Settings, client: httpx.AsyncClient
-) -> AvailabilityClaimDetector:
+def build_reply_classifier(settings: Settings, client: httpx.AsyncClient) -> ReplyClaimClassifier:
     """The Groq supervisor when configured; otherwise a no-op (the guardrail is off)."""
     if not settings.groq_api_key:
-        return NullAvailabilityClaimDetector()
-    return GroqAvailabilityDetector(
+        return NullReplyClaimClassifier()
+    return GroqReplyClaimClassifier(
         api_key=settings.groq_api_key,
         model=settings.supervisor_model,
         client=client,
@@ -191,7 +189,7 @@ def build_assistant_deps(
         events,
         gate,
         clock,
-        build_availability_detector(settings, client),
+        build_reply_classifier(settings, client),
     )
 
 

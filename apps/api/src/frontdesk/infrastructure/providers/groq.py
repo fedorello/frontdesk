@@ -1,30 +1,38 @@
-"""Groq-backed supervisor: a fast classifier that flags replies offering bookable times.
+"""Groq-backed supervisor: labels what a draft reply claims, so the loop can verify each claim.
 
 Groq exposes an OpenAI-compatible chat-completions endpoint, so the call shape mirrors the main
-provider — but the job is different (one yes/no classification, no tools), so it is its own
-adapter. The detector is best-effort: if Groq is unreachable it returns False (no guardrail)
-rather than blocking the customer's reply.
+provider — but the job is different (one short classification, no tools), so it is its own
+adapter. Best-effort: if Groq is unreachable it returns no claims (no guardrail) rather than
+blocking the customer's reply.
 """
 
 import logging
 
 import httpx
 
+from frontdesk.application.ports import ReplyClaim
+
 _logger = logging.getLogger("frontdesk.supervisor")
 
-# Keep the classifier terse and deterministic: one word out, no room to ramble.
+# The classifier emits short tags; we map them back to claims. Keep it terse and deterministic.
+_TAGS = {
+    "TIMES": ReplyClaim.OFFERS_TIMES,
+    "BOOKING": ReplyClaim.CONFIRMS_BOOKING,
+    "LIST": ReplyClaim.LISTS_APPOINTMENTS,
+}
 _SYSTEM_PROMPT = (
-    "You are a strict classifier for a booking assistant. You receive a draft message the "
-    "assistant is about to send to a customer. Answer YES if the message offers, lists, or "
-    "proposes specific available appointment times for the customer to choose from. Answer NO "
-    "for anything else: greetings, prices, questions, or confirming an already-made booking. "
-    "Reply with exactly one word: YES or NO."
+    "You classify a draft message a booking assistant is about to send to a customer. Reply with "
+    "the space-separated tags that apply, or NONE:\n"
+    "TIMES — it offers, lists, or proposes specific available appointment times to choose from.\n"
+    "BOOKING — it states that a booking, reschedule, or cancellation has just been done.\n"
+    "LIST — it states, lists, or counts the customer's existing/upcoming appointments.\n"
+    "Output only the tags (e.g. 'BOOKING LIST') or 'NONE'. No other words."
 )
-_MAX_TOKENS = 2  # one word ("YES"/"NO") is a single token; 2 leaves a safe margin
+_MAX_TOKENS = 10  # a few short tags at most
 
 
-class GroqAvailabilityDetector:
-    """Classifies, via Groq, whether a draft reply offers the customer bookable times."""
+class GroqReplyClaimClassifier:
+    """Classifies, via Groq, which claims a draft reply makes about times/bookings/appointments."""
 
     def __init__(
         self, *, api_key: str, model: str, client: httpx.AsyncClient, base_url: str
@@ -34,9 +42,9 @@ class GroqAvailabilityDetector:
         self._client = client
         self._base = base_url.rstrip("/")
 
-    async def mentions_available_slots(self, message: str) -> bool:
+    async def classify(self, message: str) -> frozenset[ReplyClaim]:
         if not message.strip():
-            return False
+            return frozenset()
         payload = {
             "model": self._model,
             "max_tokens": _MAX_TOKENS,
@@ -55,14 +63,14 @@ class GroqAvailabilityDetector:
             response.raise_for_status()
         except httpx.HTTPError as error:
             # Best-effort guardrail: a supervisor outage must never block the customer's reply.
-            _logger.warning("availability supervisor unavailable: %s", error)
-            return False
+            _logger.warning("reply-claim supervisor unavailable: %s", error)
+            return frozenset()
         content = response.json()["choices"][0]["message"].get("content") or ""
-        return content.strip().upper().startswith("YES")
+        return frozenset(_TAGS[tag] for tag in content.upper().split() if tag in _TAGS)
 
 
-class NullAvailabilityClaimDetector:
-    """Used when no supervisor is configured: the availability guardrail is a no-op."""
+class NullReplyClaimClassifier:
+    """Used when no supervisor is configured: the claim guardrail is a no-op."""
 
-    async def mentions_available_slots(self, message: str) -> bool:
-        return False
+    async def classify(self, message: str) -> frozenset[ReplyClaim]:
+        return frozenset()

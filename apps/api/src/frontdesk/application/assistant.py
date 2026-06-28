@@ -22,7 +22,6 @@ from frontdesk.application.ports import (
     ApprovalGate,
     ApprovalRequested,
     AssistantObserver,
-    AvailabilityClaimDetector,
     BusinessRepository,
     Calendar,
     Clock,
@@ -35,6 +34,8 @@ from frontdesk.application.ports import (
     MessageReceived,
     MessagingPort,
     OutboundMessage,
+    ReplyClaim,
+    ReplyClaimClassifier,
     SensitiveAction,
     ServiceRepository,
     ToolCall,
@@ -56,13 +57,30 @@ _logger = logging.getLogger("frontdesk.supervisor")
 
 MAX_STEPS = 6
 SLOT_FORMAT = "%a %d %b %H:%M"  # rendered in the business's local time zone
-_FIND_AVAILABILITY = "find_availability"  # the tool the model must call before showing times
-# Appended to the system prompt for the one corrective retry when the model offered times
-# without checking — the supervisor caught it, so we hand it the real slots to use instead.
-_STALE_AVAILABILITY_NOTICE = (
+# Which claim each tool backs: if the reply makes a claim but its tool wasn't called this turn,
+# the model is guessing/reusing stale data and the supervisor forces a redo with the real data.
+_CLAIM_FOR_TOOL = {
+    "find_availability": ReplyClaim.OFFERS_TIMES,
+    "book": ReplyClaim.CONFIRMS_BOOKING,
+    "reschedule": ReplyClaim.CONFIRMS_BOOKING,
+    "cancel": ReplyClaim.CONFIRMS_BOOKING,
+    "find_my_appointments": ReplyClaim.LISTS_APPOINTMENTS,
+}
+# Each is appended to the system prompt for the one corrective retry, with the real data.
+_TIMES_NOTICE = (
     "\n\nIMPORTANT: your previous draft offered appointment times without calling "
     "find_availability, so they may be stale. I ran it for you. These are the ONLY currently "
     "free slots — answer the customer using exactly these and nothing else:\n"
+)
+_APPOINTMENTS_NOTICE = (
+    "\n\nIMPORTANT: your previous draft stated the customer's appointments without calling "
+    "find_my_appointments, so they may be wrong. I ran it for you. These are their REAL upcoming "
+    "appointments — use exactly these, do not add or drop any:\n"
+)
+_BOOKING_NOTICE = (
+    "\n\nIMPORTANT: your previous draft told the customer a booking or change is done, but you "
+    "did NOT call book, reschedule, or cancel this turn — so nothing happened. Either call the "
+    "correct tool now (collect any required details first), or tell the customer it is not done."
 )
 # Tool results (fed back to the model) that steer it away from guessing appointment ids.
 _NO_SUCH_APPOINTMENT = (
@@ -202,7 +220,7 @@ class AssistantDeps:
     events: EventPublisher
     gate: ApprovalGate
     clock: Clock
-    detector: AvailabilityClaimDetector
+    classifier: ReplyClaimClassifier
 
 
 def _arg(args: dict[str, object], key: str) -> str:
@@ -414,7 +432,7 @@ class Assistant:
         system = _system_prompt(
             business, await self._d.services.for_business(business.id), self._d.clock.now()
         )
-        checked = False  # was find_availability called this turn?
+        verified: set[ReplyClaim] = set()  # claims backed by a tool call this turn
         corrected = False  # the supervisor's one corrective retry has been spent
         for _ in range(MAX_STEPS):
             completion = await self._d.llm.complete(
@@ -425,12 +443,12 @@ class Assistant:
                 note = (
                     None
                     if corrected
-                    else await self._availability_correction(reply, business, checked)
+                    else await self._claim_corrections(reply, business, customer, verified)
                 )
                 if note is None:
                     return reply
                 _logger.info(
-                    "supervisor corrected a stale-availability reply (business=%s)", business.id
+                    "supervisor corrected an unverified-claim reply (business=%s)", business.id
                 )
                 system, corrected = system + note, True
                 continue
@@ -440,7 +458,9 @@ class Assistant:
                 Message(MessageRole.ASSISTANT, completion.text or "", self._d.clock.now())
             )
             for call in completion.tool_calls:
-                checked = checked or call.name == _FIND_AVAILABILITY
+                claim = _CLAIM_FOR_TOOL.get(call.name)
+                if claim is not None:
+                    verified.add(claim)
                 result = await self._dispatch(business, customer, call)
                 await self._observer.on_tool(call.name, call.args, result)
                 messages.append(
@@ -459,19 +479,25 @@ class Assistant:
             for message in history
         ]
 
-    async def _availability_correction(
-        self, reply: str, business: Business, availability_checked: bool
+    async def _claim_corrections(
+        self, reply: str, business: Business, customer: Customer, verified: set[ReplyClaim]
     ) -> str | None:
-        """The system-prompt addendum to force a redo, or None when no correction is needed.
+        """The system-prompt addendum to force a redo, or None when every claim is verified.
 
-        Triggers only when the reply offers times yet find_availability was never called — the
-        case where the model invents or reuses a stale list instead of checking.
+        For each claim the reply makes whose backing tool was NOT called this turn (the model
+        guessed or reused stale data), append the real data so it can answer truthfully.
         """
-        if availability_checked:
-            return None
-        if not await self._d.detector.mentions_available_slots(reply):
-            return None
-        return _STALE_AVAILABILITY_NOTICE + await self._fresh_availability(business)
+        unverified = await self._d.classifier.classify(reply) - verified
+        notes = []
+        if ReplyClaim.OFFERS_TIMES in unverified:
+            notes.append(_TIMES_NOTICE + await self._fresh_availability(business))
+        if ReplyClaim.LISTS_APPOINTMENTS in unverified:
+            notes.append(
+                _APPOINTMENTS_NOTICE + await self._find_appointments(business, customer, {})
+            )
+        if ReplyClaim.CONFIRMS_BOOKING in unverified:
+            notes.append(_BOOKING_NOTICE)
+        return "\n\n".join(notes) if notes else None
 
     async def _fresh_availability(self, business: Business) -> str:
         """The real current free slots per service, formatted for the model to reuse."""

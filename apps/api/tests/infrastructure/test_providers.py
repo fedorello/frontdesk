@@ -9,13 +9,13 @@ from datetime import UTC, datetime
 
 import httpx
 
-from frontdesk.application.ports import Completion, LlmProvider, ToolSpec
+from frontdesk.application.ports import Completion, LlmProvider, ReplyClaim, ToolSpec
 from frontdesk.domain.enums import MessageRole
 from frontdesk.domain.models import Message
 from frontdesk.infrastructure.providers.anthropic import AnthropicProvider
 from frontdesk.infrastructure.providers.groq import (
-    GroqAvailabilityDetector,
-    NullAvailabilityClaimDetector,
+    GroqReplyClaimClassifier,
+    NullReplyClaimClassifier,
 )
 from frontdesk.infrastructure.providers.openai import OpenAiProvider
 
@@ -24,8 +24,8 @@ Handler = Callable[[httpx.Request], httpx.Response]
 _GROQ_BASE = "https://api.groq.com/openai/v1"
 
 
-def _detector(handler: Handler) -> GroqAvailabilityDetector:
-    return GroqAvailabilityDetector(
+def _classifier(handler: Handler) -> GroqReplyClaimClassifier:
+    return GroqReplyClaimClassifier(
         api_key="gk", model="llama-3.1-8b-instant", client=_client(handler), base_url=_GROQ_BASE
     )
 
@@ -151,44 +151,45 @@ async def test_message_roles_are_mapped_per_provider() -> None:
     )
 
 
-async def test_groq_detector_flags_an_availability_offer() -> None:
+async def test_groq_classifier_parses_multiple_claim_tags() -> None:
     def handler(request: httpx.Request) -> httpx.Response:
         body = json.loads(request.content)
         assert request.headers["authorization"] == "Bearer gk"
         assert body["model"] == "llama-3.1-8b-instant"
         assert body["temperature"] == 0  # deterministic classification
-        assert body["messages"][1]["content"] == "Free at 10:00 or 11:00?"
-        return httpx.Response(200, json={"choices": [{"message": {"content": "YES"}}]})
+        assert body["messages"][1]["content"] == "Booked! Your appointments: ..."
+        return httpx.Response(200, json={"choices": [{"message": {"content": "BOOKING LIST"}}]})
 
-    assert await _detector(handler).mentions_available_slots("Free at 10:00 or 11:00?") is True
+    claims = await _classifier(handler).classify("Booked! Your appointments: ...")
+    assert claims == frozenset({ReplyClaim.CONFIRMS_BOOKING, ReplyClaim.LISTS_APPOINTMENTS})
 
 
-async def test_groq_detector_passes_non_availability_replies() -> None:
+async def test_groq_classifier_returns_empty_for_none() -> None:
     def handler(request: httpx.Request) -> httpx.Response:
-        return httpx.Response(200, json={"choices": [{"message": {"content": "NO"}}]})
+        return httpx.Response(200, json={"choices": [{"message": {"content": "NONE"}}]})
 
-    assert await _detector(handler).mentions_available_slots("Thanks, you're booked!") is False
+    assert await _classifier(handler).classify("Thanks, talk soon!") == frozenset()
 
 
-async def test_groq_detector_skips_empty_messages_without_a_call() -> None:
+async def test_groq_classifier_skips_empty_messages_without_a_call() -> None:
     called = False
 
     def handler(request: httpx.Request) -> httpx.Response:
         nonlocal called
         called = True
-        return httpx.Response(200, json={"choices": [{"message": {"content": "YES"}}]})
+        return httpx.Response(200, json={"choices": [{"message": {"content": "TIMES"}}]})
 
-    assert await _detector(handler).mentions_available_slots("   ") is False
+    assert await _classifier(handler).classify("   ") == frozenset()
     assert called is False  # no network call for an empty draft
 
 
-async def test_groq_detector_degrades_to_false_when_unreachable() -> None:
+async def test_groq_classifier_degrades_to_empty_when_unreachable() -> None:
     def handler(request: httpx.Request) -> httpx.Response:
         return httpx.Response(503)  # supervisor outage
 
     # Best-effort: an outage must not block the customer's reply.
-    assert await _detector(handler).mentions_available_slots("Free at 10:00?") is False
+    assert await _classifier(handler).classify("Free at 10:00?") == frozenset()
 
 
-async def test_null_detector_never_flags() -> None:
-    assert await NullAvailabilityClaimDetector().mentions_available_slots("Free at 10:00?") is False
+async def test_null_classifier_never_flags() -> None:
+    assert await NullReplyClaimClassifier().classify("Free at 10:00?") == frozenset()
