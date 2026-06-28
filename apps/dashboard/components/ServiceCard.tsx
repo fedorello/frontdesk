@@ -76,8 +76,12 @@ export function ServiceCard({
 
   return (
     <div className="rounded-xl border border-line bg-canvas">
-      <div className="flex items-start justify-between gap-3 px-4 py-3">
-        <button type="button" onClick={() => setOpen(!open)} className="min-w-0 flex-1 text-left">
+      <div className="flex flex-col gap-2 px-4 py-3 sm:flex-row sm:items-start sm:justify-between sm:gap-3">
+        <button
+          type="button"
+          onClick={() => setOpen(!open)}
+          className="min-w-0 text-left sm:flex-1"
+        >
           <span className="block font-semibold break-words">{service.name}</span>
           <span className="block text-sm text-muted">
             {service.duration_minutes} min{price ? ` · ${price}` : ""}
