@@ -7,6 +7,7 @@ import { useI18n } from "@/app/lib/I18nProvider";
 import { useTheme } from "@/app/lib/ThemeProvider";
 import { BotStatus } from "@/components/BotStatus";
 import { Icon } from "@/components/icons";
+import { LANDING_URL } from "@/app/lib/links";
 import { Logo } from "@/components/Logo";
 import { isActive, NAV_ITEMS } from "@/components/nav-items";
 
@@ -17,13 +18,17 @@ export function Sidebar() {
 
   return (
     <aside className="hidden w-60 shrink-0 flex-col border-r border-line bg-surface px-3.5 pt-5 pb-4 sm:flex">
-      <div className="flex items-center gap-2.5 px-2 pb-5">
+      <a
+        href={LANDING_URL}
+        aria-label="Tovayo"
+        className="flex items-center gap-2.5 px-2 pb-5 transition hover:opacity-80"
+      >
         <Logo size={34} />
         <div className="leading-tight">
           <div className="text-base font-extrabold tracking-tight">Tovayo</div>
           <div className="text-[11.5px] font-medium text-faint">{t("nav.appTagline")}</div>
         </div>
-      </div>
+      </a>
 
       <nav className="flex flex-col gap-1">
         {NAV_ITEMS.map((item) => {
