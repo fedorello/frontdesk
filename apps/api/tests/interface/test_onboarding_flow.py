@@ -18,6 +18,7 @@ from frontdesk.infrastructure.memory import (
     InMemoryServiceRepository,
     InMemoryTelegramBotRepository,
 )
+from frontdesk.infrastructure.rate_limit import InMemoryRateLimiter
 from frontdesk.infrastructure.system import SequentialIdGenerator
 from frontdesk.interface.auth import build_auth_router, make_owner_guard
 from frontdesk.interface.business_config import build_llm_config_router
@@ -45,7 +46,9 @@ def _app(client: httpx.AsyncClient) -> FastAPI:
     guard = make_owner_guard(accounts, SETTINGS.secret_key)
     app = FastAPI()
     app.include_router(
-        build_auth_router(accounts, businesses, SequentialIdGenerator("id"), SETTINGS)
+        build_auth_router(
+            accounts, businesses, SequentialIdGenerator("id"), SETTINGS, InMemoryRateLimiter()
+        )
     )
     app.include_router(
         build_config_router(

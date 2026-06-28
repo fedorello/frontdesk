@@ -9,7 +9,7 @@ import logging
 import time
 from collections.abc import Awaitable, Callable
 
-from fastapi import APIRouter, Cookie, Header, HTTPException, Response
+from fastapi import APIRouter, Cookie, Header, HTTPException, Request, Response
 from pydantic import BaseModel, Field
 
 from frontdesk.application.ports import (
@@ -17,6 +17,7 @@ from frontdesk.application.ports import (
     AccountRepository,
     BusinessRepository,
     IdGenerator,
+    RateLimiter,
 )
 from frontdesk.core.settings import Settings
 from frontdesk.domain.ids import AccountId, BusinessId
@@ -27,6 +28,7 @@ from frontdesk.infrastructure.security import (
     verify_password,
     verify_token,
 )
+from frontdesk.interface.client_ip import client_ip
 from frontdesk.interface.cookies import (
     SESSION_COOKIE,
     clear_session_cookie,
@@ -64,11 +66,21 @@ def build_auth_router(
     businesses: BusinessRepository,
     ids: IdGenerator,
     settings: Settings,
+    limiter: RateLimiter,
 ) -> APIRouter:
     router = APIRouter()
 
+    async def _throttle(request: Request, action: str, limit: int, window: int) -> None:
+        ip = client_ip(request)
+        if limit and not await limiter.hit(f"{action}:{ip}", limit, window):
+            _logger.warning("rate limited: %s ip=%s", action, ip)
+            raise HTTPException(429, "too many attempts; please wait and try again")
+
     @router.post("/api/signup")
-    async def signup(body: SignupInput, response: Response) -> AuthView:
+    async def signup(body: SignupInput, request: Request, response: Response) -> AuthView:
+        await _throttle(
+            request, "signup", settings.signup_rate_limit, settings.signup_rate_window_seconds
+        )
         if await accounts.by_email(body.email) is not None:
             raise HTTPException(409, "email already registered")
         business_id = BusinessId(ids.new())
@@ -84,7 +96,10 @@ def build_auth_router(
         return AuthView(business_id=business_id, email=account.email)
 
     @router.post("/api/login")
-    async def login(body: LoginInput, response: Response) -> AuthView:
+    async def login(body: LoginInput, request: Request, response: Response) -> AuthView:
+        await _throttle(
+            request, "login", settings.login_rate_limit, settings.login_rate_window_seconds
+        )
         account = await accounts.by_email(body.email)
         if account is None or not verify_password(body.password, account.password_hash):
             _logger.warning("login failed (bad credentials)")

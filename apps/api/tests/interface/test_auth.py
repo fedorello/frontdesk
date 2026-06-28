@@ -8,6 +8,7 @@ from frontdesk.infrastructure.memory import (
     InMemoryAccountRepository,
     InMemoryBusinessRepository,
 )
+from frontdesk.infrastructure.rate_limit import InMemoryRateLimiter
 from frontdesk.infrastructure.security import (
     hash_password,
     issue_token,
@@ -42,7 +43,11 @@ def _app() -> FastAPI:
     app = FastAPI()
     app.include_router(
         build_auth_router(
-            accounts, InMemoryBusinessRepository([], {}), SequentialIdGenerator("id"), SETTINGS
+            accounts,
+            InMemoryBusinessRepository([], {}),
+            SequentialIdGenerator("id"),
+            SETTINGS,
+            InMemoryRateLimiter(),
         )
     )
     guard = make_owner_guard(accounts, SETTINGS.secret_key)
@@ -85,3 +90,25 @@ async def test_signup_login_and_scoping() -> None:
 
         await client.post("/api/logout")  # clears the cookie
         assert (await client.get(f"/api/businesses/{business_id}/secret")).status_code == 401
+
+
+async def test_login_is_rate_limited() -> None:
+    accounts = InMemoryAccountRepository()
+    settings = Settings(secret_key="k", login_rate_limit=2, login_rate_window_seconds=300)
+    app = FastAPI()
+    app.include_router(
+        build_auth_router(
+            accounts,
+            InMemoryBusinessRepository([], {}),
+            SequentialIdGenerator("id"),
+            settings,
+            InMemoryRateLimiter(),
+        )
+    )
+    transport = httpx.ASGITransport(app=app)
+    async with httpx.AsyncClient(transport=transport, base_url="http://test") as client:
+        creds = {"email": "x@x.com", "password": "nope-12345"}
+        for _ in range(2):  # within the limit: bad credentials → 401
+            assert (await client.post("/api/login", json=creds)).status_code == 401
+        # the third attempt from the same IP trips the limiter
+        assert (await client.post("/api/login", json=creds)).status_code == 429

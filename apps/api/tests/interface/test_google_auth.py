@@ -11,6 +11,7 @@ from frontdesk.infrastructure.memory import (
     InMemoryAccountRepository,
     InMemoryBusinessRepository,
 )
+from frontdesk.infrastructure.rate_limit import InMemoryRateLimiter
 from frontdesk.infrastructure.system import SequentialIdGenerator
 from frontdesk.interface.google_auth import build_google_auth_router
 
@@ -46,6 +47,7 @@ def _app(
             InMemoryBusinessRepository([], {}),
             SequentialIdGenerator("id"),
             settings,
+            InMemoryRateLimiter(),
         )
     )
     return app, accounts

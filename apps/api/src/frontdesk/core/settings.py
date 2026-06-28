@@ -47,6 +47,11 @@ class Settings(BaseSettings):
     managed_default_daily_limit: int = 0
     # Owner session-token lifetime in seconds (0 = never expires). Default 7 days.
     token_max_age_seconds: int = 604800
+    # Rate limits (per client IP) on abuse-prone auth endpoints. 0 disables the limit.
+    login_rate_limit: int = 10  # attempts per window
+    login_rate_window_seconds: int = 300  # 5 minutes
+    signup_rate_limit: int = 5
+    signup_rate_window_seconds: int = 3600  # 1 hour
     # If set, the real data-flow logs (events, messaging, agent, webhook) also go here.
     log_file: str = ""
 

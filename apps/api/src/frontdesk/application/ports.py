@@ -140,6 +140,14 @@ class IdGenerator(Protocol):
     def new(self) -> str: ...
 
 
+class RateLimiter(Protocol):
+    """Throttles abuse-prone endpoints (login/signup/OAuth). A fixed window per key."""
+
+    async def hit(self, key: str, limit: int, window_seconds: int) -> bool:
+        """Record one hit for ``key``; return True if within ``limit`` this window, else False."""
+        ...
+
+
 class Random(Protocol):
     """Source of randomness, injected so e.g. phrase selection is deterministic in tests."""
 

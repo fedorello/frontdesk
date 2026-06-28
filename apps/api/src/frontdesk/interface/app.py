@@ -64,6 +64,7 @@ from frontdesk.infrastructure.postgres.adapters import (
 )
 from frontdesk.infrastructure.providers.anthropic import AnthropicProvider
 from frontdesk.infrastructure.providers.openai import OpenAiProvider
+from frontdesk.infrastructure.rate_limit import InMemoryRateLimiter
 from frontdesk.infrastructure.secrets import FernetCipher
 from frontdesk.infrastructure.system import (
     FixedClock,
@@ -188,6 +189,7 @@ def create_production_app() -> FastAPI:
     accounts = SqlAccountRepository(sessions)
     usage = SqlUsageStore(sessions)
     guard = make_owner_guard(accounts, settings.secret_key, settings.token_max_age_seconds)
+    rate_limiter = InMemoryRateLimiter()
 
     # Dogfoods airlock-hitl (ADR-0005): sensitive actions gated for human approval.
     deps = build_assistant_deps(
@@ -216,7 +218,9 @@ def create_production_app() -> FastAPI:
     app.include_router(build_chat_router(deps, settings.demo_to_address, clock))
     app.include_router(build_approvals_router(pending_approvals, guard))
     app.include_router(build_telegram_router(telegram_inbound, telegram_bots))
-    app.include_router(build_auth_router(accounts, SqlBusinessRepository(sessions), ids, settings))
+    app.include_router(
+        build_auth_router(accounts, SqlBusinessRepository(sessions), ids, settings, rate_limiter)
+    )
     app.include_router(
         build_google_auth_router(
             HttpGoogleOAuthClient(
@@ -229,6 +233,7 @@ def create_production_app() -> FastAPI:
             SqlBusinessRepository(sessions),
             ids,
             settings,
+            rate_limiter,
         )
     )
     app.include_router(build_llm_config_router(llm_configs, guard))

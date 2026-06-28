@@ -11,7 +11,7 @@ import time
 from urllib.parse import urlencode
 
 import httpx
-from fastapi import APIRouter, Cookie
+from fastapi import APIRouter, Cookie, Request
 from fastapi.responses import RedirectResponse
 
 from frontdesk.application.ports import (
@@ -20,11 +20,13 @@ from frontdesk.application.ports import (
     BusinessRepository,
     GoogleOAuthClient,
     IdGenerator,
+    RateLimiter,
 )
 from frontdesk.core.settings import Settings
 from frontdesk.domain.ids import AccountId, BusinessId
 from frontdesk.domain.models import Business
 from frontdesk.infrastructure.security import issue_token, verify_token
+from frontdesk.interface.client_ip import client_ip
 from frontdesk.interface.cookies import (
     OAUTH_STATE_COOKIE,
     OAUTH_STATE_MAX_AGE,
@@ -45,6 +47,7 @@ def build_google_auth_router(
     businesses: BusinessRepository,
     ids: IdGenerator,
     settings: Settings,
+    limiter: RateLimiter,
 ) -> APIRouter:
     router = APIRouter()
     enabled = bool(settings.google_client_id and settings.google_redirect_uri)
@@ -53,8 +56,14 @@ def build_google_auth_router(
         return RedirectResponse(f"{settings.dashboard_url.rstrip('/')}{path}", status_code=_FOUND)
 
     @router.get("/api/auth/google/start")
-    async def start() -> RedirectResponse:
+    async def start(request: Request) -> RedirectResponse:
         if not enabled:
+            return _back("/login?error=google")
+        ip = client_ip(request)
+        if settings.login_rate_limit and not await limiter.hit(
+            f"oauth:{ip}", settings.login_rate_limit, settings.login_rate_window_seconds
+        ):
+            _logger.warning("rate limited: oauth ip=%s", ip)
             return _back("/login?error=google")
         state = issue_token(ids.new(), settings.secret_key, int(time.time()))
         params = urlencode(
