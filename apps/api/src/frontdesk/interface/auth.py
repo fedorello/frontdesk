@@ -18,10 +18,11 @@ from frontdesk.application.ports import (
     BusinessRepository,
     IdGenerator,
     RateLimiter,
+    ResourceRepository,
 )
 from frontdesk.core.settings import Settings
-from frontdesk.domain.ids import AccountId, BusinessId
-from frontdesk.domain.models import Business
+from frontdesk.domain.ids import AccountId, BusinessId, ResourceId
+from frontdesk.domain.models import Business, default_group
 from frontdesk.infrastructure.keys import session_signing_key
 from frontdesk.infrastructure.security import (
     hash_password,
@@ -70,6 +71,7 @@ class AuthView(BaseModel):
 def build_auth_router(
     accounts: AccountRepository,
     businesses: BusinessRepository,
+    resources: ResourceRepository,
     ids: IdGenerator,
     settings: Settings,
     limiter: RateLimiter,
@@ -93,6 +95,8 @@ def build_auth_router(
             raise HTTPException(409, "email already registered")
         business_id = BusinessId(ids.new())
         await businesses.upsert(Business(business_id, body.business_name, body.timezone))
+        # Every business starts with one group, so services always have a valid calendar.
+        await resources.upsert(default_group(business_id, ResourceId(ids.new())))
         account = Account(AccountId(ids.new()), email, hash_password(body.password), business_id)
         await accounts.upsert(account)
         set_session_cookie(

@@ -339,3 +339,47 @@ async def test_service_groups_e2e_same_group_collides_different_group_parallel(
     assert any(s.starts_at == slot.starts_at for s in other_slots)
     parallel = await calendar.book(other_group, ResourceId("res2"), _customer(), slot)
     assert parallel.slot.starts_at == slot.starts_at
+
+
+async def test_backfill_default_groups_repairs_orphaned_services(sessionmaker: Factory) -> None:
+    """Migration 0017's backfill: a business with no group gets one, and a service pointing at
+    a phantom group is repointed to its own business's group (the shared-"main" repair)."""
+    hours = '[{"weekday":0,"opens":"09:00:00","closes":"17:00:00"}]'
+    async with sessionmaker() as session:
+        await session.execute(
+            text("INSERT INTO business (id, name, timezone) VALUES ('orphan', 'O', 'UTC')")
+        )
+        await session.execute(
+            text(
+                "INSERT INTO service (id, business_id, name, duration_minutes, resource_ids) "
+                "VALUES ('s-orphan', 'orphan', 'X', 30, CAST('[\"phantom\"]' AS jsonb))"
+            )
+        )
+        # The two backfill statements from migration 0017.
+        await session.execute(
+            text(
+                "INSERT INTO resource (id, business_id, name, working_hours) "
+                "SELECT 'grp-' || b.id, b.id, 'Main', CAST(:hours AS jsonb) FROM business b "
+                "WHERE NOT EXISTS (SELECT 1 FROM resource r WHERE r.business_id = b.id)"
+            ).bindparams(hours=hours)
+        )
+        await session.execute(
+            text(
+                "UPDATE service s SET resource_ids = jsonb_build_array("
+                "(SELECT r.id FROM resource r WHERE r.business_id = s.business_id "
+                "ORDER BY r.id LIMIT 1)) "
+                "WHERE NOT EXISTS (SELECT 1 FROM resource r "
+                "WHERE r.id = (s.resource_ids ->> 0) AND r.business_id = s.business_id)"
+            )
+        )
+        await session.commit()
+
+    groups = await SqlResourceRepository(sessionmaker).for_business(BusinessId("orphan"))
+    assert len(groups) == 1  # the orphaned business now has a group
+    services = await SqlServiceRepository(sessionmaker).for_business(BusinessId("orphan"))
+    repointed = next(s for s in services if s.id == ServiceId("s-orphan"))
+    assert repointed.resource_ids == (groups[0].id,)  # repointed to its own group
+
+    # The seeded, already-valid service "svc" (points at its own group "res") is untouched.
+    valid = await SqlServiceRepository(sessionmaker).for_business(BusinessId("biz"))
+    assert next(s for s in valid if s.id == ServiceId("svc")).resource_ids == (ResourceId("res"),)

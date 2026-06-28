@@ -10,6 +10,7 @@ from frontdesk.core.settings import Settings
 from frontdesk.infrastructure.memory import (
     InMemoryAccountRepository,
     InMemoryBusinessRepository,
+    InMemoryResourceRepository,
 )
 from frontdesk.infrastructure.rate_limit import InMemoryRateLimiter
 from frontdesk.infrastructure.system import SequentialIdGenerator
@@ -45,6 +46,7 @@ def _app(
             oauth,
             accounts,
             InMemoryBusinessRepository([], {}),
+            InMemoryResourceRepository(),
             SequentialIdGenerator("id"),
             settings,
             InMemoryRateLimiter(),

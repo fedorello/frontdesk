@@ -4,10 +4,12 @@ import httpx
 from fastapi import Depends, FastAPI
 
 from frontdesk.core.settings import Settings
+from frontdesk.domain.ids import BusinessId
 from frontdesk.infrastructure.keys import session_signing_key
 from frontdesk.infrastructure.memory import (
     InMemoryAccountRepository,
     InMemoryBusinessRepository,
+    InMemoryResourceRepository,
 )
 from frontdesk.infrastructure.rate_limit import InMemoryRateLimiter
 from frontdesk.infrastructure.security import (
@@ -46,6 +48,7 @@ def _app() -> FastAPI:
         build_auth_router(
             accounts,
             InMemoryBusinessRepository([], {}),
+            InMemoryResourceRepository(),
             SequentialIdGenerator("id"),
             SETTINGS,
             InMemoryRateLimiter(),
@@ -128,6 +131,7 @@ async def test_login_is_rate_limited() -> None:
         build_auth_router(
             accounts,
             InMemoryBusinessRepository([], {}),
+            InMemoryResourceRepository(),
             SequentialIdGenerator("id"),
             settings,
             InMemoryRateLimiter(),
@@ -140,3 +144,32 @@ async def test_login_is_rate_limited() -> None:
             assert (await client.post("/api/login", json=creds)).status_code == 401
         # the third attempt from the same IP trips the limiter
         assert (await client.post("/api/login", json=creds)).status_code == 429
+
+
+async def test_signup_creates_a_default_group() -> None:
+    accounts = InMemoryAccountRepository()
+    resources = InMemoryResourceRepository()
+    app = FastAPI()
+    app.include_router(
+        build_auth_router(
+            accounts,
+            InMemoryBusinessRepository([], {}),
+            resources,
+            SequentialIdGenerator("id"),
+            SETTINGS,
+            InMemoryRateLimiter(),
+        )
+    )
+    transport = httpx.ASGITransport(app=app)
+    async with httpx.AsyncClient(transport=transport, base_url="http://test") as client:
+        signup = await client.post(
+            "/api/signup",
+            json={"email": "a@x.com", "password": "test-pw-123", "business_name": "Ana"},
+        )
+        business_id = signup.json()["business_id"]
+
+    # Every new business starts with exactly one group + a default schedule, so services
+    # always have a valid calendar (no phantom group).
+    groups = await resources.for_business(BusinessId(business_id))
+    assert len(groups) == 1
+    assert groups[0].working_hours  # a starter weekly schedule

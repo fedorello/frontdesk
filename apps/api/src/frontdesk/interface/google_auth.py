@@ -21,10 +21,11 @@ from frontdesk.application.ports import (
     GoogleOAuthClient,
     IdGenerator,
     RateLimiter,
+    ResourceRepository,
 )
 from frontdesk.core.settings import Settings
-from frontdesk.domain.ids import AccountId, BusinessId
-from frontdesk.domain.models import Business
+from frontdesk.domain.ids import AccountId, BusinessId, ResourceId
+from frontdesk.domain.models import Business, default_group
 from frontdesk.infrastructure.keys import oauth_state_key, session_signing_key
 from frontdesk.infrastructure.security import issue_token, verify_token
 from frontdesk.interface.client_ip import client_ip
@@ -46,6 +47,7 @@ def build_google_auth_router(
     oauth: GoogleOAuthClient,
     accounts: AccountRepository,
     businesses: BusinessRepository,
+    resources: ResourceRepository,
     ids: IdGenerator,
     settings: Settings,
     limiter: RateLimiter,
@@ -119,6 +121,8 @@ def build_google_auth_router(
                     owner_name=identity.name,
                 )
             )
+            # Every business starts with one group, so services always have a valid calendar.
+            await resources.upsert(default_group(business_id, ResourceId(ids.new())))
             account = Account(AccountId(ids.new()), identity.email, "", business_id)
             await accounts.upsert(account)
 

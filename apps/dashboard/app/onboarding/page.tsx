@@ -56,6 +56,8 @@ export default function OnboardingPage() {
 
   // Session — the auth token lives in the HttpOnly cookie the API sets on signup.
   const [businessId, setBusinessId] = useState("");
+  // The default group the API auto-creates on signup; the service goes into it.
+  const [groupId, setGroupId] = useState("");
 
   async function guarded(action: () => Promise<void>) {
     setBusy(true);
@@ -79,12 +81,16 @@ export default function OnboardingPage() {
       });
       setBusinessId(result.business_id);
       setSession({ businessId: result.business_id, email: result.email });
+      // Use the group the API created on signup, so the business has exactly one.
+      const groups = await api.getGroups(result.business_id).catch(() => []);
+      setGroupId(groups[0]?.id ?? "");
       setStep(1);
     });
 
   const submitService = () =>
     guarded(async () => {
-      await api.putGroup(businessId, "main", {
+      // Set the default group's schedule, then put the service into it.
+      await api.putGroup(businessId, groupId, {
         name: "Main",
         working_hours: WEEKDAYS.map((weekday) => ({
           weekday,
@@ -95,7 +101,7 @@ export default function OnboardingPage() {
       await api.putService(businessId, "svc-1", {
         name: serviceName,
         duration_minutes: duration,
-        resource_ids: ["main"],
+        resource_ids: [groupId],
       });
       setStep(2);
     });

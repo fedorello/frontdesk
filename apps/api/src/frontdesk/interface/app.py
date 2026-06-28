@@ -223,7 +223,14 @@ def create_production_app() -> FastAPI:
     app.include_router(build_approvals_router(approval_store, guard))
     app.include_router(build_telegram_router(telegram_inbound, telegram_bots))
     app.include_router(
-        build_auth_router(accounts, SqlBusinessRepository(sessions), ids, settings, rate_limiter)
+        build_auth_router(
+            accounts,
+            SqlBusinessRepository(sessions),
+            SqlResourceRepository(sessions),
+            ids,
+            settings,
+            rate_limiter,
+        )
     )
     app.include_router(
         build_google_auth_router(
@@ -235,6 +242,7 @@ def create_production_app() -> FastAPI:
             ),
             accounts,
             SqlBusinessRepository(sessions),
+            SqlResourceRepository(sessions),
             ids,
             settings,
             rate_limiter,

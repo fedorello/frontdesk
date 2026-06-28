@@ -120,6 +120,16 @@ class Resource:
     working_hours: tuple[WorkingHours, ...] = ()
 
 
+# The starter schedule a new business's default group gets: weekdays 09:00-17:00.
+DEFAULT_GROUP_HOURS = tuple(WorkingHours(weekday, time(9), time(17)) for weekday in range(5))
+DEFAULT_GROUP_NAME = "Main"
+
+
+def default_group(business_id: BusinessId, group_id: ResourceId) -> Resource:
+    """A starter group so every business has one calendar from the moment it's created."""
+    return Resource(group_id, business_id, DEFAULT_GROUP_NAME, DEFAULT_GROUP_HOURS)
+
+
 @dataclass(frozen=True, slots=True)
 class Business:
     id: BusinessId

@@ -48,7 +48,12 @@ def _app(client: httpx.AsyncClient) -> FastAPI:
     app = FastAPI()
     app.include_router(
         build_auth_router(
-            accounts, businesses, SequentialIdGenerator("id"), SETTINGS, InMemoryRateLimiter()
+            accounts,
+            businesses,
+            InMemoryResourceRepository(),
+            SequentialIdGenerator("id"),
+            SETTINGS,
+            InMemoryRateLimiter(),
         )
     )
     app.include_router(
