@@ -4,6 +4,7 @@ import { createContext, useContext, useEffect, useState, type ReactNode } from "
 
 import { api } from "./api";
 import { DEFAULT_LOCALE, isLocale, type Locale, type MessageKey, translate } from "./i18n";
+import { readLocaleCookie, writeLocaleCookie } from "./localeCookie";
 import { getSession } from "./session";
 
 interface I18nContextValue {
@@ -13,51 +14,44 @@ interface I18nContextValue {
 }
 
 const I18nContext = createContext<I18nContextValue | null>(null);
-const STORAGE_KEY = "tovayo.locale";
 
-function readStoredLocale(): Locale | null {
-  try {
-    const stored = window.localStorage?.getItem(STORAGE_KEY);
-    return stored !== null && stored !== undefined && isLocale(stored) ? stored : null;
-  } catch {
-    return null;
-  }
+function readSharedLocale(): Locale | null {
+  const fromCookie = readLocaleCookie();
+  return fromCookie !== null && isLocale(fromCookie) ? fromCookie : null;
 }
 
 export function I18nProvider({ children }: { children: ReactNode }) {
   const [locale, setLocaleState] = useState<Locale>(DEFAULT_LOCALE);
 
   useEffect(() => {
-    const fromStorage = () => {
-      const stored = readStoredLocale();
-      if (stored !== null) setLocaleState(stored);
-    };
-    const session = getSession();
-    // Signed in: the business's saved language (persisted in DB) is the source of truth.
-    const pending = session && api.getBusiness?.(session.businessId, session.token);
-    if (!pending) {
-      fromStorage();
+    // The shared cookie (also set by the marketing site) is the source of truth.
+    const shared = readSharedLocale();
+    if (shared !== null) {
+      // eslint-disable-next-line react-hooks/set-state-in-effect -- restore the shared language on mount
+      setLocaleState(shared);
       return;
     }
+    // No shared choice yet: signed-in owners fall back to the language saved on their
+    // business (DB, cross-device), and that seeds the cookie so both sites agree afterwards.
+    const session = getSession();
+    const pending = session && api.getBusiness?.(session.businessId, session.token);
+    if (!pending) return;
     pending
       .then((business) => {
         if (business.locale !== undefined && isLocale(business.locale)) {
           setLocaleState(business.locale);
+          writeLocaleCookie(business.locale);
         }
       })
-      .catch(fromStorage);
+      .catch(() => {});
   }, []);
 
   const setLocale = (next: Locale) => {
     setLocaleState(next);
-    try {
-      window.localStorage?.setItem(STORAGE_KEY, next);
-    } catch {
-      // storage unavailable (SSR / private mode) — keep the in-memory choice
-    }
+    writeLocaleCookie(next); // the shared source of truth (app + marketing site)
     const session = getSession();
     if (session !== null) {
-      // Persist the choice so it follows the owner across devices and drives the bot.
+      // Also persist on the business so it follows the owner across devices and drives the bot.
       void api.setLocale?.(session.businessId, next, session.token)?.catch(() => {});
     }
   };

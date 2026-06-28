@@ -2,6 +2,8 @@
 
 import { createContext, useContext, useEffect, useState } from "react";
 
+import { readLocaleCookie, writeLocaleCookie } from "./localeCookie";
+
 export const LOCALES = ["en", "es", "ru", "zh"] as const;
 export type Locale = (typeof LOCALES)[number];
 export const LOCALE_NAMES: Record<Locale, string> = {
@@ -849,23 +851,15 @@ const I18nContext = createContext<{
 export function I18nProvider({ children }: { children: React.ReactNode }) {
   const [locale, setLocaleState] = useState<Locale>("en");
   useEffect(() => {
-    try {
-      const saved = localStorage.getItem("tovayo.lang");
-      if (saved && (LOCALES as readonly string[]).includes(saved)) {
-        // eslint-disable-next-line react-hooks/set-state-in-effect -- restore the saved language on mount
-        setLocaleState(saved as Locale);
-      }
-    } catch {
-      // ignore: storage disabled — default to English
+    const saved = readLocaleCookie();
+    if (saved && (LOCALES as readonly string[]).includes(saved)) {
+      // eslint-disable-next-line react-hooks/set-state-in-effect -- restore the shared language on mount
+      setLocaleState(saved as Locale);
     }
   }, []);
   const setLocale = (l: Locale) => {
     setLocaleState(l);
-    try {
-      localStorage.setItem("tovayo.lang", l);
-    } catch {
-      // ignore
-    }
+    writeLocaleCookie(l);
   };
   return (
     <I18nContext.Provider value={{ locale, setLocale, c: COPY[locale] }}>
