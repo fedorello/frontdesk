@@ -7,6 +7,7 @@ file you can grep to trace what really happened. See the /goal: "логгиро�
 """
 
 import logging
+import os
 from logging.handlers import RotatingFileHandler
 
 _FORMAT = "%(asctime)s %(levelname)s %(name)s %(message)s"
@@ -25,6 +26,9 @@ def configure_logging(level: str = "INFO", log_file: str = "") -> None:
     root.addHandler(console)
 
     if log_file:
+        directory = os.path.dirname(log_file)
+        if directory:
+            os.makedirs(directory, exist_ok=True)  # so a fresh container/volume just works
         file_handler = RotatingFileHandler(log_file, maxBytes=10_000_000, backupCount=5)
         file_handler.setFormatter(formatter)
         root.addHandler(file_handler)

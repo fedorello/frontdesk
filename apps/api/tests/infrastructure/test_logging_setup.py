@@ -22,6 +22,19 @@ def test_configure_logging_writes_to_file(tmp_path: Path) -> None:
         configure_logging("INFO", "")  # reset so the file handler releases tmp_path
 
 
+def test_configure_logging_creates_a_missing_directory(tmp_path: Path) -> None:
+    log_file = tmp_path / "nested" / "logs" / "app.log"  # parent dirs don't exist yet
+    configure_logging("INFO", str(log_file))
+    try:
+        logging.getLogger("frontdesk.auth").info("login ok account=acc-1")
+        for handler in logging.getLogger("frontdesk").handlers:
+            handler.flush()
+        assert log_file.exists()
+        assert "login ok account=acc-1" in log_file.read_text()
+    finally:
+        configure_logging("INFO", "")
+
+
 async def test_logging_observer_records_thoughts_and_tools(tmp_path: Path) -> None:
     log_file = tmp_path / "agent.log"
     configure_logging("DEBUG", str(log_file))  # thoughts/tools are DEBUG (they carry PII)
