@@ -252,16 +252,27 @@ def _booking_receipt(
     return "\n".join(lines)
 
 
+def _normalize_field_key(key: str) -> str:
+    """Match intake keys tolerantly: the model often copies the prompt's 'Name:' label verbatim,
+    so 'Имя:' (or a quoted/spaced variant) must still match the field 'Имя'."""
+    return key.strip().strip(":\"'`").strip().casefold()
+
+
 def _collect_intake(
     service: Service, details: object
 ) -> tuple[tuple[IntakeAnswer, ...], list[str]]:
     """Map the model's answers to the service's fields; return (answers, missing field names)."""
-    answers = details if isinstance(details, dict) else {}
-    missing = [f.name for f in service.intake_fields if not str(answers.get(f.name, "")).strip()]
+    raw = details if isinstance(details, dict) else {}
+    answers = {_normalize_field_key(str(key)): value for key, value in raw.items()}
+    missing = [
+        field.name
+        for field in service.intake_fields
+        if not str(answers.get(_normalize_field_key(field.name), "")).strip()
+    ]
     collected = tuple(
-        IntakeAnswer(f.name, str(answers[f.name]).strip())
-        for f in service.intake_fields
-        if f.name not in missing
+        IntakeAnswer(field.name, str(answers[_normalize_field_key(field.name)]).strip())
+        for field in service.intake_fields
+        if field.name not in missing
     )
     return collected, missing
 

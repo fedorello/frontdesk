@@ -233,6 +233,23 @@ async def test_booking_collects_intake_then_sends_a_receipt() -> None:
     assert appointment.intake == (IntakeAnswer("Birth date", "1990-01-01"),)
 
 
+async def test_book_accepts_intake_keys_with_a_trailing_colon() -> None:
+    # The model copies the prompt's "Birth date:" label as the key. Matching must tolerate it,
+    # or the first book fails on "missing intake" and the model fabricates a confirmation.
+    world = build_world([], intake_fields=(IntakeField("Birth date", "date of birth"),))
+    args: dict[str, object] = {
+        "service": "Haircut",
+        "start": "2026-06-26T15:00:00+00:00",
+        "details": {"Birth date:": "1990-01-01"},  # note the spurious trailing colon
+    }
+
+    result = await world.assistant._do_book(world.business, make_customer(), args)
+
+    assert "Booked" in result  # the colon-suffixed key still matched the field
+    appointment = next(iter(world.appointments.appointments.values()))
+    assert appointment.intake == (IntakeAnswer("Birth date", "1990-01-01"),)
+
+
 async def test_find_my_appointments_lists_the_customers_upcoming_with_real_ids() -> None:
     world = build_world([])
     customer = await world.customers.upsert(world.business.id, Channel.WHATSAPP, "+CUST")
