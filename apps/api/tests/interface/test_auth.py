@@ -92,6 +92,33 @@ async def test_signup_login_and_scoping() -> None:
         assert (await client.get(f"/api/businesses/{business_id}/secret")).status_code == 401
 
 
+async def test_email_is_validated_and_normalized() -> None:
+    transport = httpx.ASGITransport(app=_app())
+    async with httpx.AsyncClient(transport=transport, base_url="http://test") as client:
+        bad = await client.post(
+            "/api/signup",
+            json={"email": "not-an-email", "password": "test-pw-123", "business_name": "X"},
+        )
+        assert bad.status_code == 422  # EmailStr rejects a malformed address
+
+        up = await client.post(
+            "/api/signup",
+            json={"email": "Owner@Example.COM", "password": "test-pw-123", "business_name": "X"},
+        )
+        assert up.status_code == 200
+
+        dup = await client.post(
+            "/api/signup",
+            json={"email": "owner@example.com", "password": "test-pw-123", "business_name": "Y"},
+        )
+        assert dup.status_code == 409  # normalized to the same address → already registered
+
+        login = await client.post(
+            "/api/login", json={"email": "OWNER@EXAMPLE.COM", "password": "test-pw-123"}
+        )
+        assert login.status_code == 200  # login is case-insensitive too
+
+
 async def test_login_is_rate_limited() -> None:
     accounts = InMemoryAccountRepository()
     settings = Settings(secret_key="k", login_rate_limit=2, login_rate_window_seconds=300)

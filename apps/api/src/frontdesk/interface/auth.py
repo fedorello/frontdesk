@@ -10,7 +10,7 @@ import time
 from collections.abc import Awaitable, Callable
 
 from fastapi import APIRouter, Cookie, Header, HTTPException, Request, Response
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, EmailStr, Field
 
 from frontdesk.application.ports import (
     Account,
@@ -40,15 +40,20 @@ _logger = logging.getLogger("frontdesk.auth")
 
 
 class SignupInput(BaseModel):
-    email: str
+    email: EmailStr
     password: str = Field(min_length=_MIN_PASSWORD_LENGTH)
     business_name: str
     timezone: str = "UTC"
 
 
 class LoginInput(BaseModel):
-    email: str
+    email: EmailStr
     password: str
+
+
+def _normalize_email(email: str) -> str:
+    # Case-insensitive uniqueness + lookup: store and match the lowercased address.
+    return email.strip().lower()
 
 
 class AuthView(BaseModel):
@@ -81,13 +86,12 @@ def build_auth_router(
         await _throttle(
             request, "signup", settings.signup_rate_limit, settings.signup_rate_window_seconds
         )
-        if await accounts.by_email(body.email) is not None:
+        email = _normalize_email(body.email)
+        if await accounts.by_email(email) is not None:
             raise HTTPException(409, "email already registered")
         business_id = BusinessId(ids.new())
         await businesses.upsert(Business(business_id, body.business_name, body.timezone))
-        account = Account(
-            AccountId(ids.new()), body.email, hash_password(body.password), business_id
-        )
+        account = Account(AccountId(ids.new()), email, hash_password(body.password), business_id)
         await accounts.upsert(account)
         set_session_cookie(
             response, issue_token(account.id, settings.secret_key, int(time.time())), settings
@@ -100,7 +104,7 @@ def build_auth_router(
         await _throttle(
             request, "login", settings.login_rate_limit, settings.login_rate_window_seconds
         )
-        account = await accounts.by_email(body.email)
+        account = await accounts.by_email(_normalize_email(body.email))
         if account is None or not verify_password(body.password, account.password_hash):
             _logger.warning("login failed (bad credentials)")
             raise HTTPException(401, "invalid email or password")

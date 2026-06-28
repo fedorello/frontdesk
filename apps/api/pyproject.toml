@@ -7,6 +7,7 @@ license = "MIT"
 authors = [{ name = "Fedor Chishchin" }]
 dependencies = [
   "pydantic>=2.13.4",
+  "pydantic[email]>=2.13.4",  # EmailStr validation on signup/login
   "pydantic-settings>=2.14.2",
   "sqlalchemy[asyncio]>=2.0.51",
   "asyncpg>=0.31.0",
