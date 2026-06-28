@@ -1,26 +1,12 @@
 "use client";
 
-import { useEffect, useState } from "react";
-
-import { api, type TelegramStatus } from "@/app/lib/api";
+import { useBotStatus } from "@/app/lib/BotStatusProvider";
 import { useI18n } from "@/app/lib/I18nProvider";
-import { getSession } from "@/app/lib/session";
 
-/** Sidebar card: live Telegram bot health for the signed-in business. */
+/** Sidebar card: live Telegram bot health, from the shared BotStatus source. */
 export function BotStatus() {
   const { t } = useI18n();
-  const [status, setStatus] = useState<TelegramStatus | null>(null);
-
-  useEffect(() => {
-    const session = getSession();
-    if (session === null) {
-      return;
-    }
-    api
-      .telegramStatus(session.businessId, session.token)
-      .then(setStatus)
-      .catch(() => setStatus(null));
-  }, []);
+  const { status } = useBotStatus();
 
   if (status === null) {
     return null;

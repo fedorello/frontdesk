@@ -1,12 +1,18 @@
 import { render, screen } from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 
+import { BotStatusProvider } from "@/app/lib/BotStatusProvider";
 import { I18nProvider } from "@/app/lib/I18nProvider";
 
 import { BotStatus } from "./BotStatus";
 
 const { telegramStatus } = vi.hoisted(() => ({ telegramStatus: vi.fn() }));
 vi.mock("@/app/lib/api", () => ({ api: { telegramStatus } }));
+vi.mock("next/navigation", () => ({
+  usePathname: () => "/",
+  useRouter: () => ({ push: vi.fn(), replace: vi.fn() }),
+  useSearchParams: () => new URLSearchParams(),
+}));
 
 afterEach(() => {
   window.localStorage.clear();
@@ -16,7 +22,9 @@ afterEach(() => {
 function renderBot() {
   return render(
     <I18nProvider>
-      <BotStatus />
+      <BotStatusProvider>
+        <BotStatus />
+      </BotStatusProvider>
     </I18nProvider>,
   );
 }

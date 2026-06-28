@@ -3,7 +3,8 @@
 import { useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
 
-import { api, type TelegramStatus } from "@/app/lib/api";
+import { api } from "@/app/lib/api";
+import { useBotStatus } from "@/app/lib/BotStatusProvider";
 import { errorMessageKey } from "@/app/lib/errors";
 import { useI18n } from "@/app/lib/I18nProvider";
 import { MAX_BUSINESS_NAME, MAX_DESCRIPTION } from "@/app/lib/limits";
@@ -48,7 +49,7 @@ export default function SettingsPage() {
   const [aiMode, setAiMode] = useState("default");
   const [saved, setSaved] = useState(false);
   const [saveError, setSaveError] = useState<string | null>(null);
-  const [telegram, setTelegram] = useState<TelegramStatus | null>(null);
+  const { status: telegram, update: setTelegram } = useBotStatus();
   const [botToken, setBotToken] = useState("");
   const [connecting, setConnecting] = useState(false);
   const [connectError, setConnectError] = useState<string | null>(null);
@@ -59,11 +60,10 @@ export default function SettingsPage() {
     // eslint-disable-next-line react-hooks/set-state-in-effect
     setSession(current);
     void (async () => {
-      const [profile, list, llm, tg] = await Promise.all([
+      const [profile, list, llm] = await Promise.all([
         api.getBusiness(current.businessId, current.token).catch(() => null),
         api.getServices(current.businessId, current.token).catch(() => []),
         api.getLlm(current.businessId, current.token).catch(() => ({ mode: "default" })),
-        api.telegramStatus(current.businessId, current.token).catch(() => null),
       ]);
       if (profile) {
         setName(profile.name);
@@ -75,7 +75,6 @@ export default function SettingsPage() {
       }
       setServices(list);
       setAiMode(llm.mode);
-      setTelegram(tg);
     })();
   }, []);
 

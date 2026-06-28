@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import { Manrope } from "next/font/google";
 
+import { BotStatusProvider } from "@/app/lib/BotStatusProvider";
 import { I18nProvider } from "@/app/lib/I18nProvider";
 import { ThemeProvider } from "@/app/lib/ThemeProvider";
 import { AppShell } from "@/components/AppShell";
@@ -36,7 +37,9 @@ export default function RootLayout({
       <body className="min-h-full">
         <ThemeProvider>
           <I18nProvider>
-            <AppShell>{children}</AppShell>
+            <BotStatusProvider>
+              <AppShell>{children}</AppShell>
+            </BotStatusProvider>
           </I18nProvider>
         </ThemeProvider>
       </body>
