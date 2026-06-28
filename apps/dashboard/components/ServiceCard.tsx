@@ -76,14 +76,14 @@ export function ServiceCard({
 
   return (
     <div className="rounded-xl border border-line bg-canvas">
-      <div className="flex items-center justify-between gap-3 px-4 py-3">
+      <div className="flex items-start justify-between gap-3 px-4 py-3">
         <button type="button" onClick={() => setOpen(!open)} className="min-w-0 flex-1 text-left">
-          <span className="font-semibold">{service.name}</span>
-          <span className="ml-2 text-sm text-muted">
+          <span className="block font-semibold break-words">{service.name}</span>
+          <span className="block text-sm text-muted">
             {service.duration_minutes} min{price ? ` · ${price}` : ""}
           </span>
           {service.description && (
-            <span className="block truncate text-xs text-muted">{service.description}</span>
+            <span className="mt-0.5 block truncate text-xs text-muted">{service.description}</span>
           )}
         </button>
         <div className="flex shrink-0 items-center gap-3 text-xs">

@@ -47,7 +47,7 @@ export function WeeklyHoursEditor({
         return (
           <div
             key={weekday}
-            className={`flex h-14 items-center gap-3 px-3 text-sm ${isOpen ? "" : "opacity-60"}`}
+            className={`flex flex-wrap items-center gap-x-3 gap-y-2 px-3 py-2.5 text-sm ${isOpen ? "" : "opacity-60"}`}
           >
             <ToggleSwitch
               checked={isOpen}
@@ -59,9 +59,9 @@ export function WeeklyHoursEditor({
                 )
               }
             />
-            <span className="w-28 shrink-0 capitalize">{label}</span>
+            <span className="capitalize">{label}</span>
             {isOpen ? (
-              <div className="flex items-center gap-1.5">
+              <div className="ml-auto flex items-center gap-1.5">
                 <input
                   type="time"
                   aria-label={`${label} — from`}
@@ -83,7 +83,7 @@ export function WeeklyHoursEditor({
                 />
               </div>
             ) : (
-              <span className="text-muted">{closedLabel}</span>
+              <span className="ml-auto text-muted">{closedLabel}</span>
             )}
           </div>
         );
