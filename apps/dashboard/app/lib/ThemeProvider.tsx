@@ -22,14 +22,15 @@ function readStoredTheme(): Theme | null {
 }
 
 export function ThemeProvider({ children }: { children: ReactNode }) {
-  const [theme, setTheme] = useState<Theme>("light");
+  // SSR renders dark; the no-flash script in <head> has already set the real theme
+  // (saved choice, else the OS) on <html> before paint — sync to it on mount.
+  const [theme, setTheme] = useState<Theme>("dark");
 
   useEffect(() => {
-    const stored = readStoredTheme();
-    if (stored !== null) {
-      // eslint-disable-next-line react-hooks/set-state-in-effect
-      setTheme(stored);
-    }
+    const attr = document.documentElement.getAttribute("data-theme");
+    const initial = attr === "light" || attr === "dark" ? attr : (readStoredTheme() ?? "dark");
+    // eslint-disable-next-line react-hooks/set-state-in-effect
+    setTheme(initial);
   }, []);
 
   useEffect(() => {

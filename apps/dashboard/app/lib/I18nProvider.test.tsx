@@ -19,7 +19,8 @@ describe("I18nProvider", () => {
     );
 
     expect(screen.getByText("Create account")).toBeTruthy(); // default English
-    fireEvent.change(screen.getByLabelText("Language"), { target: { value: "ru" } });
+    fireEvent.click(screen.getByLabelText("Language")); // open the dropdown
+    fireEvent.click(screen.getByText("Русский")); // pick Russian
     expect(screen.getByText("Создать аккаунт")).toBeTruthy(); // switched to Russian
   });
 

@@ -19,6 +19,10 @@ export const metadata: Metadata = {
   description: "The dashboard for your tovayo AI receptionist.",
 };
 
+// Set the theme before paint so there's no flash: honor a saved choice, else the OS
+// (defaulting to dark) — same behavior as the marketing site.
+const NO_FLASH = `(()=>{try{const s=localStorage.getItem("tovayo.theme");const d=s?s==="dark":matchMedia("(prefers-color-scheme: dark)").matches;document.documentElement.setAttribute("data-theme",d?"dark":"light");}catch(e){document.documentElement.setAttribute("data-theme","dark");}})();`;
+
 export default function RootLayout({
   children,
 }: Readonly<{
@@ -26,6 +30,9 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="en" className={`${jakarta.variable} h-full`} suppressHydrationWarning>
+      <head>
+        <script dangerouslySetInnerHTML={{ __html: NO_FLASH }} />
+      </head>
       <body className="min-h-full">
         <ThemeProvider>
           <I18nProvider>
