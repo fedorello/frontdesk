@@ -81,6 +81,12 @@ class Settings(BaseSettings):
     llm_base_url: str = "https://openrouter.ai/api/v1"
     llm_max_tokens: int = 2048  # enough for a reasoning model to think AND emit the tool call
 
+    # Supervisor (Groq): a fast classifier that catches replies offering times without a fresh
+    # find_availability call. Empty api key disables the guardrail (a no-op detector).
+    groq_api_key: str = ""
+    supervisor_model: str = "llama-3.1-8b-instant"
+    groq_base_url: str = "https://api.groq.com/openai/v1"
+
     # WhatsApp Cloud API.
     whatsapp_token: str = ""
     whatsapp_phone_number_id: str = ""

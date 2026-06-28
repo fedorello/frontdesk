@@ -15,7 +15,10 @@ from frontdesk.application.ports import (
 from frontdesk.domain.enums import AppointmentStatus, Channel, MessageRole
 from frontdesk.domain.ids import AppointmentId, BusinessId, CustomerId
 from frontdesk.domain.models import Customer, IntakeAnswer, IntakeField, Message, TimeSlot
-from frontdesk.infrastructure.memory import ScriptedLlmProvider
+from frontdesk.infrastructure.memory import (
+    InMemoryAvailabilityClaimDetector,
+    ScriptedLlmProvider,
+)
 from tests.application.world import NOW, build_world, inbound, make_customer
 
 _SLOT = TimeSlot(datetime(2026, 6, 26, 15, tzinfo=UTC), datetime(2026, 6, 26, 16, tzinfo=UTC))
@@ -300,3 +303,45 @@ async def test_owner_turns_reach_the_model_tagged_as_the_human_owner() -> None:
     assert isinstance(llm, ScriptedLlmProvider)
     texts = [message.text for message in llm.last_messages]
     assert "[owner] On my way!" in texts  # the model sees it as the owner, not its own reply
+
+
+async def test_supervisor_reruns_when_times_are_offered_without_a_check() -> None:
+    # The model offers times without calling find_availability (its stale-list failure mode).
+    # The supervisor flags the draft, we run the tool, and the model redoes the answer.
+    world = build_world(
+        [
+            Completion("Sure! Free slots: 10:00, 11:00"),  # final draft, no tool call
+            Completion("Here are the real times for you."),  # the corrected answer
+        ],
+        detector=InMemoryAvailabilityClaimDetector(triggers=["free slots"]),
+    )
+
+    await world.assistant.handle(inbound("when are you free tomorrow?"))
+
+    sent = world.messaging.sent[-1][1].text
+    assert "real times" in sent  # the corrected reply went out, not the stale draft
+    llm = world.deps.llm
+    assert isinstance(llm, ScriptedLlmProvider)
+    assert "ONLY currently free slots" in llm.last_system  # fresh truth was injected
+    assert llm.calls == 2  # exactly one corrective retry
+
+
+async def test_supervisor_allows_times_after_a_real_availability_check() -> None:
+    # When find_availability WAS called, offering times is legitimate — no rerun, and the
+    # deterministic check short-circuits before the supervisor is even consulted.
+    detector = InMemoryAvailabilityClaimDetector(triggers=["free slots"])
+    world = build_world(
+        [
+            Completion(None, (ToolCall("c1", "find_availability", {"service": "Haircut"}),)),
+            Completion("Sure! Free slots: 10:00, 11:00"),  # offered after a real check
+        ],
+        detector=detector,
+    )
+
+    await world.assistant.handle(inbound("when are you free tomorrow?"))
+
+    assert "Free slots: 10:00, 11:00" in world.messaging.sent[-1][1].text
+    llm = world.deps.llm
+    assert isinstance(llm, ScriptedLlmProvider)
+    assert llm.calls == 2  # no corrective third call
+    assert detector.seen == []  # availability was checked, so the supervisor was skipped

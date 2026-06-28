@@ -14,6 +14,7 @@ from frontdesk.domain.models import Business, Resource, WorkingHours
 from frontdesk.infrastructure.memory import (
     AutoDecisionGate,
     InMemoryAppointmentRepository,
+    InMemoryAvailabilityClaimDetector,
     InMemoryBusinessRepository,
     InMemoryCalendar,
     InMemoryConversationRepository,
@@ -58,4 +59,5 @@ def build_assistant_deps(businesses: InMemoryBusinessRepository) -> AssistantDep
         events=events,
         gate=AutoDecisionGate(approved=False),
         clock=clock,
+        detector=InMemoryAvailabilityClaimDetector(),
     )

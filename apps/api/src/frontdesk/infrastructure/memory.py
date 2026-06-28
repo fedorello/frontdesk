@@ -131,6 +131,19 @@ class ScriptedLlmProvider:
         return completion
 
 
+class InMemoryAvailabilityClaimDetector:
+    """Supervisor fake: flags a message when it contains any configured trigger phrase."""
+
+    def __init__(self, triggers: Sequence[str] = ()) -> None:
+        self._triggers = tuple(trigger.lower() for trigger in triggers)
+        self.seen: list[str] = []  # captured for assertions on what was classified
+
+    async def mentions_available_slots(self, message: str) -> bool:
+        self.seen.append(message)
+        lowered = message.lower()
+        return any(trigger in lowered for trigger in self._triggers)
+
+
 class InMemoryBusinessRepository:
     def __init__(
         self,

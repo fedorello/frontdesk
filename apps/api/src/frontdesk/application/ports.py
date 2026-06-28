@@ -214,6 +214,12 @@ class LlmProvider(Protocol):
     ) -> Completion: ...
 
 
+class AvailabilityClaimDetector(Protocol):
+    """Supervisor that decides whether a draft reply offers the customer bookable times."""
+
+    async def mentions_available_slots(self, message: str) -> bool: ...
+
+
 class Calendar(Protocol):
     async def find_availability(
         self, service: Service, around: datetime, *, limit: int = 5

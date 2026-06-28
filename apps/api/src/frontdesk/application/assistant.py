@@ -21,6 +21,7 @@ from frontdesk.application.ports import (
     ApprovalGate,
     ApprovalRequested,
     AssistantObserver,
+    AvailabilityClaimDetector,
     BusinessRepository,
     Calendar,
     Clock,
@@ -52,6 +53,14 @@ from frontdesk.domain.models import (
 
 MAX_STEPS = 6
 SLOT_FORMAT = "%a %d %b %H:%M"  # rendered in the business's local time zone
+_FIND_AVAILABILITY = "find_availability"  # the tool the model must call before showing times
+# Appended to the system prompt for the one corrective retry when the model offered times
+# without checking — the supervisor caught it, so we hand it the real slots to use instead.
+_STALE_AVAILABILITY_NOTICE = (
+    "\n\nIMPORTANT: your previous draft offered appointment times without calling "
+    "find_availability, so they may be stale. I ran it for you. These are the ONLY currently "
+    "free slots — answer the customer using exactly these and nothing else:\n"
+)
 # Tool results (fed back to the model) that steer it away from guessing appointment ids.
 _NO_SUCH_APPOINTMENT = (
     "No appointment with that id exists. Call find_my_appointments to get the customer's real "
@@ -190,6 +199,7 @@ class AssistantDeps:
     events: EventPublisher
     gate: ApprovalGate
     clock: Clock
+    detector: AvailabilityClaimDetector
 
 
 def _arg(args: dict[str, object], key: str) -> str:
@@ -386,37 +396,75 @@ class Assistant:
         )
 
     async def _run(self, business: Business, customer: Customer) -> str:
-        history = await self._d.conversations.history(customer)
-        # Mark the owner's hand-written turns so the model treats them as the human owner,
-        # not as its own past replies (owner turns map to the assistant role for the LLM).
-        tag = _owner_tag(business)
-        messages = [
-            replace(message, text=tag + message.text)
-            if message.role is MessageRole.OWNER
-            else message
-            for message in history
-        ]
+        messages = self._initial_messages(await self._d.conversations.history(customer), business)
         system = _system_prompt(
             business, await self._d.services.for_business(business.id), self._d.clock.now()
         )
+        checked = False  # was find_availability called this turn?
+        corrected = False  # the supervisor's one corrective retry has been spent
         for _ in range(MAX_STEPS):
             completion = await self._d.llm.complete(
                 system=system, messages=messages, tools=TOOL_SPECS
             )
             if not completion.tool_calls:
-                return completion.text or _escalation(business)
+                reply = completion.text or _escalation(business)
+                note = (
+                    None
+                    if corrected
+                    else await self._availability_correction(reply, business, checked)
+                )
+                if note is None:
+                    return reply
+                system, corrected = system + note, True
+                continue
             if completion.text:
                 await self._observer.on_thought(completion.text)
             messages.append(
                 Message(MessageRole.ASSISTANT, completion.text or "", self._d.clock.now())
             )
             for call in completion.tool_calls:
+                checked = checked or call.name == _FIND_AVAILABILITY
                 result = await self._dispatch(business, customer, call)
                 await self._observer.on_tool(call.name, call.args, result)
                 messages.append(
                     Message(MessageRole.TOOL, result, self._d.clock.now(), tool_call_id=call.id)
                 )
         return _escalation(business)
+
+    def _initial_messages(self, history: Sequence[Message], business: Business) -> list[Message]:
+        # Mark the owner's hand-written turns so the model treats them as the human owner,
+        # not as its own past replies (owner turns map to the assistant role for the LLM).
+        tag = _owner_tag(business)
+        return [
+            replace(message, text=tag + message.text)
+            if message.role is MessageRole.OWNER
+            else message
+            for message in history
+        ]
+
+    async def _availability_correction(
+        self, reply: str, business: Business, availability_checked: bool
+    ) -> str | None:
+        """The system-prompt addendum to force a redo, or None when no correction is needed.
+
+        Triggers only when the reply offers times yet find_availability was never called — the
+        case where the model invents or reuses a stale list instead of checking.
+        """
+        if availability_checked:
+            return None
+        if not await self._d.detector.mentions_available_slots(reply):
+            return None
+        return _STALE_AVAILABILITY_NOTICE + await self._fresh_availability(business)
+
+    async def _fresh_availability(self, business: Business) -> str:
+        """The real current free slots per service, formatted for the model to reuse."""
+        tz = ZoneInfo(business.timezone)
+        now = self._d.clock.now()
+        lines = []
+        for service in await self._d.services.for_business(business.id):
+            slots = await self._d.calendar.find_availability(service, now)
+            lines.append(f"{service.name}: {_format_slots(slots, tz)}")
+        return "\n".join(lines)
 
     async def _dispatch(self, business: Business, customer: Customer, call: ToolCall) -> str:
         handler = self._handlers.get(call.name)
