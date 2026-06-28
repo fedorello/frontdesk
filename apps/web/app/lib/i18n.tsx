@@ -256,14 +256,14 @@ const en: Copy = {
     eyebrow: "The name",
     title: 'Why "Tovayo"?',
     intro:
-      "Three little words from three languages — together, they're the whole job.",
+      "Say it slow — to·va·yo. In Spanish, va means “it's running.” The rest is pure motion.",
     words: [
-      { word: "tov", lang: "Hebrew", meaning: "“good”" },
-      { word: "voy", lang: "Spanish", meaning: "“I'm on it”" },
-      { word: "voilà", lang: "French", meaning: "“there, done”" },
+      { word: "vaya", lang: "Spanish", meaning: "“go — there you go!”" },
+      { word: "ayo", lang: "Indonesian", meaning: "“let's go!”" },
+      { word: "yo", lang: "Spanish", meaning: "“I — I've got it”" },
     ],
     punchline:
-      "A good assistant that answers the second a customer writes — voy — and turns it into a booking — voilà. Always on, in any language.",
+      "An assistant that never stops moving: a customer writes and it's on it — vaya, ayo! — and it's the “yo”, the “I”, that answers for you. There, done — voilà.",
   },
   cta: {
     title: "Your front desk, handled.",
@@ -446,14 +446,15 @@ const es: Copy = {
   name: {
     eyebrow: "El nombre",
     title: '¿Por qué "Tovayo"?',
-    intro: "Tres palabritas de tres idiomas — juntas son justo lo que hace.",
+    intro:
+      "Dilo despacio — to·va·yo. En español, va es “está en marcha”. El resto es puro movimiento.",
     words: [
-      { word: "tov", lang: "Hebreo", meaning: "«bueno»" },
-      { word: "voy", lang: "Español", meaning: "«voy, estoy en ello»" },
-      { word: "voilà", lang: "Francés", meaning: "«listo, ya está»" },
+      { word: "vaya", lang: "Español", meaning: "«vaya — ¡ahí lo tienes!»" },
+      { word: "ayo", lang: "Indonesio", meaning: "«¡vamos!»" },
+      { word: "yo", lang: "Español", meaning: "«yo — yo me encargo»" },
     ],
     punchline:
-      "Un buen asistente que responde en cuanto un cliente escribe — voy — y lo convierte en una reserva — voilà. Siempre activo, en cualquier idioma.",
+      "Un asistente que no para: un cliente escribe y ya está en ello — ¡vaya, ayo! — y es el “yo” quien responde por ti. Listo — voilà.",
   },
   cta: {
     title: "Tu recepción, resuelta.",
@@ -639,14 +640,15 @@ const ru: Copy = {
   name: {
     eyebrow: "Имя",
     title: "Почему «Tovayo»?",
-    intro: "Три маленьких слова из трёх языков — вместе это вся суть сервиса.",
+    intro:
+      "Произнеси медленно — to·va·yo. По-испански va — «идёт, работает». А дальше — сплошное движение.",
     words: [
-      { word: "tov", lang: "иврит", meaning: "«хорошо»" },
-      { word: "voy", lang: "испанский", meaning: "«уже иду, я на этом»" },
-      { word: "voilà", lang: "французский", meaning: "«вуаля, готово»" },
+      { word: "vaya", lang: "испанский", meaning: "«давай — ну вот!»" },
+      { word: "ayo", lang: "индонезийский", meaning: "«пошли! / го!»" },
+      { word: "yo", lang: "испанский", meaning: "«я — я разберусь»" },
     ],
     punchline:
-      "Хороший ассистент, который отвечает, едва клиент написал — voy — и превращает это в готовую запись — voilà. Всегда на связи, на любом языке.",
+      "Ассистент, который не стоит на месте: клиент написал — и оно уже на этом — ¡vaya, ayo! — и это «yo», то самое «я», что отвечает за тебя. Готово — voilà.",
   },
   cta: {
     title: "Ваш ресепшн — под контролем.",
@@ -813,14 +815,14 @@ const zh: Copy = {
   name: {
     eyebrow: "名字的由来",
     title: '为什么叫 "Tovayo"？',
-    intro: "三个小词，来自三种语言——合在一起，正是它的工作。",
+    intro: "慢慢念——to·va·yo。西班牙语 va 意为「运转中」——其余全是动感。",
     words: [
-      { word: "tov", lang: "希伯来语", meaning: "“好”" },
-      { word: "voy", lang: "西班牙语", meaning: "“我这就来 / 我在处理”" },
-      { word: "voilà", lang: "法语", meaning: "“瞧，搞定了”" },
+      { word: "vaya", lang: "西班牙语", meaning: "「走起——这就好了！」" },
+      { word: "ayo", lang: "印尼语", meaning: "「走吧！」" },
+      { word: "yo", lang: "西班牙语", meaning: "「我——交给我」" },
     ],
     punchline:
-      "一个出色的助手，客户一发来消息就回应——voy——并把它变成一笔预约——voilà。全天候在线，支持任何语言。",
+      "一个永不停歇的助手：客户一发来消息，它立刻行动——¡vaya, ayo!——而那个「yo」（「我」）替你回应。搞定——voilà。",
   },
   cta: { title: "前台，交给我们。", sub: "免费、无限、开源。几分钟即可设置。" },
   footer: {
