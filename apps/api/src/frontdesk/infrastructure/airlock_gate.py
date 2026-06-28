@@ -1,17 +1,16 @@
 """The approval gate, backed by the published ``airlock-hitl`` package (ADR-0005).
 
 Frontdesk dogfoods Airlock: a sensitive tool call is turned into an Airlock
-``Tool``/``ToolCall`` and run through Airlock's ``RiskBasedGatePolicy``. When the
-policy says it needs a human, we raise an Airlock ``ApprovalRequest`` and hold the
-action — the dashboard approvals inbox reads these and a human decides.
+``Tool``/``ToolCall`` and run through Airlock's ``RiskBasedGatePolicy``. When the policy
+says it needs a human, we persist an ``ApprovalRecord`` to the ``ApprovalStore`` and hold
+the action — the dashboard approvals inbox reads these (per tenant) and a human decides.
 """
 
 import uuid
 from collections.abc import Mapping
-from dataclasses import dataclass
+from dataclasses import replace
 
 from airlock import (
-    ApprovalRequest,
     RiskBasedGatePolicy,
     RiskTier,
     RunState,
@@ -20,9 +19,14 @@ from airlock import (
     ToolCall,
 )
 from airlock.application.ports.gate_policy import GateDecisionInput
-from airlock.domain.identifiers import RequestId, RunId, ToolCallId
+from airlock.domain.identifiers import RunId, ToolCallId
 
-from frontdesk.application.ports import Decision, SensitiveAction
+from frontdesk.application.ports import (
+    ApprovalRecord,
+    ApprovalStore,
+    Decision,
+    SensitiveAction,
+)
 
 
 async def _never_runs(_args: Mapping[str, object]) -> object:
@@ -30,47 +34,40 @@ async def _never_runs(_args: Mapping[str, object]) -> object:
     raise RuntimeError("gate handler must never execute")
 
 
-@dataclass
-class PendingApproval:
-    request: ApprovalRequest
-    summary: str
-    business_id: str  # the tenant this approval belongs to
-    status: str = "pending"  # pending | approved | rejected
-
-
-class PendingApprovals:
-    """The queue of Airlock approval requests awaiting a human, per business."""
+class InMemoryApprovalStore:
+    """A per-process approval queue (the ``ApprovalStore`` port) for tests and local dev."""
 
     def __init__(self) -> None:
-        self._items: dict[str, PendingApproval] = {}
+        self._items: dict[str, ApprovalRecord] = {}
 
-    def add(self, request: ApprovalRequest, summary: str, business_id: str) -> None:
-        self._items[str(request.request_id)] = PendingApproval(request, summary, business_id)
+    async def add(self, record: ApprovalRecord) -> None:
+        self._items[record.request_id] = record
 
-    def pending(self, business_id: str) -> list[PendingApproval]:
+    async def pending(self, business_id: str) -> list[ApprovalRecord]:
         return [
-            item
-            for item in self._items.values()
-            if item.status == "pending" and item.business_id == business_id
+            r
+            for r in self._items.values()
+            if r.status == "pending" and r.business_id == business_id
         ]
 
-    def decide(
+    async def decide(
         self, request_id: str, business_id: str, *, approved: bool
-    ) -> PendingApproval | None:
-        item = self._items.get(request_id)
+    ) -> ApprovalRecord | None:
+        record = self._items.get(request_id)
         # Scoped to the tenant: an owner can only decide their own business's approvals.
-        if item is None or item.business_id != business_id:
+        if record is None or record.business_id != business_id:
             return None
-        item.status = "approved" if approved else "rejected"
-        return item
+        record = replace(record, status="approved" if approved else "rejected")
+        self._items[request_id] = record
+        return record
 
 
 class AirlockApprovalGate:
     """Implements the ApprovalGate port using Airlock's gate policy and types."""
 
-    def __init__(self, pending: PendingApprovals) -> None:
+    def __init__(self, store: ApprovalStore) -> None:
         self._policy = RiskBasedGatePolicy()
-        self._pending = pending
+        self._store = store
 
     async def guard(self, action: SensitiveAction) -> Decision:
         tool = Tool(
@@ -95,12 +92,14 @@ class AirlockApprovalGate:
         if not self._policy.requires_approval(GateDecisionInput(tool, call, state)):
             return Decision(approved=True)
 
-        request = ApprovalRequest(
-            run_id=state.run_id,
-            request_id=RequestId(uuid.uuid4().hex),
-            tool_call=call,
-            risk=RiskTier.SENSITIVE,
-            context=dict(action.args),
+        await self._store.add(
+            ApprovalRecord(
+                request_id=uuid.uuid4().hex,
+                business_id=action.business_id,
+                tool=action.tool_name,
+                summary=action.summary,
+                risk=RiskTier.SENSITIVE.value,
+                args=dict(action.args),
+            )
         )
-        self._pending.add(request, action.summary, action.business_id)
         return Decision(approved=False)

@@ -374,3 +374,27 @@ class EventPublisher(Protocol):
 
 class ApprovalGate(Protocol):
     async def guard(self, action: SensitiveAction) -> Decision: ...
+
+
+@dataclass(frozen=True, slots=True)
+class ApprovalRecord:
+    """A gated action awaiting a human decision, as the inbox sees it."""
+
+    request_id: str
+    business_id: str
+    tool: str
+    summary: str
+    risk: str
+    args: dict[str, object]
+    status: str = "pending"  # pending | approved | rejected
+
+
+class ApprovalStore(Protocol):
+    """The human-approval queue: per-tenant, persisted so it survives restarts and is
+    visible across processes (an approval raised by the poller shows in the API's inbox)."""
+
+    async def add(self, record: ApprovalRecord) -> None: ...
+    async def pending(self, business_id: str) -> list[ApprovalRecord]: ...
+    async def decide(
+        self, request_id: str, business_id: str, *, approved: bool
+    ) -> ApprovalRecord | None: ...

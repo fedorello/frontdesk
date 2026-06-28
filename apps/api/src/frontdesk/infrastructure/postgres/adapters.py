@@ -11,6 +11,7 @@ from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
 
 from frontdesk.application.ports import (
     Account,
+    ApprovalRecord,
     Clock,
     IdGenerator,
     LlmConfig,
@@ -58,6 +59,12 @@ def _json(value: object) -> list[Any]:
     if isinstance(value, str):
         return list(json.loads(value))
     return list(value) if isinstance(value, list) else []
+
+
+def _json_obj(value: object) -> dict[str, Any]:
+    if isinstance(value, str):
+        return dict(json.loads(value))
+    return dict(value) if isinstance(value, dict) else {}
 
 
 def _to_business(row: Row) -> Business:
@@ -1084,6 +1091,7 @@ class SqlBusinessEraser:
 
     # Child rows first (so foreign keys never block the delete), business last.
     _TABLES = (
+        "approval",
         "reminder",
         "message",
         "appointment",
@@ -1111,3 +1119,83 @@ class SqlBusinessEraser:
                 text("DELETE FROM business WHERE id = :bid"), {"bid": str(business_id)}
             )
             await session.commit()
+
+
+class SqlApprovalStore:
+    """Postgres-backed approval queue (the ``ApprovalStore`` port) — restart-safe and shared
+    across processes, so a poller-raised approval shows in the API's inbox."""
+
+    def __init__(self, sessionmaker: async_sessionmaker[AsyncSession]) -> None:
+        self._sf = sessionmaker
+
+    async def add(self, record: ApprovalRecord) -> None:
+        async with self._sf() as session:
+            await session.execute(
+                text(
+                    "INSERT INTO approval (request_id, business_id, tool, summary, risk, args, "
+                    "status) VALUES (:rid, :bid, :tool, :summary, :risk, CAST(:args AS jsonb), "
+                    ":status)"
+                ),
+                {
+                    "rid": record.request_id,
+                    "bid": record.business_id,
+                    "tool": record.tool,
+                    "summary": record.summary,
+                    "risk": record.risk,
+                    "args": json.dumps(record.args),
+                    "status": record.status,
+                },
+            )
+            await session.commit()
+
+    async def pending(self, business_id: str) -> list[ApprovalRecord]:
+        async with self._sf() as session:
+            rows = (
+                await session.execute(
+                    text(
+                        "SELECT request_id, tool, summary, risk, args FROM approval "
+                        "WHERE business_id = :bid AND status = 'pending' ORDER BY created_at"
+                    ),
+                    {"bid": business_id},
+                )
+            ).all()
+        return [
+            ApprovalRecord(
+                request_id=row.request_id,
+                business_id=business_id,
+                tool=row.tool,
+                summary=row.summary,
+                risk=row.risk,
+                args=_json_obj(row.args),
+            )
+            for row in rows
+        ]
+
+    async def decide(
+        self, request_id: str, business_id: str, *, approved: bool
+    ) -> ApprovalRecord | None:
+        status = "approved" if approved else "rejected"
+        async with self._sf() as session:
+            # The business_id predicate scopes the decision to the owning tenant.
+            row = (
+                await session.execute(
+                    text(
+                        "UPDATE approval SET status = :status "
+                        "WHERE request_id = :rid AND business_id = :bid AND status = 'pending' "
+                        "RETURNING tool, summary, risk, args"
+                    ),
+                    {"status": status, "rid": request_id, "bid": business_id},
+                )
+            ).first()
+            await session.commit()
+        if row is None:
+            return None
+        return ApprovalRecord(
+            request_id=request_id,
+            business_id=business_id,
+            tool=row.tool,
+            summary=row.summary,
+            risk=row.risk,
+            args=_json_obj(row.args),
+            status=status,
+        )

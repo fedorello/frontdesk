@@ -11,10 +11,11 @@ import signal
 import httpx
 
 from frontdesk.core.settings import Settings
-from frontdesk.infrastructure.airlock_gate import AirlockApprovalGate, PendingApprovals
+from frontdesk.infrastructure.airlock_gate import AirlockApprovalGate
 from frontdesk.infrastructure.db import create_engine, make_session_factory
 from frontdesk.infrastructure.logging_setup import configure_logging
 from frontdesk.infrastructure.postgres.adapters import (
+    SqlApprovalStore,
     SqlLlmConfigRepository,
     SqlTelegramBotRepository,
     SqlUsageStore,
@@ -43,7 +44,7 @@ async def run() -> None:
         UuidIdGenerator(),
         build_clock(settings),
         client,
-        AirlockApprovalGate(PendingApprovals()),
+        AirlockApprovalGate(SqlApprovalStore(sessions)),  # shared DB queue (visible in the API)
     )
     inbound = TelegramInbound(
         deps,

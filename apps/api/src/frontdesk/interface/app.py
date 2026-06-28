@@ -34,7 +34,7 @@ from frontdesk.application.ports import (
     SecretCipher,
 )
 from frontdesk.core.settings import Settings
-from frontdesk.infrastructure.airlock_gate import AirlockApprovalGate, PendingApprovals
+from frontdesk.infrastructure.airlock_gate import AirlockApprovalGate
 from frontdesk.infrastructure.channels.composite import LoggingMessaging, RoutingMessaging
 from frontdesk.infrastructure.channels.telegram import (
     TelegramCustomerNotifier,
@@ -49,6 +49,7 @@ from frontdesk.infrastructure.memory import InMemoryIdempotency
 from frontdesk.infrastructure.postgres.adapters import (
     SqlAccountRepository,
     SqlAppointmentRepository,
+    SqlApprovalStore,
     SqlBusinessEraser,
     SqlBusinessRepository,
     SqlCalendar,
@@ -182,7 +183,7 @@ def create_production_app() -> FastAPI:
     ids = UuidIdGenerator()
     client = httpx.AsyncClient(timeout=30)
 
-    pending_approvals = PendingApprovals()
+    approval_store = SqlApprovalStore(sessions)
     cipher = build_cipher(settings)
     telegram_bots = SqlTelegramBotRepository(sessions, cipher)
     llm_configs = SqlLlmConfigRepository(sessions, cipher)
@@ -193,7 +194,7 @@ def create_production_app() -> FastAPI:
 
     # Dogfoods airlock-hitl (ADR-0005): sensitive actions gated for human approval.
     deps = build_assistant_deps(
-        settings, sessions, ids, clock, client, AirlockApprovalGate(pending_approvals)
+        settings, sessions, ids, clock, client, AirlockApprovalGate(approval_store)
     )
     config = WebhookConfig(
         whatsapp_app_secret=settings.whatsapp_app_secret,
@@ -216,7 +217,7 @@ def create_production_app() -> FastAPI:
     )
     telegram_inbound = TelegramInbound(deps, llm_configs, usage, settings, client, SystemRandom())
     app.include_router(build_chat_router(deps, settings.demo_to_address, clock))
-    app.include_router(build_approvals_router(pending_approvals, guard))
+    app.include_router(build_approvals_router(approval_store, guard))
     app.include_router(build_telegram_router(telegram_inbound, telegram_bots))
     app.include_router(
         build_auth_router(accounts, SqlBusinessRepository(sessions), ids, settings, rate_limiter)

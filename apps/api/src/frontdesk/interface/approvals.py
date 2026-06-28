@@ -9,7 +9,7 @@ from collections.abc import Awaitable, Callable
 from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel
 
-from frontdesk.infrastructure.airlock_gate import PendingApprovals
+from frontdesk.application.ports import ApprovalStore
 
 Guard = Callable[..., Awaitable[None]] | None
 
@@ -26,7 +26,7 @@ class DecisionInput(BaseModel):
     approved: bool
 
 
-def build_approvals_router(pending: PendingApprovals, guard: Guard = None) -> APIRouter:
+def build_approvals_router(store: ApprovalStore, guard: Guard = None) -> APIRouter:
     # The guard scopes the path business_id to the authenticated owner.
     router = APIRouter(dependencies=[Depends(guard)] if guard is not None else [])
 
@@ -34,20 +34,20 @@ def build_approvals_router(pending: PendingApprovals, guard: Guard = None) -> AP
     async def list_approvals(business_id: str) -> list[ApprovalView]:
         return [
             ApprovalView(
-                id=str(item.request.request_id),
-                summary=item.summary,
-                tool=item.request.tool_call.name,
-                args=item.request.tool_call.args,
-                risk=item.request.risk.value,
+                id=record.request_id,
+                summary=record.summary,
+                tool=record.tool,
+                args=record.args,
+                risk=record.risk,
             )
-            for item in pending.pending(business_id)
+            for record in await store.pending(business_id)
         ]
 
     @router.post("/api/businesses/{business_id}/approvals/{request_id}")
     async def decide(business_id: str, request_id: str, body: DecisionInput) -> dict[str, str]:
-        item = pending.decide(request_id, business_id, approved=body.approved)
-        if item is None:
+        record = await store.decide(request_id, business_id, approved=body.approved)
+        if record is None:
             raise HTTPException(status_code=404, detail="approval not found")
-        return {"status": item.status}
+        return {"status": record.status}
 
     return router

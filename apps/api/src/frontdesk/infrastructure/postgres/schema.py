@@ -146,11 +146,27 @@ CREATE_STATEMENTS: tuple[str, ...] = (
     )
     """,
     "CREATE INDEX reminder_due ON reminder (status, due_at)",
+    # Human-approval queue (Airlock dogfood, ADR-0005). DB-backed so it's restart-safe and
+    # visible across processes (a poller-raised approval shows in the API's inbox).
+    """
+    CREATE TABLE approval (
+        request_id text PRIMARY KEY,
+        business_id text NOT NULL REFERENCES business(id),
+        tool text NOT NULL,
+        summary text NOT NULL,
+        risk text NOT NULL,
+        args jsonb NOT NULL DEFAULT '{}'::jsonb,
+        status text NOT NULL DEFAULT 'pending',
+        created_at timestamptz NOT NULL DEFAULT now()
+    )
+    """,
+    "CREATE INDEX approval_pending ON approval (business_id, status)",
 )
 
 DROP_STATEMENTS: tuple[str, ...] = tuple(
     f"DROP TABLE IF EXISTS {table} CASCADE"
     for table in (
+        "approval",
         "reminder",
         "appointment",
         "message",

@@ -263,3 +263,33 @@ async def test_account_repository(sessionmaker: Factory) -> None:
 
 async def test_usage_store(sessionmaker: Factory) -> None:
     await check_usage_store(SqlUsageStore(sessionmaker))
+
+
+async def test_approval_store(sessionmaker: Factory) -> None:
+    from frontdesk.application.ports import ApprovalRecord
+    from frontdesk.infrastructure.postgres.adapters import SqlApprovalStore
+
+    store = SqlApprovalStore(sessionmaker)
+    await store.add(
+        ApprovalRecord(
+            request_id="req-1",
+            business_id="biz",
+            tool="issue_refund",
+            summary="Refund for ap-1",
+            risk="sensitive",
+            args={"appointment_id": "ap-1"},
+        )
+    )
+
+    pending = await store.pending("biz")
+    assert len(pending) == 1
+    assert pending[0].tool == "issue_refund"
+    assert pending[0].args == {"appointment_id": "ap-1"}  # jsonb round-trips
+    assert await store.pending("other") == []  # tenant-scoped
+
+    # A foreign tenant can't decide it; the owner can.
+    assert await store.decide("req-1", "other", approved=True) is None
+    decided = await store.decide("req-1", "biz", approved=True)
+    assert decided is not None
+    assert decided.status == "approved"
+    assert await store.pending("biz") == []  # no longer pending
