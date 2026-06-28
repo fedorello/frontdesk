@@ -323,25 +323,25 @@ async def test_owner_turns_reach_the_model_tagged_as_the_human_owner() -> None:
     assert "[owner] On my way!" in texts  # the model sees it as the owner, not its own reply
 
 
-async def test_supervisor_reruns_when_times_are_offered_without_a_check() -> None:
+async def test_supervisor_forces_a_lookup_when_times_offered_without_a_check() -> None:
     # The model offers times without calling find_availability (its stale-list failure mode).
-    # The supervisor flags the draft, we run the tool, and the model redoes the answer.
+    # The supervisor forces find_availability on the retry, then the model redoes the answer.
     world = build_world(
         [
             Completion("Sure! Free slots: 10:00, 11:00"),  # final draft, no tool call
-            Completion("Here are the real times for you."),  # the corrected answer
+            _tool("c", "find_availability", {"service": "Haircut"}),  # the forced retry call
+            Completion("Here are the real times for you."),  # answered from the fresh result
         ],
         classifier=InMemoryReplyClaimClassifier({"free slots": ReplyClaim.OFFERS_TIMES}),
     )
 
     await world.assistant.handle(inbound("when are you free tomorrow?"))
 
-    sent = world.messaging.sent[-1][1].text
-    assert "real times" in sent  # the corrected reply went out, not the stale draft
+    assert "real times" in world.messaging.sent[-1][1].text  # corrected reply, not the stale draft
     llm = world.deps.llm
     assert isinstance(llm, ScriptedLlmProvider)
-    assert "ONLY currently free slots" in llm.last_system  # fresh truth was injected
-    assert llm.calls == 2  # exactly one corrective retry
+    assert llm.tool_choices == [None, "find_availability", None]  # the retry was forced
+    assert llm.calls == 3
 
 
 async def test_supervisor_allows_times_after_a_real_availability_check() -> None:
@@ -362,16 +362,17 @@ async def test_supervisor_allows_times_after_a_real_availability_check() -> None
     llm = world.deps.llm
     assert isinstance(llm, ScriptedLlmProvider)
     assert llm.calls == 2  # no corrective third call
-    assert classifier.seen == ["Sure! Free slots: 10:00, 11:00"]  # consulted, but claim is backed
+    assert llm.tool_choices == [None, None]  # nothing forced — the claim was backed
 
 
-async def test_supervisor_reruns_when_appointments_listed_without_a_lookup() -> None:
+async def test_supervisor_forces_a_lookup_when_appointments_listed_without_one() -> None:
     # The model recites the customer's appointments from memory (the phantom-summary bug).
-    # The supervisor flags it, we run find_my_appointments, and the model redoes the recap.
+    # The supervisor forces find_my_appointments on the retry, then the model redoes the recap.
     world = build_world(
         [
             Completion("You have 3 appointments: ..."),  # listed from memory, no tool call
-            Completion("Here is your real schedule."),  # corrected
+            _tool("c", "find_my_appointments", {}),  # the forced retry call
+            Completion("Here is your real schedule."),  # answered from the fresh result
         ],
         classifier=InMemoryReplyClaimClassifier({"appointments": ReplyClaim.LISTS_APPOINTMENTS}),
     )
@@ -381,18 +382,19 @@ async def test_supervisor_reruns_when_appointments_listed_without_a_lookup() -> 
     assert "real schedule" in world.messaging.sent[-1][1].text
     llm = world.deps.llm
     assert isinstance(llm, ScriptedLlmProvider)
-    assert "REAL upcoming appointments" in llm.last_system  # the true list was injected
-    assert llm.calls == 2
+    assert llm.tool_choices == [None, "find_my_appointments", None]
+    assert llm.calls == 3
 
 
 async def test_supervisor_reruns_when_booking_claimed_without_acting() -> None:
-    # The model says a booking is done but never called book (the phantom-booking bug).
+    # The model says a booking is done but never called book (the phantom-booking bug). A booking
+    # claim can't be auto-acted, so it is instructed (no forced tool) to act or recant.
     world = build_world(
         [
             Completion("Done, you're booked!"),  # claims a booking, no tool call
-            Completion("Sorry — that is not booked yet."),  # corrected
+            Completion("Sorry — that is not booked yet."),  # recanted on the retry
         ],
-        classifier=InMemoryReplyClaimClassifier({"booked": ReplyClaim.CONFIRMS_BOOKING}),
+        classifier=InMemoryReplyClaimClassifier({"you're booked": ReplyClaim.CONFIRMS_BOOKING}),
     )
 
     await world.assistant.handle(inbound("book it"))
@@ -400,5 +402,6 @@ async def test_supervisor_reruns_when_booking_claimed_without_acting() -> None:
     assert "not booked" in world.messaging.sent[-1][1].text
     llm = world.deps.llm
     assert isinstance(llm, ScriptedLlmProvider)
-    assert "did NOT call book" in llm.last_system  # forced to actually act or recant
+    assert "did NOT call book" in llm.last_system  # instructed to act or recant
+    assert llm.tool_choices == [None, None]  # a booking claim is never auto-forced
     assert llm.calls == 2

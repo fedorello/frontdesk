@@ -212,7 +212,10 @@ class LlmProvider(Protocol):
         system: str,
         messages: Sequence[Message],
         tools: Sequence[ToolSpec],
-    ) -> Completion: ...
+        tool_choice: str | None = None,
+    ) -> Completion:
+        """Run one turn. ``tool_choice`` forces that tool to be called (supervisor retries)."""
+        ...
 
 
 class ReplyClaim(StrEnum):

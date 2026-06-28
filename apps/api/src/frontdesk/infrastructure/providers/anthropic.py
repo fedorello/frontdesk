@@ -48,7 +48,12 @@ class AnthropicProvider:
         self._max_tokens = max_tokens
 
     async def complete(
-        self, *, system: str, messages: Sequence[Message], tools: Sequence[ToolSpec]
+        self,
+        *,
+        system: str,
+        messages: Sequence[Message],
+        tools: Sequence[ToolSpec],
+        tool_choice: str | None = None,
     ) -> Completion:
         payload: dict[str, object] = {
             "model": self._model,
@@ -64,6 +69,8 @@ class AnthropicProvider:
                 for tool in tools
             ],
         }
+        if tool_choice is not None:
+            payload["tool_choice"] = {"type": "tool", "name": tool_choice}
         response = await self._client.post(
             f"{self._base}/v1/messages",
             json=payload,

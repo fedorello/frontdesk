@@ -52,7 +52,12 @@ class OpenAiProvider:
         self._log_prompts = log_prompts
 
     async def complete(
-        self, *, system: str, messages: Sequence[Message], tools: Sequence[ToolSpec]
+        self,
+        *,
+        system: str,
+        messages: Sequence[Message],
+        tools: Sequence[ToolSpec],
+        tool_choice: str | None = None,
     ) -> Completion:
         wire_messages: list[dict[str, object]] = [
             {"role": "system", "content": system},
@@ -74,6 +79,8 @@ class OpenAiProvider:
                 for tool in tools
             ],
         }
+        if tool_choice is not None:
+            payload["tool_choice"] = {"type": "function", "function": {"name": tool_choice}}
         if self._log_prompts:
             _logger.info(
                 "LLM REQUEST model=%s\n--- system ---\n%s\n--- messages ---\n%s\n--- tools ---\n%s",

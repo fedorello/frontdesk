@@ -193,3 +193,26 @@ async def test_groq_classifier_degrades_to_empty_when_unreachable() -> None:
 
 async def test_null_classifier_never_flags() -> None:
     assert await NullReplyClaimClassifier().classify("Free at 10:00?") == frozenset()
+
+
+async def test_tool_choice_forces_a_specific_tool_per_provider() -> None:
+    def openai_handler(request: httpx.Request) -> httpx.Response:
+        body = json.loads(request.content)
+        assert body["tool_choice"] == {
+            "type": "function",
+            "function": {"name": "find_availability"},
+        }
+        return httpx.Response(200, json={"choices": [{"message": {"content": "ok"}}]})
+
+    await OpenAiProvider(api_key="k", model="m", client=_client(openai_handler)).complete(
+        system="s", messages=[], tools=[], tool_choice="find_availability"
+    )
+
+    def anthropic_handler(request: httpx.Request) -> httpx.Response:
+        body = json.loads(request.content)
+        assert body["tool_choice"] == {"type": "tool", "name": "find_availability"}
+        return httpx.Response(200, json={"content": [{"type": "text", "text": "ok"}]})
+
+    await AnthropicProvider(api_key="k", model="m", client=_client(anthropic_handler)).complete(
+        system="s", messages=[], tools=[], tool_choice="find_availability"
+    )

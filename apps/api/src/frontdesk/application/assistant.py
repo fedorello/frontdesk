@@ -66,22 +66,35 @@ _CLAIM_FOR_TOOL = {
     "cancel": ReplyClaim.CONFIRMS_BOOKING,
     "find_my_appointments": ReplyClaim.LISTS_APPOINTMENTS,
 }
-# Each is appended to the system prompt for the one corrective retry, with the real data.
+# Appended to the system prompt on the corrective retry. The backing tool is forced on that
+# retry (tool_choice), so its fresh result enters the chat — these only steer how to use it.
+_MAX_CORRECTIONS = 2  # at most this many corrective retries before sending the model's reply
 _TIMES_NOTICE = (
-    "\n\nIMPORTANT: your previous draft offered appointment times without calling "
-    "find_availability, so they may be stale. I ran it for you. These are the ONLY currently "
-    "free slots — answer the customer using exactly these and nothing else:\n"
+    "\n\nSTOP: the appointment times in your previous draft are NOT real — you did not call "
+    "find_availability this turn, you reused a list from earlier in the chat, and slots change "
+    "constantly. Call find_availability now for the EXACT day the customer asked about, then "
+    "show ONLY the slots it returns. Never show a time you did not get from find_availability."
 )
 _APPOINTMENTS_NOTICE = (
-    "\n\nIMPORTANT: your previous draft stated the customer's appointments without calling "
-    "find_my_appointments, so they may be wrong. I ran it for you. These are their REAL upcoming "
-    "appointments — use exactly these, do not add or drop any:\n"
+    "\n\nSTOP: your previous draft stated the customer's appointments without calling "
+    "find_my_appointments, so it may be wrong. Call find_my_appointments now and use ONLY its "
+    "result — do not add, drop, or recall any appointment from earlier in the chat."
 )
 _BOOKING_NOTICE = (
     "\n\nIMPORTANT: your previous draft told the customer a booking or change is done, but you "
     "did NOT call book, reschedule, or cancel this turn — so nothing happened. Either call the "
     "correct tool now (collect any required details first), or tell the customer it is not done."
 )
+
+
+@dataclass(frozen=True, slots=True)
+class _Correction:
+    """A supervisor fix: a system-prompt addendum, and the tool to force on the retry (if any)."""
+
+    notice: str
+    forced_tool: str | None
+
+
 # Tool results (fed back to the model) that steer it away from guessing appointment ids.
 _NO_SUCH_APPOINTMENT = (
     "No appointment with that id exists. Call find_my_appointments to get the customer's real "
@@ -433,24 +446,28 @@ class Assistant:
             business, await self._d.services.for_business(business.id), self._d.clock.now()
         )
         verified: set[ReplyClaim] = set()  # claims backed by a tool call this turn
-        corrected = False  # the supervisor's one corrective retry has been spent
+        corrections = 0  # how many corrective retries the supervisor has spent
+        forced_tool: str | None = None  # the tool the next retry must call (tool_choice)
         for _ in range(MAX_STEPS):
             completion = await self._d.llm.complete(
-                system=system, messages=messages, tools=TOOL_SPECS
+                system=system, messages=messages, tools=TOOL_SPECS, tool_choice=forced_tool
             )
+            forced_tool = None  # force at most the single next call
             if not completion.tool_calls:
                 reply = completion.text or _escalation(business)
-                note = (
+                correction = (
                     None
-                    if corrected
-                    else await self._claim_corrections(reply, business, customer, verified)
+                    if corrections >= _MAX_CORRECTIONS
+                    else await self._claim_correction(reply, verified)
                 )
-                if note is None:
+                if correction is None:
                     return reply
                 _logger.info(
                     "supervisor corrected an unverified-claim reply (business=%s)", business.id
                 )
-                system, corrected = system + note, True
+                system += correction.notice
+                forced_tool = correction.forced_tool
+                corrections += 1
                 continue
             if completion.text:
                 await self._observer.on_thought(completion.text)
@@ -479,35 +496,24 @@ class Assistant:
             for message in history
         ]
 
-    async def _claim_corrections(
-        self, reply: str, business: Business, customer: Customer, verified: set[ReplyClaim]
-    ) -> str | None:
-        """The system-prompt addendum to force a redo, or None when every claim is verified.
+    async def _claim_correction(self, reply: str, verified: set[ReplyClaim]) -> _Correction | None:
+        """How to fix a reply whose claims aren't all backed by tools, or None when they are.
 
-        For each claim the reply makes whose backing tool was NOT called this turn (the model
-        guessed or reused stale data), append the real data so it can answer truthfully.
+        A read claim (times/appointments) forces a fresh call to its tool on the retry, so the
+        real data enters the chat; a booking claim can only be instructed (we never auto-book).
         """
         unverified = await self._d.classifier.classify(reply) - verified
-        notes = []
+        if not unverified:
+            return None
+        notice = ""
+        forced_tool: str | None = None
         if ReplyClaim.OFFERS_TIMES in unverified:
-            notes.append(_TIMES_NOTICE + await self._fresh_availability(business))
-        if ReplyClaim.LISTS_APPOINTMENTS in unverified:
-            notes.append(
-                _APPOINTMENTS_NOTICE + await self._find_appointments(business, customer, {})
-            )
+            notice, forced_tool = _TIMES_NOTICE, "find_availability"
+        elif ReplyClaim.LISTS_APPOINTMENTS in unverified:
+            notice, forced_tool = _APPOINTMENTS_NOTICE, "find_my_appointments"
         if ReplyClaim.CONFIRMS_BOOKING in unverified:
-            notes.append(_BOOKING_NOTICE)
-        return "\n\n".join(notes) if notes else None
-
-    async def _fresh_availability(self, business: Business) -> str:
-        """The real current free slots per service, formatted for the model to reuse."""
-        tz = ZoneInfo(business.timezone)
-        now = self._d.clock.now()
-        lines = []
-        for service in await self._d.services.for_business(business.id):
-            slots = await self._d.calendar.find_availability(service, now)
-            lines.append(f"{service.name}: {_format_slots(slots, tz)}")
-        return "\n".join(lines)
+            notice += _BOOKING_NOTICE
+        return _Correction(notice, forced_tool)
 
     async def _dispatch(self, business: Business, customer: Customer, call: ToolCall) -> str:
         handler = self._handlers.get(call.name)
