@@ -58,18 +58,22 @@ async def test_signup_login_and_scoping() -> None:
     transport = httpx.ASGITransport(app=_app())
     async with httpx.AsyncClient(transport=transport, base_url="http://test") as client:
         signup = await client.post(
-            "/api/signup", json={"email": "a@x.com", "password": "pw", "business_name": "Ana"}
+            "/api/signup",
+            json={"email": "a@x.com", "password": "test-pw-123", "business_name": "Ana"},
         )
         assert signup.status_code == 200
         token = signup.json()["token"]
         business_id = signup.json()["business_id"]
 
         dup = await client.post(
-            "/api/signup", json={"email": "a@x.com", "password": "pw", "business_name": "X"}
+            "/api/signup",
+            json={"email": "a@x.com", "password": "test-pw-123", "business_name": "X"},
         )
         assert dup.status_code == 409  # email taken
 
-        login = await client.post("/api/login", json={"email": "a@x.com", "password": "pw"})
+        login = await client.post(
+            "/api/login", json={"email": "a@x.com", "password": "test-pw-123"}
+        )
         assert login.status_code == 200
         bad = await client.post("/api/login", json={"email": "a@x.com", "password": "WRONG"})
         assert bad.status_code == 401

@@ -5,9 +5,11 @@ account and business, issues our session token, and bounces back to the dashboar
 client secret never leaves the server.
 """
 
+import logging
 import time
 from urllib.parse import urlencode
 
+import httpx
 from fastapi import APIRouter
 from fastapi.responses import RedirectResponse
 
@@ -27,6 +29,7 @@ _AUTH_ENDPOINT = "https://accounts.google.com/o/oauth2/v2/auth"
 _STATE_MAX_AGE = 600  # the round-trip to Google should take well under 10 minutes
 _PLACEHOLDER_BUSINESS_NAME = "My business"  # the owner renames it in Settings
 _FOUND = 302
+_logger = logging.getLogger("frontdesk.google_auth")
 
 
 def build_google_auth_router(
@@ -68,7 +71,11 @@ def build_google_auth_router(
             is None
         ):
             return _back("/login?error=google")
-        identity = await oauth.exchange_code(code)
+        try:
+            identity = await oauth.exchange_code(code)
+        except (httpx.HTTPError, ValueError, KeyError) as exc:
+            _logger.warning("google code exchange failed: %s", exc)
+            return _back("/login?error=google")
         if not identity.email or not identity.email_verified:
             return _back("/login?error=google")
 

@@ -27,7 +27,15 @@ async def test_exchange_code_posts_and_parses() -> None:
     def handler(request: httpx.Request) -> httpx.Response:
         captured["url"] = str(request.url)
         captured["body"] = request.content.decode()
-        token = _id_token({"email": "b@x.com", "email_verified": True, "name": "Bob"})
+        token = _id_token(
+            {
+                "email": "b@x.com",
+                "email_verified": True,
+                "name": "Bob",
+                "aud": "cid",  # must match the client id
+                "iss": "https://accounts.google.com",
+            }
+        )
         return httpx.Response(200, json={"id_token": token})
 
     transport = httpx.MockTransport(handler)
@@ -41,3 +49,20 @@ async def test_exchange_code_posts_and_parses() -> None:
     assert "oauth2.googleapis.com/token" in captured["url"]
     assert "code=the-code" in captured["body"]
     assert "client_secret=secret" in captured["body"]
+
+
+async def test_exchange_code_rejects_wrong_audience() -> None:
+    def handler(_request: httpx.Request) -> httpx.Response:
+        # An id_token minted for a DIFFERENT client must be rejected.
+        token = _id_token(
+            {"email": "b@x.com", "email_verified": True, "aud": "other-client", "iss": "x"}
+        )
+        return httpx.Response(200, json={"id_token": token})
+
+    async with httpx.AsyncClient(transport=httpx.MockTransport(handler)) as http:
+        client = HttpGoogleOAuthClient("cid", "secret", "https://api.test/cb", http)
+        try:
+            await client.exchange_code("the-code")
+            raise AssertionError("expected aud/iss validation to fail")
+        except ValueError:
+            pass

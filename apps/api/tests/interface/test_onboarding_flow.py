@@ -70,7 +70,11 @@ async def test_full_onboarding_completes() -> None:
     async with httpx.AsyncClient(transport=transport, base_url="http://test") as web:
         signup = await web.post(
             "/api/signup",
-            json={"email": "owner@x.com", "password": "pw", "business_name": "Bloom Studio"},
+            json={
+                "email": "owner@x.com",
+                "password": "test-pw-123",
+                "business_name": "Bloom Studio",
+            },
         )
         assert signup.status_code == 200
         token = signup.json()["token"]

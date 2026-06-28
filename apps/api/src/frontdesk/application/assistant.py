@@ -546,6 +546,7 @@ class Assistant:
     ) -> str:
         # Sensitive: the model can't issue a refund on its own — it passes the gate.
         action = SensitiveAction(
+            str(business.id),
             "issue_refund",
             args,
             f"Refund for {customer.channel_address} ({_arg(args, 'appointment_id')})",

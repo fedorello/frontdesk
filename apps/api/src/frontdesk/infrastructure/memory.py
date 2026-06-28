@@ -248,10 +248,15 @@ class InMemoryServiceRepository:
         return [s for s in self._by_id.values() if s.business_id == business_id]
 
     async def upsert(self, service: Service) -> None:
+        existing = self._by_id.get(service.id)
+        if existing is not None and existing.business_id != service.business_id:
+            return  # tenant guard: don't overwrite another business's service (matches SQL)
         self._by_id[service.id] = service
 
-    async def remove(self, service_id: ServiceId) -> None:
-        self._by_id.pop(service_id, None)
+    async def remove(self, service_id: ServiceId, business_id: BusinessId) -> None:
+        service = self._by_id.get(service_id)
+        if service is not None and service.business_id == business_id:
+            del self._by_id[service_id]
 
 
 class InMemoryResourceRepository:
@@ -262,6 +267,9 @@ class InMemoryResourceRepository:
         return [r for r in self._by_id.values() if r.business_id == business_id]
 
     async def upsert(self, resource: Resource) -> None:
+        existing = self._by_id.get(resource.id)
+        if existing is not None and existing.business_id != resource.business_id:
+            return  # tenant guard: don't overwrite another business's resource (matches SQL)
         self._by_id[resource.id] = resource
 
 

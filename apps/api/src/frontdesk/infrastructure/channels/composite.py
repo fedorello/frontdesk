@@ -16,7 +16,7 @@ _logger = logging.getLogger("frontdesk.messaging")
 
 class LoggingMessaging:
     async def send(self, customer: Customer, message: OutboundMessage) -> None:
-        _logger.info("reply → %s: %s", customer.channel_address, message.text)
+        _logger.debug("reply → %s: %s", customer.channel_address, message.text)
 
 
 class CapturingMessaging:

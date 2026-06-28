@@ -254,7 +254,7 @@ def build_config_router(
 
     @router.delete("/api/businesses/{business_id}/services/{service_id}")
     async def delete_service(business_id: str, service_id: str) -> dict[str, str]:
-        await services.remove(ServiceId(service_id))
+        await services.remove(ServiceId(service_id), BusinessId(business_id))
         return {"status": "deleted"}
 
     @router.get("/api/businesses/{business_id}/resources")

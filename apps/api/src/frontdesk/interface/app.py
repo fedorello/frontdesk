@@ -208,7 +208,7 @@ def create_production_app() -> FastAPI:
     )
     telegram_inbound = TelegramInbound(deps, llm_configs, usage, settings, client, SystemRandom())
     app.include_router(build_chat_router(deps, settings.demo_to_address, clock))
-    app.include_router(build_approvals_router(pending_approvals))
+    app.include_router(build_approvals_router(pending_approvals, guard))
     app.include_router(build_telegram_router(telegram_inbound, telegram_bots))
     app.include_router(build_auth_router(accounts, SqlBusinessRepository(sessions), ids, settings))
     app.include_router(

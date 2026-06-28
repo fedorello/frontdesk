@@ -34,24 +34,32 @@ async def _never_runs(_args: Mapping[str, object]) -> object:
 class PendingApproval:
     request: ApprovalRequest
     summary: str
+    business_id: str  # the tenant this approval belongs to
     status: str = "pending"  # pending | approved | rejected
 
 
 class PendingApprovals:
-    """The queue of Airlock approval requests awaiting a human, for the inbox."""
+    """The queue of Airlock approval requests awaiting a human, per business."""
 
     def __init__(self) -> None:
         self._items: dict[str, PendingApproval] = {}
 
-    def add(self, request: ApprovalRequest, summary: str) -> None:
-        self._items[str(request.request_id)] = PendingApproval(request, summary)
+    def add(self, request: ApprovalRequest, summary: str, business_id: str) -> None:
+        self._items[str(request.request_id)] = PendingApproval(request, summary, business_id)
 
-    def pending(self) -> list[PendingApproval]:
-        return [item for item in self._items.values() if item.status == "pending"]
+    def pending(self, business_id: str) -> list[PendingApproval]:
+        return [
+            item
+            for item in self._items.values()
+            if item.status == "pending" and item.business_id == business_id
+        ]
 
-    def decide(self, request_id: str, *, approved: bool) -> PendingApproval | None:
+    def decide(
+        self, request_id: str, business_id: str, *, approved: bool
+    ) -> PendingApproval | None:
         item = self._items.get(request_id)
-        if item is None:
+        # Scoped to the tenant: an owner can only decide their own business's approvals.
+        if item is None or item.business_id != business_id:
             return None
         item.status = "approved" if approved else "rejected"
         return item
@@ -94,5 +102,5 @@ class AirlockApprovalGate:
             risk=RiskTier.SENSITIVE,
             context=dict(action.args),
         )
-        self._pending.add(request, action.summary)
+        self._pending.add(request, action.summary, action.business_id)
         return Decision(approved=False)

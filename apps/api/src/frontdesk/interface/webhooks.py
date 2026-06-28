@@ -52,7 +52,9 @@ def create_app(*, assistant: Assistant, idempotency: Idempotency, config: Webhoo
 
     @app.post("/webhooks/telegram")
     async def telegram(request: Request) -> Response:
-        if request.headers.get("x-telegram-bot-api-secret-token") != config.telegram_secret:
+        if not hmac.compare_digest(
+            request.headers.get("x-telegram-bot-api-secret-token", ""), config.telegram_secret
+        ):
             return Response(status_code=403)
         inbound = parse_telegram_inbound(
             json.loads(await request.body()), bot_address=config.telegram_bot_address

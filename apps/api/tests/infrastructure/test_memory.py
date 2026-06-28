@@ -170,7 +170,7 @@ def test_uuid_ids_are_distinct() -> None:
 async def test_auto_decision_gate() -> None:
     approve: ApprovalGate = AutoDecisionGate(approved=True)
     reject: ApprovalGate = AutoDecisionGate(approved=False)
-    action = SensitiveAction("issue_refund", {}, "refund $50")
+    action = SensitiveAction("biz", "issue_refund", {}, "refund $50")
 
     assert (await approve.guard(action)).approved is True
     assert (await reject.guard(action)).approved is False

@@ -327,7 +327,10 @@ class SqlServiceRepository:
                     "price_cents = :cents, currency = :cur, resource_ids = CAST(:rids AS jsonb), "
                     "description = :desc, working_hours = CAST(:wh AS jsonb), "
                     "max_advance_days = :adv, intake_fields = CAST(:intake AS jsonb), "
-                    "requires_confirmation = :confirm"
+                    "requires_confirmation = :confirm "
+                    # Tenant guard: only the owning business may update an existing service,
+                    # so a forged service_id from another tenant can't be overwritten.
+                    "WHERE service.business_id = :bid"
                 ),
                 {
                     "id": str(service.id),
@@ -346,10 +349,12 @@ class SqlServiceRepository:
             )
             await session.commit()
 
-    async def remove(self, service_id: ServiceId) -> None:
+    async def remove(self, service_id: ServiceId, business_id: BusinessId) -> None:
+        # Scoped by business so one owner can't delete another tenant's service by id.
         async with self._sf() as session:
             await session.execute(
-                text("DELETE FROM service WHERE id = :id"), {"id": str(service_id)}
+                text("DELETE FROM service WHERE id = :id AND business_id = :bid"),
+                {"id": str(service_id), "bid": str(business_id)},
             )
             await session.commit()
 
@@ -380,7 +385,9 @@ class SqlResourceRepository:
                     "INSERT INTO resource (id, business_id, name, working_hours) "
                     "VALUES (:id, :bid, :name, CAST(:wh AS jsonb)) "
                     "ON CONFLICT (id) DO UPDATE SET name = :name, "
-                    "working_hours = CAST(:wh AS jsonb)"
+                    "working_hours = CAST(:wh AS jsonb) "
+                    # Tenant guard: only the owning business may update an existing resource.
+                    "WHERE resource.business_id = :bid"
                 ),
                 {
                     "id": str(resource.id),

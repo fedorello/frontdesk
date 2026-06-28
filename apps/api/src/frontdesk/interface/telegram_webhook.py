@@ -5,6 +5,7 @@ own secret token, and hands a parsed update to the shared TelegramInbound dispat
 Used when telegram_mode == "webhook" (a public URL is available). See ADR-0010.
 """
 
+import hmac
 import json
 
 from fastapi import APIRouter, Request, Response
@@ -28,7 +29,7 @@ def build_telegram_router(
         bot = await telegram_bots.get(BusinessId(business_id))
         if bot is None:
             return Response(status_code=404)
-        if request.headers.get(_SECRET_HEADER) != bot.secret_token:
+        if not hmac.compare_digest(request.headers.get(_SECRET_HEADER, ""), bot.secret_token):
             return Response(status_code=403)
 
         message = parse_telegram_inbound(json.loads(await request.body()), bot_address=bot.username)

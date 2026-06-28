@@ -8,7 +8,7 @@ import time
 from collections.abc import Awaitable, Callable
 
 from fastapi import APIRouter, Header, HTTPException
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 
 from frontdesk.application.ports import (
     Account,
@@ -26,10 +26,12 @@ from frontdesk.infrastructure.security import (
     verify_token,
 )
 
+_MIN_PASSWORD_LENGTH = 8
+
 
 class SignupInput(BaseModel):
     email: str
-    password: str
+    password: str = Field(min_length=_MIN_PASSWORD_LENGTH)
     business_name: str
     timezone: str = "UTC"
 

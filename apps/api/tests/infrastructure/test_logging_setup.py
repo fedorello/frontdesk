@@ -24,7 +24,7 @@ def test_configure_logging_writes_to_file(tmp_path: Path) -> None:
 
 async def test_logging_observer_records_thoughts_and_tools(tmp_path: Path) -> None:
     log_file = tmp_path / "agent.log"
-    configure_logging("INFO", str(log_file))
+    configure_logging("DEBUG", str(log_file))  # thoughts/tools are DEBUG (they carry PII)
     try:
         observer = LoggingObserver("biz1")
         await observer.on_thought("Let me check availability")

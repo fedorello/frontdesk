@@ -12,9 +12,9 @@ class LoggingObserver:
         self._business_id = business_id
 
     async def on_thought(self, text: str) -> None:
-        _logger.info("thought business=%s text=%r", self._business_id, text)
+        _logger.debug("thought business=%s text=%r", self._business_id, text)
 
     async def on_tool(self, name: str, args: dict[str, object], result: str) -> None:
-        _logger.info(
+        _logger.debug(
             "tool business=%s name=%s args=%s result=%r", self._business_id, name, args, result
         )

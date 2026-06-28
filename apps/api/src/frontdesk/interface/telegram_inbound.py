@@ -102,7 +102,8 @@ class TelegramInbound:
         llm_config = await self._llm_configs.get(business_id)
         messaging = telegram_messaging_from_config(bot, self._client, self._base)
         on_managed_default = llm_config is None or llm_config.mode != "own"
-        _logger.info(
+        # Customer message body is PII — keep it at DEBUG, not in the default INFO log.
+        _logger.debug(
             "inbound business=%s from=%s mode=%s text=%r",
             business_id,
             inbound.from_address,

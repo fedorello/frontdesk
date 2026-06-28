@@ -9,6 +9,7 @@ import httpx
 from frontdesk.application.ports import GoogleIdentity
 
 _TOKEN_ENDPOINT = "https://oauth2.googleapis.com/token"
+_ISSUERS = frozenset({"https://accounts.google.com", "accounts.google.com"})
 
 
 def _decode_id_token(id_token: str) -> dict[str, object]:
@@ -48,6 +49,9 @@ class HttpGoogleOAuthClient:
         )
         response.raise_for_status()
         claims = _decode_id_token(str(response.json()["id_token"]))
+        # Pin the token to THIS app: reject an id_token minted for another client or issuer.
+        if claims.get("aud") != self._client_id or claims.get("iss") not in _ISSUERS:
+            raise ValueError("id_token failed audience/issuer validation")
         return GoogleIdentity(
             email=str(claims.get("email", "")),
             email_verified=bool(claims.get("email_verified", False)),

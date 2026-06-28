@@ -2,13 +2,13 @@
 
 import { useCallback, useEffect, useState } from "react";
 
+import { API_URL } from "@/app/lib/api";
 import { useI18n } from "@/app/lib/I18nProvider";
+import { getSession } from "@/app/lib/session";
 import { Icon } from "@/components/icons";
 
 import { ApprovalsList } from "./ApprovalsList";
 import type { Approval, ApprovalDecision } from "./types";
-
-const API_URL = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:8000";
 
 export default function ApprovalsPage() {
   const { t } = useI18n();
@@ -16,8 +16,12 @@ export default function ApprovalsPage() {
   const [reachable, setReachable] = useState(true);
 
   const load = useCallback(async () => {
+    const session = getSession();
+    if (session === null) return;
     try {
-      const response = await fetch(`${API_URL}/api/approvals`);
+      const response = await fetch(`${API_URL}/api/businesses/${session.businessId}/approvals`, {
+        headers: { Authorization: `Bearer ${session.token}` },
+      });
       setApprovals((await response.json()) as Approval[]);
       setReachable(true);
     } catch {
@@ -31,10 +35,15 @@ export default function ApprovalsPage() {
   }, [load]);
 
   async function decide(id: string, decision: ApprovalDecision) {
+    const session = getSession();
+    if (session === null) return;
     try {
-      await fetch(`${API_URL}/api/approvals/${id}`, {
+      await fetch(`${API_URL}/api/businesses/${session.businessId}/approvals/${id}`, {
         method: "POST",
-        headers: { "content-type": "application/json" },
+        headers: {
+          "content-type": "application/json",
+          Authorization: `Bearer ${session.token}`,
+        },
         body: JSON.stringify({ approved: decision === "approve" }),
       });
     } finally {

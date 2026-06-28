@@ -262,7 +262,11 @@ async def check_service_write(repo: ServiceRepository) -> None:
     assert stored.intake_fields == (IntakeField("Birth date", "DOB", "When were you born?"),)
     assert stored.requires_confirmation is True  # confirmation flag round-trips
 
-    await repo.remove(sid)
+    # Tenant isolation: another business cannot delete this service by id.
+    await repo.remove(sid, BusinessId("intruder"))
+    assert any(s.id == sid for s in await repo.for_business(BusinessId("biz")))  # still there
+
+    await repo.remove(sid, BusinessId("biz"))  # the owner deletes its own
     assert all(s.id != sid for s in await repo.for_business(BusinessId("biz")))
 
 

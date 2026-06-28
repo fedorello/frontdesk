@@ -77,6 +77,7 @@ class Completion:
 
 @dataclass(frozen=True, slots=True)
 class SensitiveAction:
+    business_id: str  # scopes the approval to its tenant's inbox
     tool_name: str
     args: dict[str, object]
     summary: str
@@ -268,7 +269,8 @@ class ServiceRepository(Protocol):
     async def by_name(self, business_id: BusinessId, name: str) -> Service | None: ...
     async def for_business(self, business_id: BusinessId) -> list[Service]: ...
     async def upsert(self, service: Service) -> None: ...
-    async def remove(self, service_id: ServiceId) -> None: ...
+    # business_id scopes the delete so one tenant can't remove another's service by id.
+    async def remove(self, service_id: ServiceId, business_id: BusinessId) -> None: ...
 
 
 class ResourceRepository(Protocol):

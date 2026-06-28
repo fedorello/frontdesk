@@ -46,11 +46,11 @@ class _TraceCollector:
 
     async def on_thought(self, text: str) -> None:
         self.steps.append(TraceStep(kind="thought", text=text))
-        _logger.info("thought text=%r", text)
+        _logger.debug("thought text=%r", text)
 
     async def on_tool(self, name: str, args: dict[str, object], result: str) -> None:
         self.steps.append(TraceStep(kind="tool", tool=name, args=args, result=result))
-        _logger.info("tool name=%s args=%s result=%r", name, args, result)
+        _logger.debug("tool name=%s args=%s result=%r", name, args, result)
 
 
 def build_chat_router(deps: AssistantDeps, to_address: str, clock: Clock) -> APIRouter:
