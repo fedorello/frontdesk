@@ -27,23 +27,52 @@ gaps the audit found and lists the remaining hardening.
 
 ## 2. Completed hardening ✅
 
-Shipped on 2026-06-28. Each has a regression test.
+The first batch (audit remediation) and the full §3 plan both shipped on **2026-06-28**. Each
+item has a regression test; the whole gate (ruff/mypy/import-linter/pytest + integration,
+dashboard typecheck/lint/test/build) is green.
+
+**Audit remediation:**
 
 | Area | Issue | Fix |
 |---|---|---|
 | **Tenant IDOR (CRITICAL)** | `PUT/DELETE /api/businesses/{id}/services/{service_id}` (and resources) acted on a globally-unique object id, scoped only by the path `business_id` the guard validated — so any owner could overwrite or delete **another** business's services/resources by id. | Every mutation is scoped by `business_id`: SQL `DELETE ... WHERE id = :id AND business_id = :bid`, `ON CONFLICT (id) DO UPDATE ... WHERE service.business_id = :bid` (same for resources), the in-memory fakes mirror it, and `ServiceRepository.remove(id, business_id)` carries the tenant. Contract test asserts a foreign business can't delete/overwrite. |
-| **Open approvals (CRITICAL)** | `GET/POST /api/approvals` had **no auth and no tenant scoping** — anyone could read every business's queued sensitive actions (with full tool args) and approve/deny them. | Each `PendingApproval` is tagged with its `business_id` (`SensitiveAction.business_id`); routes moved under `/api/businesses/{id}/approvals` behind the **owner guard**; `pending()`/`decide()` are scoped per tenant. Regression tests for cross-tenant list + decide. |
+| **Open approvals (CRITICAL)** | `GET/POST /api/approvals` had **no auth and no tenant scoping** — anyone could read every business's queued sensitive actions (with full tool args) and approve/deny them. | Routes moved under `/api/businesses/{id}/approvals` behind the **owner guard**, scoped per tenant (later DB-backed — see 3.8). Regression tests for cross-tenant list + decide. |
 | **OAuth id_token** | The Google `id_token` was decoded without checking `aud`/`iss` — not pinned to this app's client. | Verify `aud == client_id` and `iss ∈ {accounts.google.com, https://accounts.google.com}`; the callback handles exchange failures with a redirect, not a 500. |
 | **Webhook secret** | Telegram secret header compared with `!=` (timing oracle). | `hmac.compare_digest` (constant-time), matching the WhatsApp path. |
 | **Password policy** | Signup accepted any password (including 1 char). | `min_length=8` on `SignupInput.password`. |
 | **PII in logs** | Customer message bodies and agent tool args/results logged at INFO to a persisted file. | Demoted to DEBUG; the default INFO log no longer stores conversation PII. |
 | **Security headers** | Neither Next app set any. | Both send `X-Frame-Options: DENY` (clickjacking), `Strict-Transport-Security`, `X-Content-Type-Options: nosniff`, `Referrer-Policy: strict-origin-when-cross-origin`. |
 
+**§3 hardening plan (all implemented):**
+
+| # | What shipped |
+|---|---|
+| **3.1** | HttpOnly session cookie: the auth token is no longer in `localStorage` or any URL — set by the API on login/signup/OAuth (`Secure`, `SameSite=Lax`), guard reads cookie-or-Bearer, `/api/logout` clears it; dashboard uses `credentials: include` and stores only the business id + display identity. |
+| **3.2** | Per-IP rate limiting (fixed window, `RateLimiter` port) on login (10/5min), signup (5/hr), and OAuth start; 429 on trip, logged; X-Forwarded-For aware. |
+| **3.3** | OAuth `state` bound to a browser cookie (constant-time compare) — login-CSRF closed. |
+| **3.4** | HKDF key separation: one master key derives independent encryption / session-signing / OAuth-state subkeys. `MultiFernet` keeps legacy ciphertext decryptable (no prod break). |
+| **3.5** | Content-Security-Policy with a per-request nonce (proxy/middleware) on both apps — no `unsafe-inline` for scripts; `frame-ancestors 'none'`, `object-src 'none'`. |
+| **3.6** | `EmailStr` validation + case normalization on signup/login. (Full email-verification anti-enumeration still deferred — see §3-future; rate limiting bounds enumeration meanwhile.) |
+| **3.7** | CORS locked to an explicit origin (never `*`) with `allow_credentials`; default falls back to the dashboard origin. |
+| **3.8** | DB-backed approval queue (`ApprovalStore` port, `approval` table, migration 0014): restart-safe and cross-process — a poller-raised approval shows in the API inbox. |
+| **logging** | Full file logging hardened (`FRONTDESK_LOG_FILE`, rotating, dir auto-created); security events (signup/login/logout, auth rejects, rate-limit trips, OAuth state failures) flow to the file with no PII/secrets. |
+
 ---
 
-## 3. Planned hardening 🟡 / 🔵
+## 3. Future / deferred
 
-Ordered by value. Each item: the problem, the risk, the approach, and rough effort.
+Genuinely out of scope for this pass (need new infrastructure or a product decision). The
+original detailed write-ups are kept below for reference.
+
+- **Email-verification anti-enumeration** — needs an email provider; signup still returns a
+  distinct 409. Mitigated for now by the signup rate limit (3.2).
+- **KMS-backed cipher** — `SecretCipher` port is ready; swap `FernetCipher` for a KMS adapter
+  when warranted.
+- **Redis-backed rate limiter / approval pub-sub** — the in-memory `RateLimiter` is per-instance;
+  move to Redis when the API scales beyond one instance.
+
+<details>
+<summary>Original §3 plan write-ups (now implemented — kept for reference)</summary>
 
 ### 3.1 🔵 HIGH — Move the session token out of `localStorage` and out of the URL
 **Problem.** The bearer session token is stored in `localStorage` (`app/lib/session.ts`) and,
@@ -118,19 +147,23 @@ implementation, keyed by `business_id` (the scoping from §2 carries over). Rest
 consistent across processes.
 **Effort:** Medium.
 
+</details>
+
 ---
 
 ## 4. Operational actions ⚙️
 
-- **Rotate the OpenRouter API key.** A live `FRONTDESK_LLM_API_KEY` sits in the local,
+- ✅ **SCA in CI** — a `security` job runs `pip-audit` (Python, via the official action) and
+  `pnpm audit --audit-level high` (both apps) on every push/PR, failing on a high/critical
+  advisory. (One transitive *moderate* in `postcss` is below the gate.)
+- ⏳ **Rotate the OpenRouter API key.** A live `FRONTDESK_LLM_API_KEY` sits in the local,
   git-ignored `deploy/docker/.env` (verified: never committed, not in git history). It was
-  surfaced during the audit, so rotate it in OpenRouter and update Railway Variables.
-- **Keep all secrets in Railway Variables**, never baked into images (Dockerfiles only pass
-  non-secret `NEXT_PUBLIC_*` build args — confirmed).
-- **Add SCA to CI** (e.g. `pip-audit` / `trivy fs` for Python, `pnpm audit` for the apps) so a
-  newly-disclosed CVE in a dependency fails the build. Dependencies are current today.
+  surfaced during the audit — rotate it in OpenRouter and update Railway Variables. **(Manual:
+  only the account owner can do this.)**
+- ✅ **Secrets stay in Railway Variables**, never baked into images (Dockerfiles only pass
+  non-secret `NEXT_PUBLIC_*` build args).
 - **Treat the DEBUG data-flow log as a PII store** when enabled: access-controlled, short
-  retention.
+  retention. File logging is enabled via `FRONTDESK_LOG_FILE` (rotating).
 
 ---
 
@@ -158,13 +191,8 @@ These were checked and found sound — listed so they're not re-litigated:
 
 ---
 
-## 6. Roadmap (suggested order)
+## 6. Roadmap — ✅ complete (2026-06-28)
 
-1. **3.1** Session cookie (HttpOnly) — closes the highest-leverage remaining vector. Pull **3.3**
-   (OAuth state cookie) and the CORS-credentials change along with it.
-2. **3.2** Rate limiting on auth endpoints.
-3. **3.5** CSP with a nonce.
-4. **3.6** Email validation + verification.
-5. **3.4 / 3.8** HKDF key separation and DB-backed approvals (coordinate with a key rotation /
-   the airlock follow-up).
-6. **⚙️** Rotate the OpenRouter key now; add SCA to CI.
+All of §3 (3.1–3.8) and the SCA CI job shipped on 2026-06-28, in roadmap order, each gated and
+tested. The only open items are the genuinely-deferred ones in §3-future and the **manual**
+OpenRouter key rotation in §4.

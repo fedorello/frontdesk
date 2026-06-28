@@ -70,3 +70,28 @@ jobs:
         run: pnpm exec playwright install --with-deps chromium
       - name: End-to-end tests
         run: pnpm e2e
+
+  security:
+    name: Security (dependency audit / SCA)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install uv
+        uses: astral-sh/setup-uv@v5
+        with:
+          version: "0.11.x"
+      - name: Export locked Python deps
+        working-directory: apps/api
+        run: uv export --no-emit-project --format requirements-txt > requirements-audit.txt
+      - name: Python dependency audit (pip-audit)
+        uses: pypa/gh-action-pip-audit@v1.1.0
+        with:
+          inputs: apps/api/requirements-audit.txt
+      - name: Install pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: 11
+      - name: Node dependency audit (fail on high/critical)
+        run: |
+          pnpm -C apps/dashboard audit --audit-level high
+          pnpm -C apps/web audit --audit-level high
