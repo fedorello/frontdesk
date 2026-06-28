@@ -12,6 +12,7 @@ import { LanguageSwitcher } from "@/app/lib/LanguageSwitcher";
 import { setSession } from "@/app/lib/session";
 import { TIME_ZONE_OPTIONS } from "@/app/lib/timezones";
 import { BrandHome } from "@/components/BrandHome";
+import { StepIndicator } from "@/components/StepIndicator";
 
 const STEPS: MessageKey[] = [
   "onboarding.step.account",
@@ -133,21 +134,9 @@ export default function OnboardingPage() {
         <div className="rounded-2xl border border-line bg-surface p-7 shadow-card">
           <h1 className="text-2xl font-extrabold tracking-tight">{t("onboarding.title")}</h1>
 
-          <ol className="mt-6 flex flex-wrap gap-2 text-xs" aria-label="steps">
-            {STEPS.map((key, index) => (
-              <li
-                key={key}
-                data-active={index === step}
-                className={
-                  index === step
-                    ? "rounded-full bg-accent px-3 py-1 font-semibold text-accent-contrast"
-                    : "rounded-full bg-surface-3 px-3 py-1 text-muted"
-                }
-              >
-                {t(key)}
-              </li>
-            ))}
-          </ol>
+          <div className="mt-6">
+            <StepIndicator labels={STEPS.map((key) => t(key))} current={step} />
+          </div>
 
           {error && (
             <p role="alert" className="mt-4 rounded-lg bg-danger-soft p-3 text-sm text-danger">
