@@ -58,8 +58,8 @@ class InMemoryTelegramBotRepository:
     async def upsert(self, config: TelegramBotConfig) -> None:
         self._by_business[config.business_id] = config
 
-    async def list_connected(self) -> list[TelegramBotConfig]:
-        return list(self._by_business.values())
+    async def list_polling(self) -> list[TelegramBotConfig]:
+        return [config for config in self._by_business.values() if not config.webhook_set]
 
     async def set_offset(self, business_id: BusinessId, last_update_id: int) -> None:
         bot = self._by_business.get(business_id)

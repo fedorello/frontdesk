@@ -185,17 +185,17 @@ async def test_run_idles_when_no_bots_are_connected() -> None:
 
 
 class _FlakyBots:
-    """A bot repo whose first list_connected fails (e.g. Postgres recovering), then recovers."""
+    """A bot repo whose first list_polling fails (e.g. Postgres recovering), then recovers."""
 
     def __init__(self) -> None:
         self._inner = InMemoryTelegramBotRepository()
         self.calls = 0
 
-    async def list_connected(self) -> list[TelegramBotConfig]:
+    async def list_polling(self) -> list[TelegramBotConfig]:
         self.calls += 1
         if self.calls == 1:
             raise RuntimeError("the database system is in recovery mode")
-        return await self._inner.list_connected()
+        return await self._inner.list_polling()
 
     async def get(self, business_id: BusinessId) -> TelegramBotConfig | None:
         return await self._inner.get(business_id)

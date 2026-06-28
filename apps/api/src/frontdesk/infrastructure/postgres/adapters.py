@@ -858,9 +858,13 @@ class SqlTelegramBotRepository:
             )
         return self._to_config(row) if row else None
 
-    async def list_connected(self) -> list[TelegramBotConfig]:
+    async def list_polling(self) -> list[TelegramBotConfig]:
         async with self._sf() as session:
-            rows = (await session.execute(text("SELECT * FROM telegram_bot"))).mappings().all()
+            rows = (
+                (await session.execute(text("SELECT * FROM telegram_bot WHERE NOT webhook_set")))
+                .mappings()
+                .all()
+            )
         return [self._to_config(row) for row in rows]
 
     async def upsert(self, config: TelegramBotConfig) -> None:

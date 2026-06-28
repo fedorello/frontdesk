@@ -166,6 +166,8 @@ async def check_telegram_bot_repository(repo: TelegramBotRepository) -> None:
     assert stored.bot_token == "123:ABCDEF"  # decrypted back from storage
     assert stored.username == "ana_bot"
     assert stored.webhook_set is False
+    # No webhook yet → the poller owns delivery for this bot (the fallback path).
+    assert any(b.business_id == biz for b in await repo.list_polling())
 
     await repo.upsert(
         TelegramBotConfig(biz, "123:ABCDEF", "wh-secret", "ana_bot", webhook_set=True)
@@ -173,8 +175,8 @@ async def check_telegram_bot_repository(repo: TelegramBotRepository) -> None:
     updated = await repo.get(biz)
     assert updated is not None
     assert updated.webhook_set is True  # upsert updates in place
-
-    assert any(b.business_id == biz for b in await repo.list_connected())  # the poller sees it
+    # Webhook registered → the poller must skip it (the API's webhook endpoint delivers).
+    assert all(b.business_id != biz for b in await repo.list_polling())
 
     await repo.set_offset(biz, 42)
     with_offset = await repo.get(biz)

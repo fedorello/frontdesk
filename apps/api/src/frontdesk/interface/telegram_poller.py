@@ -51,9 +51,9 @@ class TelegramPoller:
         _logger.info("telegram poller stopped")
 
     async def _poll_round(self) -> None:
-        bots = await self._bots.list_connected()
+        bots = await self._bots.list_polling()
         if not bots:
-            await asyncio.sleep(self._idle_seconds)  # nothing to poll yet
+            await asyncio.sleep(self._idle_seconds)  # no polling bots (all on webhooks) yet
             return
         await asyncio.gather(*(self._poll_bot(bot) for bot in bots))
 

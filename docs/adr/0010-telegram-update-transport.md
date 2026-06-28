@@ -1,8 +1,9 @@
-# ADR-0010 — Telegram update transport: polling by default, webhook optional
+# ADR-0010 — Telegram update transport: webhook primary, polling fallback
 
 ## Status
 
-Accepted (2026-06-26)
+Accepted (2026-06-26). Revised (2026-06-28): webhook and polling now run together, chosen
+per bot by `webhook_set`, so polling is a live fallback for webhook (see Decision).
 
 ## Context
 
@@ -37,15 +38,29 @@ The poller persists its `getUpdates` offset per bot (`telegram_bot.last_update_i
 migration 0005) so a restart never replays updates, and it advances the offset even
 when an update fails to keep one poison message from wedging the loop.
 
+**Webhook primary, polling fallback (revision).** The two transports are no longer
+mutually exclusive at the process level — they are chosen **per bot** by the single
+`telegram_bot.webhook_set` flag:
+
+- In `webhook` mode, connect calls `setWebhook`. On success the bot is `webhook_set =
+  true` and the API's endpoint delivers it. If `setWebhook` fails (e.g. a transient
+  Telegram error), the bot stays `webhook_set = false`.
+- The poller polls only `webhook_set = false` bots (`list_polling`). So any bot without
+  a working webhook — a failed registration, or any bot in `polling` mode — is still
+  served by the poller. **Polling is the live fallback for webhook**, not an
+  either/or. A bot is never handled by both (the flag partitions them).
+
 ## Consequences
 
 - Self-host and local dev work with **zero networking setup** (polling default) — no
   tunnel, no public URL.
 - Webhook avoids polling overhead and scales better for production — opt in by setting
   the mode and a public URL.
-- Polling and webhook must not both be active for one bot (Telegram rejects
-  `getUpdates` while a webhook is set). The poller process exits if the mode isn't
-  polling, and connect deletes the webhook in polling mode — so the two can't collide.
+- Polling and webhook must not both be active for the **same** bot (Telegram rejects
+  `getUpdates` while a webhook is set). `webhook_set` partitions them: the poller skips
+  webhook bots (`list_polling`), and connect deletes the webhook in polling mode — so
+  the two can't collide on one bot, yet both processes run so polling can cover any bot
+  whose webhook isn't (or isn't yet) set.
 
 ## Known follow-up
 
