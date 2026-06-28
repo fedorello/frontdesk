@@ -52,4 +52,5 @@ class HttpGoogleOAuthClient:
             email=str(claims.get("email", "")),
             email_verified=bool(claims.get("email_verified", False)),
             name=str(claims.get("name", "")),
+            picture=str(claims.get("picture", "")),
         )

@@ -5,6 +5,10 @@ const KEY = "tovayo.session";
 export interface Session {
   token: string;
   businessId: string;
+  // Owner identity for the topbar avatar. From Google on social sign-in; email-only otherwise.
+  email?: string;
+  name?: string;
+  avatar?: string;
 }
 
 export function getSession(): Session | null {

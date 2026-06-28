@@ -14,7 +14,13 @@ export default function AuthCallback() {
     const token = params.get("token");
     const businessId = params.get("business_id");
     if (token && businessId) {
-      setSession({ token, businessId });
+      setSession({
+        token,
+        businessId,
+        name: params.get("name") ?? undefined,
+        email: params.get("email") ?? undefined,
+        avatar: params.get("avatar") ?? undefined,
+      });
       router.replace("/");
     } else {
       router.replace("/login?error=google");

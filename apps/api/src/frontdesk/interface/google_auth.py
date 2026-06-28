@@ -87,7 +87,15 @@ def build_google_auth_router(
             await accounts.upsert(account)
 
         token = issue_token(account.id, settings.secret_key, int(time.time()))
-        query = urlencode({"token": token, "business_id": str(account.business_id)})
+        query = urlencode(
+            {
+                "token": token,
+                "business_id": str(account.business_id),
+                "name": identity.name,
+                "email": identity.email,
+                "avatar": identity.picture,
+            }
+        )
         return _back(f"/auth/callback?{query}")
 
     return router

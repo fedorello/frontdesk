@@ -75,7 +75,7 @@ export default function OnboardingPage() {
       });
       setToken(result.token);
       setBusinessId(result.business_id);
-      setSession({ token: result.token, businessId: result.business_id });
+      setSession({ token: result.token, businessId: result.business_id, email });
       setStep(1);
     });
 

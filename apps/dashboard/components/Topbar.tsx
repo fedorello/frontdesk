@@ -7,8 +7,9 @@ import { useEffect, useState } from "react";
 import type { MessageKey } from "@/app/lib/i18n";
 import { useI18n } from "@/app/lib/I18nProvider";
 import { LanguageSwitcher } from "@/app/lib/LanguageSwitcher";
-import { clearSession, getSession } from "@/app/lib/session";
+import { clearSession, getSession, type Session } from "@/app/lib/session";
 import { Icon } from "@/components/icons";
+import { UserAvatar } from "@/components/UserAvatar";
 
 const TITLES: Record<string, MessageKey> = {
   "/": "nav.overview",
@@ -27,16 +28,18 @@ export function Topbar() {
   const router = useRouter();
   const pathname = usePathname();
   const searchParams = useSearchParams();
-  const [signedIn, setSignedIn] = useState(false);
+  const [session, setSession] = useState<Session | null>(null);
 
   useEffect(() => {
     // eslint-disable-next-line react-hooks/set-state-in-effect
-    setSignedIn(getSession() !== null);
+    setSession(getSession());
   }, [pathname]);
+
+  const signedIn = session !== null;
 
   const logOut = () => {
     clearSession();
-    setSignedIn(false);
+    setSession(null);
     router.push("/login");
   };
 
@@ -70,6 +73,16 @@ export function Topbar() {
         </div>
       )}
       <div className="ml-auto flex items-center gap-2.5">
+        {session && (
+          <div className="flex items-center gap-2">
+            <UserAvatar name={session.name} email={session.email} avatar={session.avatar} />
+            {(session.name ?? session.email) && (
+              <span className="hidden max-w-[150px] truncate text-sm font-semibold sm:block">
+                {session.name ?? session.email}
+              </span>
+            )}
+          </div>
+        )}
         <LanguageSwitcher />
         {signedIn ? (
           <button

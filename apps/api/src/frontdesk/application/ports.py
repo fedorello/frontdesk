@@ -186,6 +186,7 @@ class GoogleIdentity:
     email: str
     email_verified: bool
     name: str
+    picture: str = ""
 
 
 class GoogleOAuthClient(Protocol):
