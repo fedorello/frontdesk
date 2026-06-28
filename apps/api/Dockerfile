@@ -14,5 +14,5 @@ COPY . .
 RUN uv sync --frozen --no-dev
 
 EXPOSE 8000
-CMD ["uvicorn", "frontdesk.interface.app:create_production_app", "--factory", \
-     "--host", "0.0.0.0", "--port", "8000"]
+# One image, three roles — pick with the ROLE env var (default: the HTTP API).
+CMD ["sh", "-c", "case ${ROLE:-api} in worker) exec python -m frontdesk.interface.run_worker ;; poller) exec python -m frontdesk.interface.run_telegram_poller ;; *) exec uvicorn frontdesk.interface.app:create_production_app --factory --host 0.0.0.0 --port ${PORT:-8000} ;; esac"]

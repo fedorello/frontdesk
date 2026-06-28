@@ -1,7 +1,6 @@
 {
   "$schema": "https://railway.com/railway.schema.json",
   "deploy": {
-    "preDeployCommand": "alembic upgrade head",
-    "startCommand": "sh -c 'uvicorn frontdesk.interface.app:create_production_app --factory --host 0.0.0.0 --port ${PORT:-8000}'"
+    "preDeployCommand": "alembic upgrade head"
   }
 }
