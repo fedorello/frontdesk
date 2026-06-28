@@ -5,6 +5,11 @@ WORKDIR /app
 COPY package.json pnpm-lock.yaml pnpm-workspace.yaml ./
 RUN pnpm install --frozen-lockfile
 COPY . .
+# NEXT_PUBLIC_* are inlined at build time — take them from Railway's build args.
+ARG NEXT_PUBLIC_APP_URL
+ARG NEXT_PUBLIC_GITHUB_URL
+ENV NEXT_PUBLIC_APP_URL=$NEXT_PUBLIC_APP_URL \
+    NEXT_PUBLIC_GITHUB_URL=$NEXT_PUBLIC_GITHUB_URL
 RUN pnpm build
 
 FROM node:24-slim AS run
