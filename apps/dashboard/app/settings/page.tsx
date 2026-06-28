@@ -3,7 +3,7 @@
 import { useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
 
-import { api, type BusinessProfile } from "@/app/lib/api";
+import { api, type BusinessProfile, type Group } from "@/app/lib/api";
 import { clearCache, readCache, writeCache } from "@/app/lib/cache";
 import { useBotStatus } from "@/app/lib/BotStatusProvider";
 import { errorMessageKey } from "@/app/lib/errors";
@@ -14,6 +14,7 @@ import { TIME_ZONE_OPTIONS } from "@/app/lib/timezones";
 import { AutoTextarea } from "@/components/AutoTextarea";
 import { CharCount } from "@/components/CharCount";
 import { ConfirmModal } from "@/components/ConfirmModal";
+import { GroupCard } from "@/components/GroupCard";
 import { ServiceCard, type Service } from "@/components/ServiceCard";
 import { ToggleSwitch } from "@/components/ToggleSwitch";
 import { EmptyState } from "@/components/ui/EmptyState";
@@ -49,6 +50,9 @@ export default function SettingsPage() {
   const [online, setOnline] = useState(false);
   const [services, setServices] = useState<Service[]>([]);
   const [openServiceId, setOpenServiceId] = useState<string | null>(null);
+  const [groups, setGroups] = useState<Group[]>([]);
+  const [openGroupId, setOpenGroupId] = useState<string | null>(null);
+  const [groupError, setGroupError] = useState<string | null>(null);
   const [aiMode, setAiMode] = useState("default");
   const [saved, setSaved] = useState(false);
   const [saveError, setSaveError] = useState<string | null>(null);
@@ -63,7 +67,12 @@ export default function SettingsPage() {
     // eslint-disable-next-line react-hooks/set-state-in-effect
     setSession(current);
     const key = `settings.${current.businessId}`;
-    const apply = (profile: BusinessProfile | null, list: Service[], aiMode: string) => {
+    const apply = (
+      profile: BusinessProfile | null,
+      list: Service[],
+      aiMode: string,
+      groupList: Group[],
+    ) => {
       if (profile) {
         setName(profile.name);
         setOwnerName(profile.owner_name ?? "");
@@ -74,22 +83,25 @@ export default function SettingsPage() {
       }
       setServices(list);
       setAiMode(aiMode);
+      setGroups(groupList);
     };
     // Stale-while-revalidate: fill the form from the last-known values, then refetch.
     const cached = readCache<{
       profile: BusinessProfile | null;
       services: Service[];
       aiMode: string;
+      groups: Group[];
     }>(key);
-    if (cached) apply(cached.profile, cached.services, cached.aiMode);
+    if (cached) apply(cached.profile, cached.services, cached.aiMode, cached.groups ?? []);
     void (async () => {
-      const [profile, list, llm] = await Promise.all([
+      const [profile, list, llm, groupList] = await Promise.all([
         api.getBusiness(current.businessId).catch(() => null),
         api.getServices(current.businessId).catch(() => []),
         api.getLlm(current.businessId).catch(() => ({ mode: "default" })),
+        api.getGroups(current.businessId).catch(() => []),
       ]);
-      apply(profile, list, llm.mode);
-      writeCache(key, { profile, services: list, aiMode: llm.mode });
+      apply(profile, list, llm.mode, groupList);
+      writeCache(key, { profile, services: list, aiMode: llm.mode, groups: groupList });
     })();
   }, []);
 
@@ -121,13 +133,19 @@ export default function SettingsPage() {
   };
 
   const saveService = async (service: Service) => {
-    await api.putService(session.businessId, service.id, { ...service, resource_ids: ["main"] });
+    // The service carries its chosen group in resource_ids (set by the card's group selector).
+    await api.putService(session.businessId, service.id, service);
     setServices((current) => current.map((s) => (s.id === service.id ? service : s)));
   };
 
   const addService = () => {
     const id = `svc-${crypto.randomUUID()}`;
-    setServices([...services, { id, name: "", duration_minutes: 60, working_hours: [] }]);
+    // New services default to the first group; the owner can reassign in the card.
+    const groupId = groups[0]?.id;
+    setServices([
+      ...services,
+      { id, name: "", duration_minutes: 60, resource_ids: groupId ? [groupId] : [] },
+    ]);
   };
 
   // Clone an existing service into a fresh, open card (pre-filled, name + "(copy)") so the
@@ -145,6 +163,31 @@ export default function SettingsPage() {
   const removeService = async (id: string) => {
     await api.deleteService(session.businessId, id);
     setServices((current) => current.filter((service) => service.id !== id));
+  };
+
+  const saveGroup = async (group: Group) => {
+    await api.putGroup(session.businessId, group.id, {
+      name: group.name,
+      working_hours: group.working_hours,
+    });
+    setGroups((current) => current.map((g) => (g.id === group.id ? group : g)));
+  };
+
+  const addGroup = () => {
+    const id = `grp-${crypto.randomUUID()}`;
+    setGroups([...groups, { id, name: "", working_hours: [] }]);
+    setOpenGroupId(id);
+  };
+
+  const removeGroup = async (id: string) => {
+    setGroupError(null);
+    try {
+      await api.deleteGroup(session.businessId, id);
+      setGroups((current) => current.filter((group) => group.id !== id));
+    } catch (caught) {
+      // The API rejects deleting a group that still has services (409) — surface it.
+      setGroupError(t(errorMessageKey(caught)));
+    }
   };
 
   const connectBot = async () => {
@@ -265,6 +308,37 @@ export default function SettingsPage() {
 
       <section className="rounded-2xl border border-line bg-surface p-5 shadow-card">
         <div className="flex items-center justify-between">
+          <h2 className="font-bold">{t("settings.groupsTitle")}</h2>
+          <button
+            type="button"
+            onClick={addGroup}
+            className="rounded-lg bg-accent px-3 py-1.5 text-sm font-bold text-accent-contrast"
+          >
+            + {t("settings.addGroup")}
+          </button>
+        </div>
+        <p className="mt-1 text-sm text-muted">{t("settings.groupsHint")}</p>
+        {groupError && (
+          <p role="alert" className="mt-3 rounded-lg bg-danger-soft p-2.5 text-sm text-danger">
+            {groupError}
+          </p>
+        )}
+        <div className="mt-4 space-y-3">
+          {groups.length === 0 && <p className="text-sm text-muted">{t("settings.noGroups")}</p>}
+          {groups.map((group) => (
+            <GroupCard
+              key={group.id}
+              group={group}
+              onSave={saveGroup}
+              onRemove={removeGroup}
+              startOpen={group.name === "" || group.id === openGroupId}
+            />
+          ))}
+        </div>
+      </section>
+
+      <section className="rounded-2xl border border-line bg-surface p-5 shadow-card">
+        <div className="flex items-center justify-between">
           <h2 className="font-bold">{t("settings.servicesTitle")}</h2>
           <button
             type="button"
@@ -283,6 +357,7 @@ export default function SettingsPage() {
             <ServiceCard
               key={service.id}
               service={service}
+              groups={groups}
               onSave={saveService}
               onRemove={removeService}
               onDuplicate={duplicateService}

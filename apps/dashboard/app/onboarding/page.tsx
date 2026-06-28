@@ -80,7 +80,7 @@ export default function OnboardingPage() {
 
   const submitService = () =>
     guarded(async () => {
-      await api.putResource(businessId, "main", {
+      await api.putGroup(businessId, "main", {
         name: "Main",
         working_hours: WEEKDAYS.map((weekday) => ({
           weekday,

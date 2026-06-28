@@ -53,12 +53,18 @@ export interface ServiceInput {
   duration_minutes: number;
   price_cents?: number | null;
   currency?: string | null;
-  resource_ids?: string[];
+  resource_ids?: string[]; // the single group this service belongs to
   description?: string;
-  working_hours?: WorkingHours[];
   max_advance_days?: number;
   intake_fields?: IntakeField[];
   requires_confirmation?: boolean;
+}
+
+// A service group: one specialist/calendar with a shared weekly schedule.
+export interface Group {
+  id: string;
+  name: string;
+  working_hours: WorkingHours[];
 }
 
 export interface LlmConfigInput {
@@ -167,11 +173,17 @@ export const api = {
   putService: (id: string, serviceId: string, body: ServiceInput): Promise<unknown> =>
     request("PUT", `/api/businesses/${id}/services/${serviceId}`, body),
 
-  putResource: (
+  // Groups (the API's "resources"): a specialist/calendar that owns a schedule.
+  getGroups: (id: string): Promise<Group[]> => request("GET", `/api/businesses/${id}/resources`),
+
+  putGroup: (
     id: string,
-    resourceId: string,
+    groupId: string,
     body: { name: string; working_hours: WorkingHours[] },
-  ): Promise<unknown> => request("PUT", `/api/businesses/${id}/resources/${resourceId}`, body),
+  ): Promise<unknown> => request("PUT", `/api/businesses/${id}/resources/${groupId}`, body),
+
+  deleteGroup: (id: string, groupId: string): Promise<unknown> =>
+    request("DELETE", `/api/businesses/${id}/resources/${groupId}`),
 
   putLlm: (id: string, body: LlmConfigInput): Promise<unknown> =>
     request("PUT", `/api/businesses/${id}/llm`, body),

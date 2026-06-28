@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 
-import type { ServiceInput } from "@/app/lib/api";
+import type { Group, ServiceInput } from "@/app/lib/api";
 import { CURRENCIES } from "@/app/lib/currencies";
 import { useI18n } from "@/app/lib/I18nProvider";
 import { MAX_DESCRIPTION } from "@/app/lib/limits";
@@ -11,7 +11,6 @@ import { AutoTextarea } from "./AutoTextarea";
 import { CharCount } from "./CharCount";
 import { IntakeFieldsEditor } from "./IntakeFieldsEditor";
 import { ToggleSwitch } from "./ToggleSwitch";
-import { WeeklyHoursEditor } from "./WeeklyHoursEditor";
 
 export type Service = ServiceInput & { id: string };
 
@@ -27,12 +26,14 @@ function priceLabel(service: Service, locale: string): string | null {
 
 export function ServiceCard({
   service,
+  groups,
   onSave,
   onRemove,
   onDuplicate,
   startOpen = false,
 }: {
   service: Service;
+  groups: Group[];
   onSave: (service: Service) => Promise<void>;
   onRemove: (id: string) => void;
   onDuplicate?: (service: Service) => void;
@@ -45,7 +46,8 @@ export function ServiceCard({
   const [duration, setDuration] = useState(service.duration_minutes);
   const [amount, setAmount] = useState(service.price_cents != null ? service.price_cents / 100 : 0);
   const [currency, setCurrency] = useState(service.currency || "USD");
-  const [hours, setHours] = useState(service.working_hours ?? []);
+  // The single group this service belongs to (its schedule + calendar). Default to the first.
+  const [groupId, setGroupId] = useState(service.resource_ids?.[0] ?? groups[0]?.id ?? "");
   const [maxAdvanceDays, setMaxAdvanceDays] = useState(service.max_advance_days ?? 30);
   const [intakeFields, setIntakeFields] = useState(service.intake_fields ?? []);
   const [requiresConfirmation, setRequiresConfirmation] = useState(
@@ -63,7 +65,7 @@ export function ServiceCard({
         duration_minutes: duration,
         price_cents: Math.round(amount * 100),
         currency,
-        working_hours: hours,
+        resource_ids: groupId ? [groupId] : [],
         max_advance_days: maxAdvanceDays,
         intake_fields: intakeFields.filter((item) => item.name.trim() !== ""),
         requires_confirmation: requiresConfirmation,
@@ -186,15 +188,22 @@ export function ServiceCard({
             </label>
           </div>
 
-          <div className="space-y-2">
-            <span className="text-sm font-medium">{t("settings.serviceSchedule")}</span>
-            <WeeklyHoursEditor
-              value={hours}
-              onChange={setHours}
-              locale={locale}
-              closedLabel={t("settings.closed")}
-            />
-          </div>
+          <label className="block space-y-1">
+            <span className="text-sm font-medium">{t("settings.group")}</span>
+            <select
+              aria-label={t("settings.group")}
+              value={groupId}
+              onChange={(event) => setGroupId(event.target.value)}
+              className={fieldClass}
+            >
+              {groups.map((group) => (
+                <option key={group.id} value={group.id}>
+                  {group.name}
+                </option>
+              ))}
+            </select>
+            <span className="text-xs text-muted">{t("settings.groupHint")}</span>
+          </label>
 
           <label className="block space-y-1">
             <span className="text-sm font-medium">{t("settings.maxAdvanceDays")}</span>
