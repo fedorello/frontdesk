@@ -5,10 +5,12 @@ came out as "Tue 30 Jun" even on a Russian bot. These tables render the weekday 
 in the business's own language without pulling in a heavy i18n dependency.
 """
 
-from datetime import datetime
+from datetime import datetime, timedelta
 from zoneinfo import ZoneInfo
 
 from frontdesk.domain.models import Business
+
+_MINUTES_PER_HOUR = 60
 
 # Indexed by Python's weekday(): Monday = 0 … Sunday = 6.
 _WEEKDAYS = {
@@ -34,14 +36,29 @@ _TEMPLATE = {
 }
 
 
+def _utc_offset_label(moment: datetime) -> str:
+    """The moment's offset from UTC, e.g. 'UTC-3' or 'UTC+5:30', so a time is unambiguous."""
+    offset = moment.utcoffset() or timedelta()
+    minutes = round(offset.total_seconds() / _MINUTES_PER_HOUR)
+    if minutes == 0:
+        return "UTC"
+    sign = "+" if minutes > 0 else "-"
+    hours, mins = divmod(abs(minutes), _MINUTES_PER_HOUR)
+    return f"UTC{sign}{hours}" if mins == 0 else f"UTC{sign}{hours}:{mins:02d}"
+
+
 def format_when(moment: datetime, business: Business) -> str:
-    """A friendly local datetime in the business's time zone and language."""
+    """A friendly local datetime in the business's time zone and language, with the UTC offset.
+
+    The trailing '(UTC-3)' makes the time unambiguous for a customer in another time zone.
+    """
     local = moment.astimezone(ZoneInfo(business.timezone))
     locale = business.locale if business.locale in _WEEKDAYS else "en"
-    return _TEMPLATE[locale].format(
+    when = _TEMPLATE[locale].format(
         wd=_WEEKDAYS[locale][local.weekday()],
         day=local.day,
         mon=_MONTHS[locale][local.month - 1],
         hh=f"{local.hour:02d}",
         mm=f"{local.minute:02d}",
     )
+    return f"{when} ({_utc_offset_label(local)})"
