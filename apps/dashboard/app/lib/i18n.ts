@@ -88,6 +88,7 @@ const MESSAGES = {
       "This business is online — no physical address. The assistant tells customers it’s remote.",
     "settings.servicesHint": "Each service has its price, duration, and group.",
     "settings.group": "Group (schedule)",
+    "settings.groupTag": "Group",
     "settings.groupHint":
       "Services in the same group share one schedule and can't be booked at the same time.",
     "settings.groupsTitle": "Groups",
@@ -252,6 +253,7 @@ const MESSAGES = {
       "Este negocio es en línea — sin dirección física. El asistente indica que es remoto.",
     "settings.servicesHint": "Cada servicio tiene su precio, duración y grupo.",
     "settings.group": "Grupo (horario)",
+    "settings.groupTag": "Grupo",
     "settings.groupHint":
       "Los servicios del mismo grupo comparten un horario y no pueden reservarse a la vez.",
     "settings.groupsTitle": "Grupos",
@@ -415,6 +417,7 @@ const MESSAGES = {
       "Бизнес онлайн — без физического адреса. Ассистент сообщит клиентам, что приём удалённый.",
     "settings.servicesHint": "У каждой услуги своя цена, длительность и группа.",
     "settings.group": "Группа (расписание)",
+    "settings.groupTag": "Группа",
     "settings.groupHint":
       "Услуги в одной группе делят одно расписание, и их нельзя забронировать на одно время.",
     "settings.groupsTitle": "Группы",
@@ -577,6 +580,7 @@ const MESSAGES = {
     "settings.onlineHint": "该业务为在线服务——没有实体地址。助手会告知客户为远程服务。",
     "settings.servicesHint": "每项服务都有自己的价格、时长和分组。",
     "settings.group": "分组（排班）",
+    "settings.groupTag": "分组",
     "settings.groupHint": "同一分组的服务共用一份排班，不能被同时预约。",
     "settings.groupsTitle": "分组",
     "settings.groupsHint":

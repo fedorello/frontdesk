@@ -77,6 +77,7 @@ export function ServiceCard({
   };
 
   const price = priceLabel(service, locale);
+  const groupName = groups.find((group) => group.id === service.resource_ids?.[0])?.name;
 
   return (
     <div className="rounded-xl border border-line bg-canvas">
@@ -90,6 +91,11 @@ export function ServiceCard({
           <span className="block text-sm text-muted">
             {service.duration_minutes} min{price ? ` · ${price}` : ""}
           </span>
+          {groupName && (
+            <span className="mt-1 block text-xs font-medium text-faint">
+              {t("settings.groupTag")}: {groupName}
+            </span>
+          )}
           {service.description && (
             <span className="mt-0.5 block truncate text-xs text-muted">{service.description}</span>
           )}
