@@ -3,7 +3,7 @@
 import { useState } from "react";
 
 import { api, type AppointmentResult, type AppointmentView } from "@/app/lib/api";
-import { isCancelled, STATUS_LABEL } from "@/app/lib/appointments";
+import { isCancelled, PENDING, STATUS_LABEL } from "@/app/lib/appointments";
 import { formatDay, formatTime, utcIsoToZonedInput, zonedToUtcIso } from "@/app/lib/format";
 import type { Locale } from "@/app/lib/i18n";
 import { useI18n } from "@/app/lib/I18nProvider";
@@ -11,6 +11,23 @@ import { StatusPill } from "@/components/ui/StatusPill";
 
 const fieldClass =
   "w-full rounded-lg border border-line-strong bg-surface px-3 py-2 text-sm text-ink outline-none focus:border-accent";
+
+const CheckBadge = () => (
+  <svg
+    width="16"
+    height="16"
+    viewBox="0 0 24 24"
+    fill="none"
+    stroke="currentColor"
+    strokeWidth="2.2"
+    strokeLinecap="round"
+    strokeLinejoin="round"
+    aria-hidden
+  >
+    <circle cx="12" cy="12" r="9" />
+    <path d="m8.5 12 2.5 2.5 4.5-5" />
+  </svg>
+);
 
 export function AppointmentModal({
   appointment,
@@ -100,6 +117,39 @@ export function AppointmentModal({
           <p className="mt-4 text-sm text-muted">{t("calendar.statusCancelled")}</p>
         ) : (
           <div className="mt-4 space-y-5">
+            {appointment.status === PENDING && (
+              <div className="space-y-2.5 rounded-xl border border-success/40 bg-success-soft/40 p-3.5">
+                <div className="flex items-center gap-2 text-sm font-semibold text-success">
+                  <CheckBadge />
+                  {t("calendar.awaitingConfirmation")}
+                </div>
+                <button
+                  type="button"
+                  onClick={() =>
+                    run(async () => {
+                      // Confirm only flips the status; the time is unchanged, so carry it over.
+                      const result = await api.confirmAppointment(
+                        businessId,
+                        appointment.id,
+                        token,
+                      );
+                      return {
+                        id: result.id,
+                        status: result.status,
+                        starts_at: appointment.starts_at,
+                        ends_at: appointment.ends_at,
+                      };
+                    })
+                  }
+                  disabled={busy}
+                  className="flex w-full items-center justify-center gap-2 rounded-lg bg-success px-4 py-2.5 text-sm font-bold text-white transition hover:opacity-90 disabled:opacity-50"
+                >
+                  <CheckBadge />
+                  {t("calendar.confirmBooking")}
+                </button>
+              </div>
+            )}
+
             <div className="space-y-2">
               <span className="text-sm font-semibold">{t("calendar.reschedule")}</span>
               <input

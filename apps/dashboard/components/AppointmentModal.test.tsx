@@ -6,16 +6,20 @@ import { I18nProvider } from "@/app/lib/I18nProvider";
 
 import { AppointmentModal } from "./AppointmentModal";
 
-const { cancelAppointment, rescheduleAppointment } = vi.hoisted(() => ({
+const { cancelAppointment, rescheduleAppointment, confirmAppointment } = vi.hoisted(() => ({
   cancelAppointment: vi.fn(),
   rescheduleAppointment: vi.fn(),
+  confirmAppointment: vi.fn(),
 }));
-vi.mock("@/app/lib/api", () => ({ api: { cancelAppointment, rescheduleAppointment } }));
+vi.mock("@/app/lib/api", () => ({
+  api: { cancelAppointment, rescheduleAppointment, confirmAppointment },
+}));
 
 afterEach(() => {
   cleanup();
   cancelAppointment.mockReset();
   rescheduleAppointment.mockReset();
+  confirmAppointment.mockReset();
 });
 
 const APPOINTMENT: AppointmentView = {
@@ -26,11 +30,11 @@ const APPOINTMENT: AppointmentView = {
   status: "confirmed",
 };
 
-function renderModal(onChanged = vi.fn()) {
+function renderModal(onChanged = vi.fn(), appointment: AppointmentView = APPOINTMENT) {
   render(
     <I18nProvider>
       <AppointmentModal
-        appointment={APPOINTMENT}
+        appointment={appointment}
         timeZone="America/Montevideo"
         locale="en"
         businessId="b"
@@ -60,6 +64,26 @@ describe("AppointmentModal", () => {
 
     await waitFor(() => expect(onChanged).toHaveBeenCalled());
     expect(cancelAppointment).toHaveBeenCalledWith("b", "apt-1", "Specialist away", "t");
+  });
+
+  it("confirms a pending booking", async () => {
+    confirmAppointment.mockResolvedValue({
+      id: "apt-1",
+      status: "confirmed",
+      starts_at: APPOINTMENT.starts_at,
+      ends_at: APPOINTMENT.ends_at,
+    });
+    const onChanged = renderModal(vi.fn(), { ...APPOINTMENT, status: "pending" });
+
+    fireEvent.click(screen.getByRole("button", { name: "Confirm booking" }));
+
+    await waitFor(() => expect(onChanged).toHaveBeenCalled());
+    expect(confirmAppointment).toHaveBeenCalledWith("b", "apt-1", "t");
+  });
+
+  it("hides the confirm action for a non-pending booking", () => {
+    renderModal(); // status: confirmed
+    expect(screen.queryByRole("button", { name: "Confirm booking" })).toBeNull();
   });
 
   it("reschedules using the business-zone time converted to UTC", async () => {
