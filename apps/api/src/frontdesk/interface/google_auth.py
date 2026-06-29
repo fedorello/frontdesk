@@ -134,6 +134,7 @@ def build_google_auth_router(
                 "name": identity.name,
                 "email": identity.email,
                 "avatar": identity.picture,
+                "role": account.role.value,
             }
         )
         redirect = _back(f"/auth/callback?{query}")

@@ -19,6 +19,7 @@ export default function AuthCallback() {
         name: params.get("name") ?? undefined,
         email: params.get("email") ?? undefined,
         avatar: params.get("avatar") ?? undefined,
+        role: params.get("role") ?? undefined,
       });
       router.replace("/");
     } else {
