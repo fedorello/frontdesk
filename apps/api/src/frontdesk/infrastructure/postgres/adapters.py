@@ -11,6 +11,7 @@ from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
 
 from frontdesk.application.ports import (
     Account,
+    AppointmentQuery,
     ApprovalRecord,
     Clock,
     IdGenerator,
@@ -593,6 +594,45 @@ class SqlAppointmentRepository:
                 .all()
             )
             return [_to_appointment(row) for row in rows]
+
+    async def page_for_business(
+        self, business_id: BusinessId, query: AppointmentQuery
+    ) -> tuple[list[Appointment], int]:
+        # The WHERE is assembled from FIXED clause fragments; every value is a bound parameter, so
+        # this is not string-interpolated SQL.
+        where = ["business_id = :bid"]
+        params: dict[str, object] = {"bid": str(business_id)}
+        if not query.include_cancelled:
+            where.append("status != :cancelled")
+            params["cancelled"] = AppointmentStatus.CANCELLED.value
+        if query.search:
+            params["q"] = f"%{query.search}%"
+            terms = ["id ILIKE :q", "intake::text ILIKE :q"]
+            if query.service_ids:
+                terms.append("service_id = ANY(:sids)")
+                params["sids"] = [str(service_id) for service_id in query.service_ids]
+            where.append("(" + " OR ".join(terms) + ")")
+        predicate = " AND ".join(where)
+        async with self._sf() as session:
+            total = (
+                await session.execute(
+                    text(f"SELECT count(*) FROM appointment WHERE {predicate}"), params
+                )
+            ).scalar_one()
+            rows = (
+                (
+                    await session.execute(
+                        text(
+                            f"SELECT * FROM appointment WHERE {predicate} "
+                            "ORDER BY starts_at LIMIT :lim OFFSET :off"
+                        ),
+                        {**params, "lim": query.limit, "off": query.offset},
+                    )
+                )
+                .mappings()
+                .all()
+            )
+        return [_to_appointment(row) for row in rows], int(total)
 
 
 class SqlReminderStore:

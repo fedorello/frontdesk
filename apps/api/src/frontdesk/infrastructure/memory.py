@@ -10,6 +10,7 @@ from datetime import datetime, timedelta
 
 from frontdesk.application.ports import (
     Account,
+    AppointmentQuery,
     Clock,
     Completion,
     Decision,
@@ -370,6 +371,20 @@ class InMemoryConversationRepository:
         ]
 
 
+def _appointment_matches(appointment: Appointment, query: AppointmentQuery) -> bool:
+    """Whether a search matches the appointment (id, intake, or a pre-resolved service id)."""
+    if not query.search:
+        return True
+    if appointment.service_id in query.service_ids:
+        return True
+    if query.search in str(appointment.id).lower():
+        return True
+    return any(
+        query.search in answer.name.lower() or query.search in answer.value.lower()
+        for answer in appointment.intake
+    )
+
+
 class InMemoryAppointmentRepository:
     def __init__(self) -> None:
         self.appointments: dict[AppointmentId, Appointment] = {}
@@ -385,6 +400,17 @@ class InMemoryAppointmentRepository:
             (a for a in self.appointments.values() if a.business_id == business_id),
             key=lambda a: a.slot.starts_at,
         )
+
+    async def page_for_business(
+        self, business_id: BusinessId, query: AppointmentQuery
+    ) -> tuple[list[Appointment], int]:
+        matched = [
+            appointment
+            for appointment in await self.for_business(business_id)  # already start-ordered
+            if (query.include_cancelled or appointment.status != AppointmentStatus.CANCELLED)
+            and _appointment_matches(appointment, query)
+        ]
+        return matched[query.offset : query.offset + query.limit], len(matched)
 
 
 class InMemoryReminderStore:

@@ -9,6 +9,7 @@ from sqlalchemy import text
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
 
+from frontdesk.application.ports import AppointmentQuery
 from frontdesk.domain.enums import AppointmentStatus, Channel
 from frontdesk.domain.errors import DoubleBooking
 from frontdesk.domain.ids import (
@@ -469,3 +470,51 @@ async def test_issuing_a_code_prunes_expired_ones(sessionmaker: Factory) -> None
 
     assert await store.get(LinkCode("old")) is None
     assert await store.get(LinkCode("new")) is not None
+
+
+async def test_appointment_page_for_business_paginates_filters_and_searches(
+    sessionmaker: Factory,
+) -> None:
+    calendar = SqlCalendar(sessionmaker, SequentialIdGenerator("ap"), FixedClock(NOW))
+    repo = SqlAppointmentRepository(sessionmaker)
+    service = _service()
+    # Drop the conftest's seed appointment (and its reminder FK) for a deterministic count.
+    async with sessionmaker() as session:
+        await session.execute(text("DELETE FROM reminder WHERE business_id = 'biz'"))
+        await session.execute(text("DELETE FROM appointment WHERE business_id = 'biz'"))
+        await session.commit()
+    booked = []  # re-find after each booking so the slots don't overlap (60-min service)
+    for _ in range(3):
+        slot = (await calendar.find_availability(service, NOW))[0]
+        booked.append(await calendar.book(service, _resource_id(), _customer(), slot))
+    biz = BusinessId("biz")
+
+    def query(**kwargs: object) -> AppointmentQuery:
+        defaults: dict[str, object] = {
+            "include_cancelled": False,
+            "search": "",
+            "service_ids": (),
+            "limit": 10,
+            "offset": 0,
+        }
+        return AppointmentQuery(**{**defaults, **kwargs})  # type: ignore[arg-type]
+
+    first_items, total = await repo.page_for_business(biz, query(limit=2, offset=0))
+    assert total == 3
+    assert len(first_items) == 2
+    assert first_items[0].slot.starts_at <= first_items[1].slot.starts_at  # ordered by start
+
+    second_items, _ = await repo.page_for_business(biz, query(limit=2, offset=2))
+    assert len(second_items) == 1  # the last page
+
+    await calendar.cancel(booked[0].id)
+    _, active = await repo.page_for_business(biz, query())
+    assert active == 2  # cancelled excluded by default
+    _, all_total = await repo.page_for_business(biz, query(include_cancelled=True))
+    assert all_total == 3  # cancelled included
+
+    _, by_service = await repo.page_for_business(biz, query(search="x", service_ids=(service.id,)))
+    assert by_service == 2  # matched via service_id ANY(...), the two active ones
+
+    _, by_id = await repo.page_for_business(biz, query(search=str(booked[1].id).lower()))
+    assert by_id == 1  # matched via id ILIKE

@@ -6,13 +6,20 @@ from fastapi import APIRouter, Depends
 from pydantic import BaseModel
 
 from frontdesk.application.ports import (
+    AppointmentQuery,
     AppointmentRepository,
     ConversationRepository,
     ServiceRepository,
 )
-from frontdesk.domain.ids import BusinessId
+from frontdesk.domain.ids import BusinessId, ServiceId
+from frontdesk.domain.models import Appointment
 
 Guard = Callable[..., Awaitable[None]] | None
+
+# Server-side pagination of the appointments list. The client asks for a page size; the server
+# caps it so a single request can never pull an unbounded number of rows.
+_DEFAULT_PAGE_SIZE = 8
+_MAX_PAGE_SIZE = 50
 
 
 class IntakeAnswerView(BaseModel):
@@ -27,6 +34,11 @@ class AppointmentView(BaseModel):
     ends_at: str
     status: str
     intake: list[IntakeAnswerView] = []
+
+
+class AppointmentPageView(BaseModel):
+    items: list[AppointmentView]
+    total: int  # matching appointments across all pages, for the page count
 
 
 class MessageView(BaseModel):
@@ -63,19 +75,40 @@ def build_read_router(
         ]
 
     @router.get("/api/businesses/{business_id}/appointments")
-    async def list_appointments(business_id: str) -> list[AppointmentView]:
+    async def list_appointments(
+        business_id: str,
+        limit: int = _DEFAULT_PAGE_SIZE,
+        offset: int = 0,
+        include_cancelled: bool = False,
+        q: str = "",
+    ) -> AppointmentPageView:
         bid = BusinessId(business_id)
         names = {s.id: s.name for s in await services.for_business(bid)}
-        return [
-            AppointmentView(
-                id=str(appointment.id),
-                service=names.get(appointment.service_id, str(appointment.service_id)),
-                starts_at=appointment.slot.starts_at.isoformat(),
-                ends_at=appointment.slot.ends_at.isoformat(),
-                status=appointment.status.value,
-                intake=[IntakeAnswerView(name=a.name, value=a.value) for a in appointment.intake],
-            )
-            for appointment in await appointments.for_business(bid)
-        ]
+        # Resolve service-NAME matches to ids here, so the repository never needs the catalogue.
+        search = q.strip().lower()
+        service_ids = tuple(sid for sid, name in names.items() if search and search in name.lower())
+        query = AppointmentQuery(
+            include_cancelled=include_cancelled,
+            search=search,
+            service_ids=service_ids,
+            limit=min(max(limit, 1), _MAX_PAGE_SIZE),
+            offset=max(offset, 0),
+        )
+        items, total = await appointments.page_for_business(bid, query)
+        return AppointmentPageView(
+            items=[_appointment_view(appointment, names) for appointment in items],
+            total=total,
+        )
 
     return router
+
+
+def _appointment_view(appointment: Appointment, names: dict[ServiceId, str]) -> AppointmentView:
+    return AppointmentView(
+        id=str(appointment.id),
+        service=names.get(appointment.service_id, str(appointment.service_id)),
+        starts_at=appointment.slot.starts_at.isoformat(),
+        ends_at=appointment.slot.ends_at.isoformat(),
+        status=appointment.status.value,
+        intake=[IntakeAnswerView(name=a.name, value=a.value) for a in appointment.intake],
+    )

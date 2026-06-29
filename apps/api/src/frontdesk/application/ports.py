@@ -337,9 +337,30 @@ class ConversationRepository(Protocol):
     ) -> list[RecentMessage]: ...
 
 
+@dataclass(frozen=True, slots=True)
+class AppointmentQuery:
+    """One page of an appointments listing, with its filters.
+
+    ``search`` is lowercased and matched against the appointment id and intake text. Services whose
+    NAME matched the search are resolved upstream and passed as ``service_ids`` (so the repository
+    stays decoupled from the service catalogue). An empty ``search`` matches everything.
+    """
+
+    include_cancelled: bool
+    search: str
+    service_ids: tuple[ServiceId, ...]
+    limit: int
+    offset: int
+
+
 class AppointmentRepository(Protocol):
     async def get(self, appointment_id: AppointmentId) -> Appointment: ...
     async def for_business(self, business_id: BusinessId) -> list[Appointment]: ...
+    async def page_for_business(
+        self, business_id: BusinessId, query: AppointmentQuery
+    ) -> tuple[list[Appointment], int]:
+        """A page of the business's appointments (ordered by start) + the total matching count."""
+        ...
 
 
 @dataclass(frozen=True, slots=True)
