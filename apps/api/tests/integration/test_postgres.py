@@ -451,7 +451,8 @@ async def test_telegram_link_code_store_round_trip(sessionmaker: Factory) -> Non
     assert got is not None
     assert (got.chat_id, got.used) == ("chat", False)
 
-    await store.mark_used(LinkCode("c1"))
+    assert await store.mark_used(LinkCode("c1")) is True  # the first claim wins
+    assert await store.mark_used(LinkCode("c1")) is False  # a second redeem loses the race (atomic)
     spent = await store.get(LinkCode("c1"))
     assert spent is not None
     assert spent.used is True

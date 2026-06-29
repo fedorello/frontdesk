@@ -161,10 +161,12 @@ class InMemoryTelegramLinkCodeStore:
     async def get(self, code: LinkCode) -> TelegramLinkCode | None:
         return self._by_code.get(code)
 
-    async def mark_used(self, code: LinkCode) -> None:
+    async def mark_used(self, code: LinkCode) -> bool:
         existing = self._by_code.get(code)
-        if existing is not None:
-            self._by_code[code] = replace(existing, used=True)
+        if existing is None or existing.used:
+            return False  # already consumed or gone — the caller lost the race
+        self._by_code[code] = replace(existing, used=True)
+        return True
 
 
 class InMemoryOwnerNotificationSender:

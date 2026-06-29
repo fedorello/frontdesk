@@ -416,7 +416,13 @@ class OwnerTelegramLinkRepository(Protocol):
 class TelegramLinkCodeStore(Protocol):
     async def issue(self, code: TelegramLinkCode) -> None: ...
     async def get(self, code: LinkCode) -> TelegramLinkCode | None: ...
-    async def mark_used(self, code: LinkCode) -> None: ...
+    async def mark_used(self, code: LinkCode) -> bool:
+        """Atomically claim an unused code. Returns True if THIS call marked it used.
+
+        Returns False when the code was already used (the caller lost a redeem race) or is gone,
+        so single-use is enforced even under concurrent confirms.
+        """
+        ...
 
 
 class OwnerNotificationSender(Protocol):

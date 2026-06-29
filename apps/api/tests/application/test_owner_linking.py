@@ -8,7 +8,7 @@ from frontdesk.application.owner_linking import OwnerLinking
 from frontdesk.domain.errors import LinkCodeError
 from frontdesk.domain.ids import BusinessId, LinkCode
 from frontdesk.domain.models import Business
-from frontdesk.domain.notifications import LinkCodeProblem
+from frontdesk.domain.notifications import LinkCodeProblem, TelegramLinkCode
 from frontdesk.infrastructure.memory import (
     InMemoryBusinessRepository,
     InMemoryOwnerNotificationSender,
@@ -115,3 +115,51 @@ async def test_confirm_rejects_another_businesss_code() -> None:
         await linking.confirm(BusinessId("other"), LinkCode("code-1"))
 
     assert caught.value.problem is LinkCodeProblem.WRONG_BUSINESS
+
+
+async def test_in_memory_mark_used_is_single_use() -> None:
+    codes = InMemoryTelegramLinkCodeStore()
+    await codes.issue(
+        TelegramLinkCode(LinkCode("c"), BIZ, "chat", "Owner", NOW + timedelta(minutes=5))
+    )
+
+    assert await codes.mark_used(LinkCode("c")) is True  # the first claim wins
+    assert await codes.mark_used(LinkCode("c")) is False  # the second loses the race
+    assert await codes.mark_used(LinkCode("missing")) is False  # gone — also a loss
+
+
+class _LostRaceStore:
+    """Reads a valid code but reports it already claimed on write — simulates a lost redeem race."""
+
+    def __init__(self, record: TelegramLinkCode) -> None:
+        self._record = record
+
+    async def issue(self, code: TelegramLinkCode) -> None: ...
+
+    async def get(self, code: LinkCode) -> TelegramLinkCode | None:
+        return self._record
+
+    async def mark_used(self, code: LinkCode) -> bool:
+        return False
+
+
+async def test_confirm_raises_used_when_it_loses_the_redeem_race() -> None:
+    record = TelegramLinkCode(
+        LinkCode("code-1"), BIZ, "chat-1", "Owner", NOW + timedelta(minutes=10)
+    )
+    links = InMemoryOwnerTelegramLinkRepository()
+    linking = OwnerLinking(
+        _LostRaceStore(record),
+        links,
+        InMemoryBusinessRepository([Business(BIZ, "Studio", "UTC", locale="ru")], {}),
+        InMemoryOwnerNotificationSender(),
+        SequentialIdGenerator("code"),
+        FixedClock(NOW),
+        "http://app",
+    )
+
+    with pytest.raises(LinkCodeError) as caught:
+        await linking.confirm(BIZ, LinkCode("code-1"))
+
+    assert caught.value.problem is LinkCodeProblem.USED
+    assert await links.get(BIZ) is None  # nothing was bound after losing the race

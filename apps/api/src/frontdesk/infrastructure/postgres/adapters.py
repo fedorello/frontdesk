@@ -1334,10 +1334,16 @@ class SqlTelegramLinkCodeStore:
             )
         return self._to_code(row) if row else None
 
-    async def mark_used(self, code: LinkCode) -> None:
+    async def mark_used(self, code: LinkCode) -> bool:
+        # `AND used = false` + RETURNING makes the claim atomic: a concurrent second confirm matches
+        # no row and gets nothing back, so exactly one redeem wins even without an explicit lock.
         async with self._sf() as session:
-            await session.execute(
-                text("UPDATE telegram_link_code SET used = true WHERE code = :code"),
+            result = await session.execute(
+                text(
+                    "UPDATE telegram_link_code SET used = true "
+                    "WHERE code = :code AND used = false RETURNING code"
+                ),
                 {"code": str(code)},
             )
             await session.commit()
+            return result.first() is not None

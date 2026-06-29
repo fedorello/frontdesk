@@ -18,6 +18,7 @@ from frontdesk.application.ports import (
 from frontdesk.domain.errors import LinkCodeError
 from frontdesk.domain.ids import BusinessId, LinkCode
 from frontdesk.domain.notifications import (
+    LinkCodeProblem,
     OwnerTelegramLink,
     TelegramLinkCode,
     redeem_problem,
@@ -90,8 +91,11 @@ class OwnerLinking:
             )
             raise LinkCodeError(problem)
         assert record is not None  # redeem_problem returns NOT_FOUND when record is None
+        # Claim the code atomically BEFORE binding, so two concurrent confirms can't both succeed.
+        if not await self._codes.mark_used(code):
+            _logger.warning("owner link confirm lost the redeem race business=%s", business_id)
+            raise LinkCodeError(LinkCodeProblem.USED)
         link = OwnerTelegramLink(business_id, record.chat_id, record.telegram_name)
         await self._links.upsert(link)
-        await self._codes.mark_used(code)
         _logger.info("owner telegram linked business=%s", business_id)
         return link
