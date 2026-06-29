@@ -37,3 +37,11 @@ class MessageRole(StrEnum):
     OWNER = "owner"  # the business owner, replying by hand through the bot
     SYSTEM = "system"
     TOOL = "tool"
+
+
+class NotificationEvent(StrEnum):
+    """A schedule change the business owner is notified about."""
+
+    BOOKED = "booked"
+    RESCHEDULED = "rescheduled"
+    CANCELLED = "cancelled"

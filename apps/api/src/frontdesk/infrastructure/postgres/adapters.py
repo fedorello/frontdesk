@@ -31,6 +31,7 @@ from frontdesk.domain.ids import (
     AppointmentId,
     BusinessId,
     CustomerId,
+    LinkCode,
     ReminderId,
     ResourceId,
     ServiceId,
@@ -51,6 +52,7 @@ from frontdesk.domain.models import (
     initial_appointment_status,
 )
 from frontdesk.domain.money import Money
+from frontdesk.domain.notifications import OwnerTelegramLink, TelegramLinkCode
 
 Row = Any  # a SQLAlchemy RowMapping
 
@@ -1223,3 +1225,119 @@ class SqlApprovalStore:
             args=_json_obj(row.args),
             status=status,
         )
+
+
+class SqlOwnerTelegramLinkRepository:
+    """The owner's linked Telegram chat for schedule notifications (one per business)."""
+
+    def __init__(self, sessionmaker: async_sessionmaker[AsyncSession]) -> None:
+        self._sf = sessionmaker
+
+    @staticmethod
+    def _to_link(row: Row) -> OwnerTelegramLink:
+        return OwnerTelegramLink(
+            BusinessId(row["business_id"]),
+            row["chat_id"],
+            row["telegram_name"],
+            row["notifications_enabled"],
+        )
+
+    async def get(self, business_id: BusinessId) -> OwnerTelegramLink | None:
+        async with self._sf() as session:
+            row = (
+                (
+                    await session.execute(
+                        text("SELECT * FROM owner_telegram_link WHERE business_id = :bid"),
+                        {"bid": str(business_id)},
+                    )
+                )
+                .mappings()
+                .first()
+            )
+        return self._to_link(row) if row else None
+
+    async def upsert(self, link: OwnerTelegramLink) -> None:
+        async with self._sf() as session:
+            await session.execute(
+                text(
+                    "INSERT INTO owner_telegram_link "
+                    "(business_id, chat_id, telegram_name, notifications_enabled) "
+                    "VALUES (:bid, :cid, :name, :enabled) "
+                    "ON CONFLICT (business_id) DO UPDATE SET "
+                    "chat_id = :cid, telegram_name = :name, notifications_enabled = :enabled"
+                ),
+                {
+                    "bid": str(link.business_id),
+                    "cid": link.chat_id,
+                    "name": link.telegram_name,
+                    "enabled": link.notifications_enabled,
+                },
+            )
+            await session.commit()
+
+    async def remove(self, business_id: BusinessId) -> None:
+        async with self._sf() as session:
+            await session.execute(
+                text("DELETE FROM owner_telegram_link WHERE business_id = :bid"),
+                {"bid": str(business_id)},
+            )
+            await session.commit()
+
+
+class SqlTelegramLinkCodeStore:
+    """One-time, short-lived link codes; expired rows are pruned on issue (cheap, indexed)."""
+
+    def __init__(self, sessionmaker: async_sessionmaker[AsyncSession]) -> None:
+        self._sf = sessionmaker
+
+    @staticmethod
+    def _to_code(row: Row) -> TelegramLinkCode:
+        return TelegramLinkCode(
+            LinkCode(row["code"]),
+            BusinessId(row["business_id"]),
+            row["chat_id"],
+            row["telegram_name"],
+            row["expires_at"],
+            row["used"],
+        )
+
+    async def issue(self, code: TelegramLinkCode) -> None:
+        async with self._sf() as session:
+            await session.execute(text("DELETE FROM telegram_link_code WHERE expires_at < now()"))
+            await session.execute(
+                text(
+                    "INSERT INTO telegram_link_code "
+                    "(code, business_id, chat_id, telegram_name, expires_at, used) "
+                    "VALUES (:code, :bid, :cid, :name, :exp, false)"
+                ),
+                {
+                    "code": str(code.code),
+                    "bid": str(code.business_id),
+                    "cid": code.chat_id,
+                    "name": code.telegram_name,
+                    "exp": code.expires_at,
+                },
+            )
+            await session.commit()
+
+    async def get(self, code: LinkCode) -> TelegramLinkCode | None:
+        async with self._sf() as session:
+            row = (
+                (
+                    await session.execute(
+                        text("SELECT * FROM telegram_link_code WHERE code = :code"),
+                        {"code": str(code)},
+                    )
+                )
+                .mappings()
+                .first()
+            )
+        return self._to_code(row) if row else None
+
+    async def mark_used(self, code: LinkCode) -> None:
+        async with self._sf() as session:
+            await session.execute(
+                text("UPDATE telegram_link_code SET used = true WHERE code = :code"),
+                {"code": str(code)},
+            )
+            await session.commit()

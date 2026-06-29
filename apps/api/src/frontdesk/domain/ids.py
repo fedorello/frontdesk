@@ -9,3 +9,4 @@ CustomerId = NewType("CustomerId", str)
 AppointmentId = NewType("AppointmentId", str)
 ReminderId = NewType("ReminderId", str)
 AccountId = NewType("AccountId", str)
+LinkCode = NewType("LinkCode", str)  # a one-time code that links an owner's Telegram chat

@@ -21,7 +21,7 @@ from frontdesk.infrastructure.system import FixedRandom
 from frontdesk.interface.telegram_inbound import TelegramInbound
 from frontdesk.interface.telegram_phrases import BUSY, WAIT
 from frontdesk.interface.telegram_poller import TelegramPoller
-from tests.assistant_deps import build_assistant_deps
+from tests.assistant_deps import build_assistant_deps, fake_owner_linking
 
 SETTINGS = Settings(llm_api_key="platform-key", llm_base_url="https://openrouter.ai/api/v1")
 ONE_UPDATE = {
@@ -45,6 +45,7 @@ def _inbound(businesses: InMemoryBusinessRepository, client: httpx.AsyncClient) 
         SETTINGS,
         client,
         FixedRandom(),
+        fake_owner_linking(),
     )
 
 
@@ -172,6 +173,7 @@ async def test_run_idles_when_no_bots_are_connected() -> None:
             settings,
             client,
             FixedRandom(),
+            fake_owner_linking(),
         ),
         client,
         settings,
@@ -220,6 +222,7 @@ async def test_run_survives_a_transient_repo_error() -> None:
             settings,
             client,
             FixedRandom(),
+            fake_owner_linking(),
         ),
         client,
         settings,

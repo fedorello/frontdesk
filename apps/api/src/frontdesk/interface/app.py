@@ -25,6 +25,8 @@ from frontdesk.application.owner_actions import (
     OwnerSendMessage,
     SetConversationHandoff,
 )
+from frontdesk.application.owner_linking import OwnerLinking
+from frontdesk.application.owner_notifier import OwnerNotifier
 from frontdesk.application.ports import (
     ApprovalGate,
     Clock,
@@ -40,10 +42,11 @@ from frontdesk.infrastructure.channels.composite import LoggingMessaging, Routin
 from frontdesk.infrastructure.channels.telegram import (
     TelegramCustomerNotifier,
     TelegramMessaging,
+    TelegramOwnerNotificationSender,
 )
 from frontdesk.infrastructure.channels.whatsapp import WhatsAppMessaging
 from frontdesk.infrastructure.db import create_engine, make_session_factory
-from frontdesk.infrastructure.events import LoggingEventPublisher
+from frontdesk.infrastructure.events import DispatchingEventPublisher, LoggingEventListener
 from frontdesk.infrastructure.google_oauth import HttpGoogleOAuthClient
 from frontdesk.infrastructure.keys import session_signing_key
 from frontdesk.infrastructure.logging_setup import configure_logging
@@ -59,10 +62,12 @@ from frontdesk.infrastructure.postgres.adapters import (
     SqlConversationRepository,
     SqlCustomerRepository,
     SqlLlmConfigRepository,
+    SqlOwnerTelegramLinkRepository,
     SqlReminderStore,
     SqlResourceRepository,
     SqlServiceRepository,
     SqlTelegramBotRepository,
+    SqlTelegramLinkCodeStore,
     SqlUsageStore,
 )
 from frontdesk.infrastructure.providers.anthropic import AnthropicProvider
@@ -89,6 +94,7 @@ from frontdesk.interface.config_api import build_config_router
 from frontdesk.interface.conversations_api import build_conversations_router
 from frontdesk.interface.google_auth import build_google_auth_router
 from frontdesk.interface.metrics_api import build_metrics_router
+from frontdesk.interface.owner_telegram import build_owner_telegram_router
 from frontdesk.interface.read_api import build_read_router
 from frontdesk.interface.telegram_connect import build_telegram_connect_router
 from frontdesk.interface.telegram_inbound import TelegramInbound
@@ -172,24 +178,62 @@ def build_assistant_deps(
     """
     reminders = SqlReminderStore(sessions)
     calendar = SqlCalendar(sessions, ids, clock)
-    events = LoggingEventPublisher()
     scheduler = ReminderScheduler(reminders, ids, clock)
+    businesses = SqlBusinessRepository(sessions)
+    customers = SqlCustomerRepository(sessions, ids)
+    services = SqlServiceRepository(sessions)
+    appointments = SqlAppointmentRepository(sessions)
+    # Owner notifications react to schedule-change events through the business's own bot.
+    sender = TelegramOwnerNotificationSender(
+        SqlTelegramBotRepository(sessions, build_cipher(settings)), client
+    )
+    owner_notifier = OwnerNotifier(
+        SqlOwnerTelegramLinkRepository(sessions),
+        appointments,
+        services,
+        customers,
+        businesses,
+        sender,
+    )
+    events = DispatchingEventPublisher([LoggingEventListener(), owner_notifier])
     return AssistantDeps(
         build_provider(settings, client),
-        SqlBusinessRepository(sessions),
-        SqlCustomerRepository(sessions, ids),
+        businesses,
+        customers,
         SqlConversationRepository(sessions),
-        SqlServiceRepository(sessions),
-        SqlAppointmentRepository(sessions),
+        services,
+        appointments,
         calendar,
         BookAppointment(calendar, scheduler, events),
-        RescheduleAppointment(calendar, scheduler),
+        RescheduleAppointment(calendar, scheduler, events),
         CancelAppointment(calendar, reminders, events),
         build_messaging(settings, client),
         events,
         gate,
         clock,
         build_reply_classifier(settings, client),
+    )
+
+
+def build_owner_linking(
+    settings: Settings,
+    sessions: async_sessionmaker[AsyncSession],
+    ids: IdGenerator,
+    clock: Clock,
+    client: httpx.AsyncClient,
+) -> OwnerLinking:
+    """Owner-chat linking: issue codes and confirm them — shared by the API and the poller."""
+    sender = TelegramOwnerNotificationSender(
+        SqlTelegramBotRepository(sessions, build_cipher(settings)), client
+    )
+    return OwnerLinking(
+        SqlTelegramLinkCodeStore(sessions),
+        SqlOwnerTelegramLinkRepository(sessions),
+        SqlBusinessRepository(sessions),
+        sender,
+        ids,
+        clock,
+        settings.dashboard_url,
     )
 
 
@@ -236,10 +280,16 @@ def create_production_app() -> FastAPI:
         allow_methods=["*"],
         allow_headers=["*"],
     )
-    telegram_inbound = TelegramInbound(deps, llm_configs, usage, settings, client, SystemRandom())
+    owner_linking = build_owner_linking(settings, sessions, ids, clock, client)
+    telegram_inbound = TelegramInbound(
+        deps, llm_configs, usage, settings, client, SystemRandom(), owner_linking
+    )
     app.include_router(build_chat_router(deps, settings.demo_to_address, clock))
     app.include_router(build_approvals_router(approval_store, guard))
     app.include_router(build_telegram_router(telegram_inbound, telegram_bots))
+    app.include_router(
+        build_owner_telegram_router(SqlOwnerTelegramLinkRepository(sessions), owner_linking, guard)
+    )
     app.include_router(
         build_auth_router(
             accounts,

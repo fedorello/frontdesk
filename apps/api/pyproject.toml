@@ -54,6 +54,8 @@ ignore = ["PLR0913"]
 "src/frontdesk/interface/telegram_inbound.py" = ["RUF001"]
 "src/frontdesk/application/assistant.py" = ["RUF001"]
 "src/frontdesk/application/owner_actions.py" = ["RUF001"]
+"src/frontdesk/application/owner_notifier.py" = ["RUF001"]
+"src/frontdesk/application/owner_linking.py" = ["RUF001"]
 "src/frontdesk/application/datetime_format.py" = ["RUF001"]
 "src/frontdesk/application/worker.py" = ["RUF001"]
 

@@ -21,7 +21,7 @@ from frontdesk.infrastructure.memory import (
 from frontdesk.infrastructure.system import FixedRandom
 from frontdesk.interface.telegram_inbound import TelegramInbound
 from frontdesk.interface.telegram_webhook import build_telegram_router
-from tests.assistant_deps import build_assistant_deps
+from tests.assistant_deps import build_assistant_deps, fake_owner_linking
 
 SETTINGS = Settings(llm_api_key="platform-key", llm_base_url="https://openrouter.ai/api/v1")
 UPDATE = {"message": {"message_id": 1, "date": 1782000000, "chat": {"id": 999}, "text": "hi"}}
@@ -37,6 +37,7 @@ def _inbound(
         settings,
         client,
         FixedRandom(),
+        fake_owner_linking(),
     )
 
 

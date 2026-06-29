@@ -13,6 +13,7 @@ from frontdesk.application.ports import (
     TelegramBotRepository,
 )
 from frontdesk.domain.enums import Channel
+from frontdesk.domain.ids import BusinessId
 from frontdesk.domain.models import Business, Customer
 from frontdesk.infrastructure.channels.telegram_format import markdown_to_telegram_html
 
@@ -191,6 +192,38 @@ async def telegram_send_message(
         return None
     message_id = data.get("result", {}).get("message_id") if data.get("ok") else None
     return int(message_id) if message_id is not None else None
+
+
+async def telegram_send_html(
+    token: str, chat_id: str, html: str, client: httpx.AsyncClient, base: str = _TELEGRAM_API
+) -> None:
+    """Send an HTML-formatted message (best-effort; a failure is logged, not raised)."""
+    try:
+        await client.post(
+            f"{base.rstrip('/')}/bot{token}/sendMessage",
+            json={"chat_id": chat_id, "text": html, "parse_mode": "HTML"},
+        )
+    except httpx.HTTPError as exc:
+        _logger.warning("telegram sendMessage (html) failed: %s", exc)
+
+
+class TelegramOwnerNotificationSender:
+    """Sends a message to a chat through a given business's own bot (resolves the bot token)."""
+
+    def __init__(
+        self, bots: TelegramBotRepository, client: httpx.AsyncClient, base: str = _TELEGRAM_API
+    ) -> None:
+        self._bots = bots
+        self._client = client
+        self._base = base
+
+    async def send(self, business_id: BusinessId, chat_id: str, message: str) -> None:
+        bot = await self._bots.get(business_id)
+        if bot is None:
+            _logger.warning("owner notification skipped: no bot for business=%s", business_id)
+            return  # not connected — nothing to send through
+        html = markdown_to_telegram_html(message)
+        await telegram_send_html(bot.bot_token, chat_id, html, self._client, self._base)
 
 
 async def telegram_delete_message(

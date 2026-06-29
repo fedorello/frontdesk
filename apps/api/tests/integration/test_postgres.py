@@ -15,6 +15,7 @@ from frontdesk.domain.ids import (
     AppointmentId,
     BusinessId,
     CustomerId,
+    LinkCode,
     ReminderId,
     ResourceId,
     ServiceId,
@@ -27,6 +28,7 @@ from frontdesk.domain.models import (
     Service,
     WorkingHours,
 )
+from frontdesk.domain.notifications import OwnerTelegramLink, TelegramLinkCode
 from frontdesk.infrastructure.postgres.adapters import (
     SqlAccountRepository,
     SqlAppointmentRepository,
@@ -36,10 +38,12 @@ from frontdesk.infrastructure.postgres.adapters import (
     SqlConversationRepository,
     SqlCustomerRepository,
     SqlLlmConfigRepository,
+    SqlOwnerTelegramLinkRepository,
     SqlReminderStore,
     SqlResourceRepository,
     SqlServiceRepository,
     SqlTelegramBotRepository,
+    SqlTelegramLinkCodeStore,
     SqlUsageStore,
 )
 from frontdesk.infrastructure.secrets import FernetCipher
@@ -414,3 +418,53 @@ async def test_repoint_appointments_to_their_service_group(sessionmaker: Factory
     appointments = await SqlAppointmentRepository(sessionmaker).for_business(BusinessId("biz"))
     drifted = next(a for a in appointments if a.id == AppointmentId("a-drift"))
     assert drifted.resource_id == ResourceId("res")  # repointed onto the service's group
+
+
+async def test_owner_telegram_link_round_trip(sessionmaker: Factory) -> None:
+    repo = SqlOwnerTelegramLinkRepository(sessionmaker)
+    assert await repo.get(BusinessId("biz")) is None
+
+    await repo.upsert(OwnerTelegramLink(BusinessId("biz"), "chat-1", "Owner", False))
+    stored = await repo.get(BusinessId("biz"))
+    assert stored is not None
+    assert (stored.chat_id, stored.telegram_name, stored.notifications_enabled) == (
+        "chat-1",
+        "Owner",
+        False,
+    )
+
+    await repo.upsert(OwnerTelegramLink(BusinessId("biz"), "chat-2", "Owner2", True))  # overwrites
+    again = await repo.get(BusinessId("biz"))
+    assert again is not None
+    assert again.chat_id == "chat-2"
+
+    await repo.remove(BusinessId("biz"))
+    assert await repo.get(BusinessId("biz")) is None
+
+
+async def test_telegram_link_code_store_round_trip(sessionmaker: Factory) -> None:
+    store = SqlTelegramLinkCodeStore(sessionmaker)
+    future = datetime(2100, 1, 1, tzinfo=UTC)
+    await store.issue(TelegramLinkCode(LinkCode("c1"), BusinessId("biz"), "chat", "Owner", future))
+
+    got = await store.get(LinkCode("c1"))
+    assert got is not None
+    assert (got.chat_id, got.used) == ("chat", False)
+
+    await store.mark_used(LinkCode("c1"))
+    spent = await store.get(LinkCode("c1"))
+    assert spent is not None
+    assert spent.used is True
+
+
+async def test_issuing_a_code_prunes_expired_ones(sessionmaker: Factory) -> None:
+    store = SqlTelegramLinkCodeStore(sessionmaker)
+    past = datetime(2000, 1, 1, tzinfo=UTC)
+    future = datetime(2100, 1, 1, tzinfo=UTC)
+    await store.issue(TelegramLinkCode(LinkCode("old"), BusinessId("biz"), "c", "O", past))
+
+    # Issuing prunes anything already expired (DELETE WHERE expires_at < now()).
+    await store.issue(TelegramLinkCode(LinkCode("new"), BusinessId("biz"), "c", "O", future))
+
+    assert await store.get(LinkCode("old")) is None
+    assert await store.get(LinkCode("new")) is not None

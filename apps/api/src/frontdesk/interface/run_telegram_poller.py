@@ -21,7 +21,12 @@ from frontdesk.infrastructure.postgres.adapters import (
     SqlUsageStore,
 )
 from frontdesk.infrastructure.system import SystemRandom, UuidIdGenerator
-from frontdesk.interface.app import build_assistant_deps, build_cipher, build_clock
+from frontdesk.interface.app import (
+    build_assistant_deps,
+    build_cipher,
+    build_clock,
+    build_owner_linking,
+)
 from frontdesk.interface.telegram_inbound import TelegramInbound
 from frontdesk.interface.telegram_poller import TelegramPoller
 
@@ -38,11 +43,13 @@ async def run() -> None:
     client = httpx.AsyncClient(
         timeout=settings.telegram_poll_timeout_seconds + _POLL_CLIENT_BUFFER_SECONDS
     )
+    ids = UuidIdGenerator()
+    clock = build_clock(settings)
     deps = build_assistant_deps(
         settings,
         sessions,
-        UuidIdGenerator(),
-        build_clock(settings),
+        ids,
+        clock,
         client,
         AirlockApprovalGate(SqlApprovalStore(sessions)),  # shared DB queue (visible in the API)
     )
@@ -53,6 +60,7 @@ async def run() -> None:
         settings,
         client,
         SystemRandom(),
+        build_owner_linking(settings, sessions, ids, clock, client),
     )
     poller = TelegramPoller(SqlTelegramBotRepository(sessions, cipher), inbound, client, settings)
 

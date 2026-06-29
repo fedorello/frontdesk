@@ -1,5 +1,7 @@
 """Domain errors — raised by pure rules, mapped to replies/HTTP at the edge."""
 
+from frontdesk.domain.notifications import LinkCodeProblem
+
 
 class DomainError(Exception):
     """Base class for every error the domain raises."""
@@ -31,3 +33,11 @@ class ServiceNotFound(DomainError):
 
 class TenantMismatch(DomainError):
     """A cross-business access — always a bug, must never happen."""
+
+
+class LinkCodeError(DomainError):
+    """A Telegram link code could not be redeemed; ``problem`` says why (machine-readable)."""
+
+    def __init__(self, problem: LinkCodeProblem) -> None:
+        super().__init__(problem.value)
+        self.problem = problem

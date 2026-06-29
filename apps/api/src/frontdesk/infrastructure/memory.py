@@ -31,6 +31,7 @@ from frontdesk.domain.ids import (
     AppointmentId,
     BusinessId,
     CustomerId,
+    LinkCode,
     ReminderId,
     ResourceId,
     ServiceId,
@@ -48,6 +49,7 @@ from frontdesk.domain.models import (
     WorkingHours,
     initial_appointment_status,
 )
+from frontdesk.domain.notifications import OwnerTelegramLink, TelegramLinkCode
 
 
 class InMemoryTelegramBotRepository:
@@ -133,6 +135,46 @@ class ScriptedLlmProvider:
         completion = self._completions[self.calls]
         self.calls += 1
         return completion
+
+
+class InMemoryOwnerTelegramLinkRepository:
+    def __init__(self) -> None:
+        self._by_business: dict[BusinessId, OwnerTelegramLink] = {}
+
+    async def get(self, business_id: BusinessId) -> OwnerTelegramLink | None:
+        return self._by_business.get(business_id)
+
+    async def upsert(self, link: OwnerTelegramLink) -> None:
+        self._by_business[link.business_id] = link
+
+    async def remove(self, business_id: BusinessId) -> None:
+        self._by_business.pop(business_id, None)
+
+
+class InMemoryTelegramLinkCodeStore:
+    def __init__(self) -> None:
+        self._by_code: dict[LinkCode, TelegramLinkCode] = {}
+
+    async def issue(self, code: TelegramLinkCode) -> None:
+        self._by_code[code.code] = code
+
+    async def get(self, code: LinkCode) -> TelegramLinkCode | None:
+        return self._by_code.get(code)
+
+    async def mark_used(self, code: LinkCode) -> None:
+        existing = self._by_code.get(code)
+        if existing is not None:
+            self._by_code[code] = replace(existing, used=True)
+
+
+class InMemoryOwnerNotificationSender:
+    """Records owner notifications instead of calling Telegram."""
+
+    def __init__(self) -> None:
+        self.sent: list[tuple[BusinessId, str, str]] = []  # (business_id, chat_id, message)
+
+    async def send(self, business_id: BusinessId, chat_id: str, message: str) -> None:
+        self.sent.append((business_id, chat_id, message))
 
 
 class InMemoryReplyClaimClassifier:

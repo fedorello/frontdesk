@@ -7,6 +7,7 @@ from frontdesk.application.ports import (
     AppointmentCancelled,
     AppointmentConfirmed,
     AppointmentRepository,
+    AppointmentRescheduled,
     Calendar,
     Clock,
     EventPublisher,
@@ -80,13 +81,17 @@ class BookAppointment:
 
 
 class RescheduleAppointment:
-    def __init__(self, calendar: Calendar, scheduler: ReminderScheduler) -> None:
+    def __init__(
+        self, calendar: Calendar, scheduler: ReminderScheduler, events: EventPublisher
+    ) -> None:
         self._calendar = calendar
         self._scheduler = scheduler
+        self._events = events
 
     async def __call__(self, appointment_id: AppointmentId, slot: TimeSlot) -> Appointment:
         moved = await self._calendar.move(appointment_id, slot)
         await self._scheduler.reschedule_for(moved)
+        await self._events.publish(AppointmentRescheduled(moved.business_id, moved.id))
         return moved
 
 

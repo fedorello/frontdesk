@@ -18,6 +18,7 @@ from frontdesk.domain.ids import (
     AppointmentId,
     BusinessId,
     CustomerId,
+    LinkCode,
     ReminderId,
     ResourceId,
     ServiceId,
@@ -33,6 +34,7 @@ from frontdesk.domain.models import (
     Service,
     TimeSlot,
 )
+from frontdesk.domain.notifications import OwnerTelegramLink, TelegramLinkCode
 
 # --------------------------------------------------------------------------- #
 # DTOs                                                                         #
@@ -103,18 +105,26 @@ class MessageReceived(DomainEvent):
 
 
 @dataclass(frozen=True, slots=True)
-class AppointmentBooked(DomainEvent):
+class AppointmentEvent(DomainEvent):
+    """Base for events that carry an appointment id (the change happened to this appointment)."""
+
     appointment_id: AppointmentId
 
 
 @dataclass(frozen=True, slots=True)
-class AppointmentCancelled(DomainEvent):
-    appointment_id: AppointmentId
+class AppointmentBooked(AppointmentEvent): ...
 
 
 @dataclass(frozen=True, slots=True)
-class AppointmentConfirmed(DomainEvent):
-    appointment_id: AppointmentId
+class AppointmentRescheduled(AppointmentEvent): ...
+
+
+@dataclass(frozen=True, slots=True)
+class AppointmentCancelled(AppointmentEvent): ...
+
+
+@dataclass(frozen=True, slots=True)
+class AppointmentConfirmed(AppointmentEvent): ...
 
 
 @dataclass(frozen=True, slots=True)
@@ -390,6 +400,30 @@ class ReminderStore(Protocol):
 
 class EventPublisher(Protocol):
     async def publish(self, event: DomainEvent) -> None: ...
+
+
+class EventListener(Protocol):
+    """Reacts to a published event. New reactions = new listeners (OCP), no use-case edits."""
+
+    async def on_event(self, event: DomainEvent) -> None: ...
+
+
+class OwnerTelegramLinkRepository(Protocol):
+    async def get(self, business_id: BusinessId) -> OwnerTelegramLink | None: ...
+    async def upsert(self, link: OwnerTelegramLink) -> None: ...
+    async def remove(self, business_id: BusinessId) -> None: ...
+
+
+class TelegramLinkCodeStore(Protocol):
+    async def issue(self, code: TelegramLinkCode) -> None: ...
+    async def get(self, code: LinkCode) -> TelegramLinkCode | None: ...
+    async def mark_used(self, code: LinkCode) -> None: ...
+
+
+class OwnerNotificationSender(Protocol):
+    """Sends a message to a chat through a given business's own bot."""
+
+    async def send(self, business_id: BusinessId, chat_id: str, message: str) -> None: ...
 
 
 class ApprovalGate(Protocol):

@@ -9,6 +9,7 @@ from frontdesk.application.appointments import (
     RescheduleAppointment,
 )
 from frontdesk.application.assistant import AssistantDeps
+from frontdesk.application.owner_linking import OwnerLinking
 from frontdesk.domain.ids import BusinessId, ResourceId
 from frontdesk.domain.models import Business, Resource, WorkingHours
 from frontdesk.infrastructure.memory import (
@@ -20,9 +21,12 @@ from frontdesk.infrastructure.memory import (
     InMemoryCustomerRepository,
     InMemoryEventPublisher,
     InMemoryMessaging,
+    InMemoryOwnerNotificationSender,
+    InMemoryOwnerTelegramLinkRepository,
     InMemoryReminderStore,
     InMemoryReplyClaimClassifier,
     InMemoryServiceRepository,
+    InMemoryTelegramLinkCodeStore,
     ScriptedLlmProvider,
 )
 from frontdesk.infrastructure.system import FixedClock, SequentialIdGenerator
@@ -53,11 +57,24 @@ def build_assistant_deps(businesses: InMemoryBusinessRepository) -> AssistantDep
         appointments=appointments,
         calendar=calendar,
         book=BookAppointment(calendar, scheduler, events),
-        reschedule=RescheduleAppointment(calendar, scheduler),
+        reschedule=RescheduleAppointment(calendar, scheduler, events),
         cancel=CancelAppointment(calendar, reminders, events),
         messaging=InMemoryMessaging(),
         events=events,
         gate=AutoDecisionGate(approved=False),
         clock=clock,
         classifier=InMemoryReplyClaimClassifier(),
+    )
+
+
+def fake_owner_linking() -> OwnerLinking:
+    """An OwnerLinking wired entirely from in-memory fakes (for the transport tests)."""
+    return OwnerLinking(
+        InMemoryTelegramLinkCodeStore(),
+        InMemoryOwnerTelegramLinkRepository(),
+        InMemoryBusinessRepository([], {}),
+        InMemoryOwnerNotificationSender(),
+        SequentialIdGenerator("code"),
+        FixedClock(NOW),
+        "http://localhost:3000",
     )

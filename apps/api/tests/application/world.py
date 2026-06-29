@@ -112,7 +112,7 @@ def build_world(
     customers = InMemoryCustomerRepository(SequentialIdGenerator("cus"))
 
     book = BookAppointment(calendar, scheduler, events)
-    reschedule = RescheduleAppointment(calendar, scheduler)
+    reschedule = RescheduleAppointment(calendar, scheduler, events)
     cancel = CancelAppointment(calendar, reminders, events)
 
     deps = AssistantDeps(

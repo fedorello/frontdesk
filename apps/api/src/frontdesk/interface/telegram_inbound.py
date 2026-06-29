@@ -13,6 +13,7 @@ from dataclasses import replace
 import httpx
 
 from frontdesk.application.assistant import Assistant, AssistantDeps, ai_prefix_for
+from frontdesk.application.owner_linking import OwnerLinking
 from frontdesk.application.ports import (
     InboundMessage,
     LlmConfigRepository,
@@ -33,6 +34,19 @@ from frontdesk.interface.telegram_phrases import BUSY, WAIT
 from frontdesk.interface.tenancy import provider_from_config, telegram_messaging_from_config
 
 _logger = logging.getLogger("frontdesk.telegram_inbound")
+
+OWNER_LINK_COMMAND = "/connect"  # the owner texts this to start linking their chat for alerts
+
+
+def is_owner_link_command(text: str) -> bool:
+    """True for '/connect' (optionally '/connect@botname'), ignoring case and surrounding space."""
+    stripped = text.strip()
+    if not stripped:
+        return False
+    first = stripped.split(maxsplit=1)[0].split("@", 1)[0]
+    return first.casefold() == OWNER_LINK_COMMAND
+
+
 _QUOTA_MESSAGE = {
     "en": "We've reached today's message limit for the free assistant. "
     "Please try again tomorrow — sorry about that!",
@@ -56,6 +70,7 @@ class TelegramInbound:
         settings: Settings,
         client: httpx.AsyncClient,
         random: Random,
+        owner_linking: OwnerLinking,
     ) -> None:
         self._deps = deps
         self._llm_configs = llm_configs
@@ -63,10 +78,17 @@ class TelegramInbound:
         self._settings = settings
         self._client = client
         self._random = random
+        self._owner_linking = owner_linking
         self._base = settings.telegram_api_base
         self._busy: set[str] = set()  # "business:chat" keys currently being handled
 
     async def handle(self, bot: TelegramBotConfig, inbound: InboundMessage) -> None:
+        if is_owner_link_command(inbound.text):
+            # The owner asked to link this chat for notifications; handle it, not the assistant.
+            await self._owner_linking.start(
+                bot.business_id, inbound.from_address, inbound.sender_name or inbound.from_address
+            )
+            return
         key = f"{bot.business_id}:{inbound.from_address}"
         locale = await self._locale(bot)
         prefix = ai_prefix_for(locale)  # these filler lines are the AI talking too
