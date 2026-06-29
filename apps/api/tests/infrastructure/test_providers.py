@@ -151,17 +151,20 @@ async def test_message_roles_are_mapped_per_provider() -> None:
     )
 
 
-async def test_groq_classifier_parses_multiple_claim_tags() -> None:
+async def test_groq_classifier_parses_multiple_claim_tags_and_ignores_unknown() -> None:
     def handler(request: httpx.Request) -> httpx.Response:
         body = json.loads(request.content)
         assert request.headers["authorization"] == "Bearer gk"
         assert body["model"] == "llama-3.1-8b-instant"
         assert body["temperature"] == 0  # deterministic classification
-        assert body["messages"][1]["content"] == "Booked! Your appointments: ..."
-        return httpx.Response(200, json={"choices": [{"message": {"content": "BOOKING LIST"}}]})
+        assert body["messages"][1]["content"] == "Booked! Earliest is 10:00."
+        # LIST is no longer a tag (appointments live in the prompt) — an unknown tag is ignored.
+        return httpx.Response(
+            200, json={"choices": [{"message": {"content": "TIMES BOOKING LIST"}}]}
+        )
 
-    claims = await _classifier(handler).classify("Booked! Your appointments: ...")
-    assert claims == frozenset({ReplyClaim.CONFIRMS_BOOKING, ReplyClaim.LISTS_APPOINTMENTS})
+    claims = await _classifier(handler).classify("Booked! Earliest is 10:00.")
+    assert claims == frozenset({ReplyClaim.OFFERS_TIMES, ReplyClaim.CONFIRMS_BOOKING})
 
 
 async def test_groq_classifier_returns_empty_for_none() -> None:

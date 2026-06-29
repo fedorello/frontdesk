@@ -233,7 +233,6 @@ class ReplyClaim(StrEnum):
 
     OFFERS_TIMES = "offers_times"  # lists specific available slots to pick
     CONFIRMS_BOOKING = "confirms_booking"  # says a booking/reschedule/cancel is done
-    LISTS_APPOINTMENTS = "lists_appointments"  # states or counts the customer's appointments
 
 
 class ReplyClaimClassifier(Protocol):

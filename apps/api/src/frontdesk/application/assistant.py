@@ -64,7 +64,6 @@ _CLAIM_FOR_TOOL = {
     "book": ReplyClaim.CONFIRMS_BOOKING,
     "reschedule": ReplyClaim.CONFIRMS_BOOKING,
     "cancel": ReplyClaim.CONFIRMS_BOOKING,
-    "find_my_appointments": ReplyClaim.LISTS_APPOINTMENTS,
 }
 # Appended to the system prompt on the corrective retry. The backing tool is forced on that
 # retry (tool_choice), so its fresh result enters the chat — these only steer how to use it.
@@ -74,11 +73,6 @@ _TIMES_NOTICE = (
     "find_availability this turn, you reused a list from earlier in the chat, and slots change "
     "constantly. Call find_availability now for the EXACT day the customer asked about, then "
     "show ONLY the slots it returns. Never show a time you did not get from find_availability."
-)
-_APPOINTMENTS_NOTICE = (
-    "\n\nSTOP: your previous draft stated the customer's appointments without calling "
-    "find_my_appointments, so it may be wrong. Call find_my_appointments now and use ONLY its "
-    "result — do not add, drop, or recall any appointment from earlier in the chat."
 )
 _BOOKING_NOTICE = (
     "\n\nIMPORTANT: your previous draft told the customer a booking or change is done, but you "
@@ -112,12 +106,12 @@ def _mutation_confirmed(result: str) -> bool:
 
 # Tool results (fed back to the model) that steer it away from guessing appointment ids.
 _NO_SUCH_APPOINTMENT = (
-    "No appointment with that id exists. Call find_my_appointments to get the customer's real "
-    "appointment ids — never guess or recall an id from earlier in the chat."
+    "No appointment with that id exists. Use ONLY the appointment ids from the customer's "
+    "appointments listed in the system prompt — never guess or recall an id from earlier."
 )
 _NOT_THEIRS = (
-    "That appointment belongs to a different customer. Use find_my_appointments to find this "
-    "customer's own appointments."
+    "That appointment belongs to a different customer. Use the ids from this customer's own "
+    "appointments listed in the system prompt."
 )
 
 # Sent verbatim to the customer (not via the model), so it carries the business's language.
@@ -192,14 +186,9 @@ TOOL_SPECS: tuple[ToolSpec, ...] = (
         },
     ),
     ToolSpec(
-        "find_my_appointments",
-        "List THIS customer's upcoming appointments with their exact ids — call this before "
-        "any reschedule or cancel to get the real id (never guess one).",
-        {"type": "object", "properties": {}},
-    ),
-    ToolSpec(
         "reschedule",
-        "Move an appointment to a new start time (ISO). Use an id from find_my_appointments.",
+        "Move an appointment to a new start time (ISO). Use an id from the customer's appointments "
+        "listed in the system prompt.",
         {
             "type": "object",
             "properties": {"appointment_id": {"type": "string"}, "start": {"type": "string"}},
@@ -377,7 +366,9 @@ def _intake_block(services: Sequence[Service]) -> str:
     return "\n\nIntake required before booking:\n" + "\n\n".join(blocks) if blocks else ""
 
 
-def _system_prompt(business: Business, services: Sequence[Service], now: datetime) -> str:
+def _system_prompt(
+    business: Business, services: Sequence[Service], now: datetime, appointments: str
+) -> str:
     menu = "\n".join(_menu_line(s) for s in services) or "- (none yet)"
     knowledge = "\n".join(f"Q: {item.question}\nA: {item.answer}" for item in business.knowledge)
     about = f"\n\nAbout {business.name}:\n{business.description}" if business.description else ""
@@ -403,14 +394,15 @@ def _system_prompt(business: Business, services: Sequence[Service], now: datetim
         "reuse or recall a list of times from earlier in the chat: an earlier list is stale the "
         "moment anything is booked. If a booking fails, the tool returns the current free slots — "
         "offer exactly those."
-        "\n\nTo reschedule or cancel, you MUST first call find_my_appointments to get the "
-        "customer's exact appointment id — never guess an id or recall one from earlier in the "
-        "chat. If they have no upcoming appointment, say so and offer to book a new one."
+        "\n\nTo reschedule or cancel, use the customer's exact appointment id from the "
+        "'Customer's appointments' section below — never guess an id or recall one from earlier in "
+        "the chat. If they have no upcoming appointment, say so and offer to book a new one."
         f"\n\nThe time shown before each '(start=...)' is the FINAL local time in the business's "
         f"zone ({business.timezone}) — show exactly that time to the customer. Never ask the "
         "customer what time zone they are in, and never offer to convert times for them."
         f"{now_line}"
         f"{_intake_block(services)}"
+        f"\n\n{appointments}"
         f"\n\nKnowledge base:\n{knowledge}"
     )
 
@@ -424,7 +416,6 @@ class Assistant:
         self._handlers: dict[str, ToolHandler] = {
             "answer_question": self._answer,
             "find_availability": self._find,
-            "find_my_appointments": self._find_appointments,
             "book": self._do_book,
             "reschedule": self._do_reschedule,
             "cancel": self._do_cancel,
@@ -458,7 +449,10 @@ class Assistant:
     async def _run(self, business: Business, customer: Customer) -> str:
         messages = self._initial_messages(await self._d.conversations.history(customer), business)
         system = _system_prompt(
-            business, await self._d.services.for_business(business.id), self._d.clock.now()
+            business,
+            await self._d.services.for_business(business.id),
+            self._d.clock.now(),
+            await self._appointments_block(business, customer),
         )
         verified: set[ReplyClaim] = set()  # claims backed by a tool call this turn
         corrections = 0  # how many corrective retries the supervisor has spent
@@ -520,7 +514,8 @@ class Assistant:
 
         The retry forces the tool that backs the strongest unverified claim, so reality enters the
         chat: a faked booking forces book (it then really books, or fails and the model must
-        recant); offered times force find_availability; a recited list forces find_my_appointments.
+        recant); offered times force a fresh find_availability. (The customer's appointments are
+        always in the prompt, so a recited list needs no tool and is not supervised here.)
         """
         unverified = await self._d.classifier.classify(reply) - verified
         if not unverified:
@@ -528,9 +523,7 @@ class Assistant:
         # A faked booking is the most harmful claim, so it takes priority on the one forced retry.
         if ReplyClaim.CONFIRMS_BOOKING in unverified:
             return _Correction(_BOOKING_NOTICE, "book")
-        if ReplyClaim.OFFERS_TIMES in unverified:
-            return _Correction(_TIMES_NOTICE, "find_availability")
-        return _Correction(_APPOINTMENTS_NOTICE, "find_my_appointments")
+        return _Correction(_TIMES_NOTICE, "find_availability")  # the only other claim is times
 
     async def _dispatch(self, business: Business, customer: Customer, call: ToolCall) -> str:
         handler = self._handlers.get(call.name)
@@ -558,30 +551,39 @@ class Assistant:
             return "There are no free slots in that window."
         return "Free slots: " + _format_slots(slots, ZoneInfo(business.timezone))
 
-    async def _find_appointments(
-        self, business: Business, customer: Customer, args: dict[str, object]
-    ) -> str:
+    async def _appointments_block(self, business: Business, customer: Customer) -> str:
+        """The customer's real appointments, injected into the prompt so the model never guesses or
+        recalls them: every upcoming one (with its id) plus the last 10 that have already passed."""
         tz = ZoneInfo(business.timezone)
         now = self._d.clock.now()
-        mine = sorted(
-            (
-                appointment
-                for appointment in await self._d.appointments.for_business(business.id)
-                if appointment.customer_id == customer.id
-                and appointment.status != AppointmentStatus.CANCELLED
-                and appointment.slot.starts_at >= now
-            ),
-            key=lambda a: a.slot.starts_at,
+        mine = [
+            appointment
+            for appointment in await self._d.appointments.for_business(business.id)
+            if appointment.customer_id == customer.id
+            and appointment.status != AppointmentStatus.CANCELLED
+        ]
+        upcoming = sorted(
+            (a for a in mine if a.slot.starts_at >= now), key=lambda a: a.slot.starts_at
         )
-        if not mine:
-            return "The customer has no upcoming appointments."
-        lines = []
-        for appointment in mine:
-            service = await self._d.services.get(appointment.service_id)
-            lines.append(
-                f"- id={appointment.id} | {service.name} | {_when(appointment.slot.starts_at, tz)}"
-            )
-        return "The customer's upcoming appointments:\n" + "\n".join(lines)
+        past = sorted(
+            (a for a in mine if a.slot.starts_at < now),
+            key=lambda a: a.slot.starts_at,
+            reverse=True,
+        )[:10]
+        rendered: dict[str, list[str]] = {"upcoming": [], "past": []}
+        for bucket, items in (("upcoming", upcoming), ("past", past)):
+            for appointment in items:
+                service = await self._d.services.get(appointment.service_id)
+                rendered[bucket].append(
+                    f"- id={appointment.id} | {service.name} | "
+                    f"{_when(appointment.slot.starts_at, tz)} | {appointment.status.value}"
+                )
+        return (
+            "Customer's appointments (ALWAYS the live truth — use ONLY this when stating, listing, "
+            "rescheduling, or cancelling; never add, drop, or recall any from earlier in the "
+            "chat):\nUpcoming:\n" + ("\n".join(rendered["upcoming"]) or "(none)") + "\n"
+            "Recent past (already happened):\n" + ("\n".join(rendered["past"]) or "(none)")
+        )
 
     async def _do_book(
         self, business: Business, customer: Customer, args: dict[str, object]

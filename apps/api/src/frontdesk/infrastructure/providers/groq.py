@@ -18,17 +18,16 @@ _logger = logging.getLogger("frontdesk.supervisor")
 _TAGS = {
     "TIMES": ReplyClaim.OFFERS_TIMES,
     "BOOKING": ReplyClaim.CONFIRMS_BOOKING,
-    "LIST": ReplyClaim.LISTS_APPOINTMENTS,
 }
 _SYSTEM_PROMPT = (
-    "You classify a draft message a booking assistant is about to send to a customer. Reply with "
-    "the space-separated tags that apply, or NONE:\n"
+    "You classify a draft message a booking assistant is about to send to a customer. The message "
+    "may be in ANY language. Check EACH tag independently — both can apply. Output the "
+    "space-separated tags that apply, or NONE:\n"
     "TIMES — it offers, lists, or proposes specific available appointment times to choose from.\n"
     "BOOKING — it states that a booking, reschedule, or cancellation has just been done.\n"
-    "LIST — it states, lists, or counts the customer's existing/upcoming appointments.\n"
-    "Output only the tags (e.g. 'BOOKING LIST') or 'NONE'. No other words."
+    "Output only the tags (e.g. 'TIMES BOOKING') or 'NONE'. No other words."
 )
-_MAX_TOKENS = 10  # a few short tags at most
+_MAX_TOKENS = 10  # a few short tags at most (e.g. 'TIMES BOOKING')
 
 
 class GroqReplyClaimClassifier:

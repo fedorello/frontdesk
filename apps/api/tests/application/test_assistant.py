@@ -20,12 +20,19 @@ from frontdesk.application.ports import (
 )
 from frontdesk.domain.enums import AppointmentStatus, Channel, MessageRole
 from frontdesk.domain.ids import AppointmentId, BusinessId, CustomerId
-from frontdesk.domain.models import Customer, IntakeAnswer, IntakeField, Message, TimeSlot
+from frontdesk.domain.models import (
+    Appointment,
+    Customer,
+    IntakeAnswer,
+    IntakeField,
+    Message,
+    TimeSlot,
+)
 from frontdesk.infrastructure.memory import (
     InMemoryReplyClaimClassifier,
     ScriptedLlmProvider,
 )
-from tests.application.world import NOW, build_world, inbound, make_customer
+from tests.application.world import CUST_ADDR, NOW, build_world, inbound, make_customer
 
 _SLOT = TimeSlot(datetime(2026, 6, 26, 15, tzinfo=UTC), datetime(2026, 6, 26, 16, tzinfo=UTC))
 
@@ -114,7 +121,7 @@ async def test_duplicate_book_by_same_customer_is_idempotent() -> None:
 def test_system_prompt_lists_only_real_services() -> None:
     world = build_world([])
 
-    prompt = _system_prompt(world.business, [world.service], NOW)
+    prompt = _system_prompt(world.business, [world.service], NOW, "")
 
     assert "Haircut" in prompt
     assert "ONLY services" in prompt
@@ -256,15 +263,45 @@ async def test_book_accepts_intake_keys_with_a_trailing_colon() -> None:
     assert appointment.intake == (IntakeAnswer("Birth date", "1990-01-01"),)
 
 
-async def test_find_my_appointments_lists_the_customers_upcoming_with_real_ids() -> None:
+async def test_appointments_block_shows_the_customers_upcoming_with_real_ids() -> None:
     world = build_world([])
     customer = await world.customers.upsert(world.business.id, Channel.WHATSAPP, "+CUST")
     appointment = await world.book(world.service, world.service.resource_ids[0], customer, _SLOT)
 
-    result = await world.assistant._find_appointments(world.business, customer, {})
+    block = await world.assistant._appointments_block(world.business, customer)
 
-    assert str(appointment.id) in result  # the real id, so the model never has to guess
-    assert "Haircut" in result
+    assert str(appointment.id) in block  # the real id is always in the prompt — no guessing
+    assert "Haircut" in block
+    assert "Upcoming:" in block
+
+
+async def test_appointments_block_is_empty_when_the_customer_has_none() -> None:
+    world = build_world([])
+    customer = await world.customers.upsert(world.business.id, Channel.WHATSAPP, "+NEW")
+
+    block = await world.assistant._appointments_block(world.business, customer)
+
+    assert "Upcoming:\n(none)" in block  # explicit "(none)", not a fabricated list
+
+
+async def test_appointments_block_includes_recent_past_appointments() -> None:
+    world = build_world([])
+    customer = await world.customers.upsert(world.business.id, Channel.WHATSAPP, CUST_ADDR)
+    past = TimeSlot(datetime(2026, 6, 20, 15, tzinfo=UTC), datetime(2026, 6, 20, 16, tzinfo=UTC))
+    world.appointments.appointments[AppointmentId("past-1")] = Appointment(
+        AppointmentId("past-1"),
+        world.business.id,
+        world.service.id,
+        world.service.resource_ids[0],
+        customer.id,
+        past,
+        AppointmentStatus.CONFIRMED,
+    )
+
+    block = await world.assistant._appointments_block(world.business, customer)
+
+    assert "Recent past (already happened):" in block
+    assert "past-1" in block  # history the model can refer to, always accurate
 
 
 async def test_reschedule_unknown_id_steers_to_lookup() -> None:
@@ -276,7 +313,7 @@ async def test_reschedule_unknown_id_steers_to_lookup() -> None:
         {"appointment_id": "made-up", "start": "2026-06-26T15:00:00+00:00"},
     )
 
-    assert "find_my_appointments" in result  # don't guess — look it up
+    assert "system prompt" in result  # don't guess — use the ids already in the prompt
 
 
 async def test_cancel_anothers_appointment_is_refused() -> None:
@@ -370,25 +407,19 @@ async def test_supervisor_allows_times_after_a_real_availability_check() -> None
     assert llm.tool_choices == [None, None]  # nothing forced — the claim was backed
 
 
-async def test_supervisor_forces_a_lookup_when_appointments_listed_without_one() -> None:
-    # The model recites the customer's appointments from memory (the phantom-summary bug).
-    # The supervisor forces find_my_appointments on the retry, then the model redoes the recap.
-    world = build_world(
-        [
-            Completion("You have 3 appointments: ..."),  # listed from memory, no tool call
-            _tool("c", "find_my_appointments", {}),  # the forced retry call
-            Completion("Here is your real schedule."),  # answered from the fresh result
-        ],
-        classifier=InMemoryReplyClaimClassifier({"appointments": ReplyClaim.LISTS_APPOINTMENTS}),
-    )
+async def test_the_customers_appointments_are_injected_into_the_prompt() -> None:
+    # There is no find_my_appointments tool: the model always sees the customer's real appointments
+    # in its system prompt, so it can never recite a stale or invented list.
+    world = build_world([Completion("You have one appointment coming up.")])
+    customer = await world.customers.upsert(world.business.id, Channel.WHATSAPP, CUST_ADDR)
+    appointment = await world.book(world.service, world.service.resource_ids[0], customer, _SLOT)
 
     await world.assistant.handle(inbound("what are my appointments?"))
 
-    assert "real schedule" in world.messaging.sent[-1][1].text
     llm = world.deps.llm
     assert isinstance(llm, ScriptedLlmProvider)
-    assert llm.tool_choices == [None, "find_my_appointments", None]
-    assert llm.calls == 3
+    assert "Customer's appointments" in llm.last_system  # the section is always present
+    assert str(appointment.id) in llm.last_system  # with the real id, straight from the DB
 
 
 async def test_supervisor_forces_book_when_a_booking_is_claimed_without_acting() -> None:

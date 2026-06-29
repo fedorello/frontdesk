@@ -21,7 +21,7 @@ def test_prompt_includes_business_and_service_descriptions() -> None:
         Service(ServiceId("s"), BusinessId("b"), "Haircut", 60, description="Wash and cut.")
     ]
 
-    prompt = _system_prompt(business, services, NOW)
+    prompt = _system_prompt(business, services, NOW, "")
 
     assert "About Ana Studio:\nA cosy two-chair salon downtown." in prompt
     assert "- Haircut (60 min) — Wash and cut." in prompt
@@ -32,7 +32,7 @@ def test_prompt_omits_empty_descriptions() -> None:
     business = Business(BusinessId("b"), "Ana", "UTC")
     services = [Service(ServiceId("s"), BusinessId("b"), "Cut", 30)]
 
-    prompt = _system_prompt(business, services, NOW)
+    prompt = _system_prompt(business, services, NOW, "")
 
     assert "About" not in prompt  # no empty "About" block
     assert "- Cut (30 min)" in prompt  # no trailing " — "
@@ -40,13 +40,13 @@ def test_prompt_omits_empty_descriptions() -> None:
 
 def test_prompt_states_the_physical_address() -> None:
     business = Business(BusinessId("b"), "Ana", "UTC", address="12 Rivera St")
-    prompt = _system_prompt(business, [], NOW)
+    prompt = _system_prompt(business, [], NOW, "")
     assert "Location: 12 Rivera St" in prompt
 
 
 def test_prompt_states_online_and_ignores_address() -> None:
     business = Business(BusinessId("b"), "Ana", "UTC", address="ignored", online=True)
-    prompt = _system_prompt(business, [], NOW)
+    prompt = _system_prompt(business, [], NOW, "")
     assert "online" in prompt
     assert "ignored" not in prompt  # online wins over a stale address
 
@@ -72,11 +72,11 @@ def test_slots_render_in_the_business_timezone() -> None:
 
 def test_prompt_states_the_timezone() -> None:
     business = Business(BusinessId("b"), "Ana", "America/Montevideo")
-    assert "America/Montevideo" in _system_prompt(business, [], NOW)
+    assert "America/Montevideo" in _system_prompt(business, [], NOW, "")
 
 
 def test_prompt_allows_light_markdown() -> None:
-    prompt = _system_prompt(Business(BusinessId("b"), "Ana", "UTC"), [], NOW)
+    prompt = _system_prompt(Business(BusinessId("b"), "Ana", "UTC"), [], NOW, "")
     assert "Markdown" in prompt
     assert "prefer short bullet lists over tables" in prompt
 
@@ -92,7 +92,7 @@ def test_escalation_fallback_follows_business_locale() -> None:
 def test_prompt_states_the_current_date_and_offset() -> None:
     # NOW is Sat 27 Jun 2026 17:00 UTC = 14:00 Montevideo (UTC-3).
     business = Business(BusinessId("b"), "Ana", "America/Montevideo")
-    prompt = _system_prompt(business, [], NOW)
+    prompt = _system_prompt(business, [], NOW, "")
     assert "Saturday, 27 June 2026, 14:00" in prompt  # grounds relative dates like "Sunday"
     assert "UTC-3" in prompt  # explicit offset so the model has no doubt
 
@@ -111,7 +111,7 @@ def test_utc_offset_formatting() -> None:
 
 def test_prompt_names_the_owner_and_explains_owner_turns() -> None:
     business = Business(BusinessId("b"), "Ana", "America/Montevideo", owner_name="Alex")
-    prompt = _system_prompt(business, [], NOW)
+    prompt = _system_prompt(business, [], NOW, "")
     assert "Alex" in prompt  # the model knows the owner's name
     assert "[owner Alex]" in prompt  # ...and how their turns are tagged in the history
     assert "human owner" in prompt
