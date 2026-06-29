@@ -17,17 +17,39 @@ logical change per commit (§13.3); every commit is Conventional Commits.
 | Phase | Title | Status |
 | ----- | ----- | ------ |
 | 0 | ADR & contract update | ✅ Done |
-| 1 | Role & analytics DTOs (enum + read models) | ⬜ Not started |
-| 2 | Ports & in-memory fakes | ⬜ Not started |
-| 3 | `PlatformAnalytics` use case (against fakes) | ⬜ Not started |
-| 4 | Persistence (migrations + SQL adapters) | ⬜ Not started |
-| 5 | Admin auth (guard, provisioning, `/api/me`) | ⬜ Not started |
-| 6 | Admin HTTP API + DI wiring | ⬜ Not started |
-| 7 | Frontend admin area | ⬜ Not started |
+| 1 | Role & analytics DTOs (enum + read models) | ✅ Done |
+| 2 | Ports & in-memory fakes | ✅ Done |
+| 3 | `PlatformAnalytics` use case (against fakes) | ✅ Done |
+| 4 | Persistence (migrations + SQL adapters) | ✅ Done |
+| 5 | Admin auth (guard, provisioning, `/api/me`) | ✅ Done |
+| 6 | Admin HTTP API + DI wiring | ✅ Done |
+| 7 | Frontend admin area | ✅ Done |
 | 8 | Event analytics (funnel depth) — later | ⬜ Deferred |
 
 Each phase below lists: **Goal · Steps (files) · Tests · Definition of Done · Commit(s).**
 Coverage targets follow §10.1 (≥90% in each touched layer).
+
+## Implementation notes (as built)
+
+Phases 0–7 are implemented; three deliberate deviations from the plan, each justified:
+
+1. **Analytics ports are verified per-adapter, not via the shared write-through
+   `port_contracts` suite.** Those ports are read-only, so they cannot be seeded through
+   their own interface. The in-memory fakes are unit-tested
+   (`tests/infrastructure/test_analytics_memory.py`) and the SQL adapters
+   integration-tested on real Postgres (`tests/integration/test_postgres_analytics.py`)
+   against the same behaviors.
+2. **Charts are a small dependency-free inline-SVG component, not a library.** For simple
+   daily-count trends a hand-rolled SVG (`components/ui/TrendChart.tsx`) is CSP-safe (no
+   `eval`), themeable, and avoids a new dependency (KISS / §7.10) — the design doc allowed
+   this SVG fallback.
+3. **Playwright e2e + axe (Phase 7) are not yet run** — they need browser binaries and a
+   running full stack. Coverage is by component tests (role gating, rendering), the Next
+   build, and backend checks (the live app returns 401 on `/api/admin` without a token).
+   E2e is a follow-up, not faked.
+
+`created_at` is a persistence-only column (DB `DEFAULT now()`, like `approval.created_at`),
+not a domain-model field — see design §3.
 
 ---
 
