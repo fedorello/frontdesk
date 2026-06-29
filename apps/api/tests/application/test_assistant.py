@@ -2,7 +2,12 @@
 
 from datetime import UTC, datetime
 
-from frontdesk.application.assistant import ESCALATION_FALLBACK, MAX_STEPS, _system_prompt
+from frontdesk.application.assistant import (
+    ESCALATION_FALLBACK,
+    MAX_STEPS,
+    _mutation_confirmed,
+    _system_prompt,
+)
 from frontdesk.application.ports import (
     AppointmentBooked,
     ApprovalRequested,
@@ -386,22 +391,34 @@ async def test_supervisor_forces_a_lookup_when_appointments_listed_without_one()
     assert llm.calls == 3
 
 
-async def test_supervisor_reruns_when_booking_claimed_without_acting() -> None:
-    # The model says a booking is done but never called book (the phantom-booking bug). A booking
-    # claim can't be auto-acted, so it is instructed (no forced tool) to act or recant.
+async def test_supervisor_forces_book_when_a_booking_is_claimed_without_acting() -> None:
+    # The model says "booked" without calling book (the phantom-booking bug). The supervisor forces
+    # book on the retry, so the booking actually happens — never a fake confirmation.
     world = build_world(
         [
             Completion("Done, you're booked!"),  # claims a booking, no tool call
-            Completion("Sorry — that is not booked yet."),  # recanted on the retry
+            _tool(
+                "c", "book", {"service": "Haircut", "start": "2026-06-26T15:00:00+00:00"}
+            ),  # forced
+            Completion("All set — you're booked!"),  # now true
         ],
         classifier=InMemoryReplyClaimClassifier({"you're booked": ReplyClaim.CONFIRMS_BOOKING}),
     )
 
     await world.assistant.handle(inbound("book it"))
 
-    assert "not booked" in world.messaging.sent[-1][1].text
+    assert len(world.appointments.appointments) == 1  # the forced book really created the booking
     llm = world.deps.llm
     assert isinstance(llm, ScriptedLlmProvider)
-    assert "did NOT call book" in llm.last_system  # instructed to act or recant
-    assert llm.tool_choices == [None, None]  # a booking claim is never auto-forced
-    assert llm.calls == 2
+    assert llm.tool_choices == [None, "book", None]  # the retry was forced to book
+    assert llm.calls == 3
+
+
+def test_mutation_confirmed_detects_only_real_successes() -> None:
+    # A booking claim is "backed" only by these confirmations; a called-but-failed book is not.
+    assert _mutation_confirmed("Booked Haircut for Fri (ref ap-1).") is True
+    assert _mutation_confirmed("Haircut for Fri is already booked for this customer.") is True
+    assert _mutation_confirmed("Moved to Fri 16:00.") is True
+    assert _mutation_confirmed("Your appointment is cancelled.") is True
+    assert _mutation_confirmed("Couldn't book that time (taken) — the free slots are: ...") is False
+    assert _mutation_confirmed("Before booking, you must collect: Birth date.") is False

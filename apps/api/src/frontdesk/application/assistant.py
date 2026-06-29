@@ -95,6 +95,21 @@ class _Correction:
     forced_tool: str | None
 
 
+# A mutating tool succeeded only if its result is one of these confirmations (book / reschedule /
+# cancel). Their failure results never contain these, so a faked "done" stays unverified.
+_BOOKING_DONE_MARKERS = (
+    "Booked ",
+    "already booked for this customer",
+    "Moved to ",
+    "Your appointment is cancelled",
+)
+
+
+def _mutation_confirmed(result: str) -> bool:
+    """True if a book/reschedule/cancel went through (vs returned an error to the model)."""
+    return any(marker in result for marker in _BOOKING_DONE_MARKERS)
+
+
 # Tool results (fed back to the model) that steer it away from guessing appointment ids.
 _NO_SUCH_APPOINTMENT = (
     "No appointment with that id exists. Call find_my_appointments to get the customer's real "
@@ -475,10 +490,14 @@ class Assistant:
                 Message(MessageRole.ASSISTANT, completion.text or "", self._d.clock.now())
             )
             for call in completion.tool_calls:
-                claim = _CLAIM_FOR_TOOL.get(call.name)
-                if claim is not None:
-                    verified.add(claim)
                 result = await self._dispatch(business, customer, call)
+                claim = _CLAIM_FOR_TOOL.get(call.name)
+                # A booking claim counts only when the mutation actually SUCCEEDED — a called-but-
+                # failed book/reschedule/cancel must not let the model claim it is done.
+                if claim is not None and (
+                    claim is not ReplyClaim.CONFIRMS_BOOKING or _mutation_confirmed(result)
+                ):
+                    verified.add(claim)
                 await self._observer.on_tool(call.name, call.args, result)
                 messages.append(
                     Message(MessageRole.TOOL, result, self._d.clock.now(), tool_call_id=call.id)
@@ -499,21 +518,19 @@ class Assistant:
     async def _claim_correction(self, reply: str, verified: set[ReplyClaim]) -> _Correction | None:
         """How to fix a reply whose claims aren't all backed by tools, or None when they are.
 
-        A read claim (times/appointments) forces a fresh call to its tool on the retry, so the
-        real data enters the chat; a booking claim can only be instructed (we never auto-book).
+        The retry forces the tool that backs the strongest unverified claim, so reality enters the
+        chat: a faked booking forces book (it then really books, or fails and the model must
+        recant); offered times force find_availability; a recited list forces find_my_appointments.
         """
         unverified = await self._d.classifier.classify(reply) - verified
         if not unverified:
             return None
-        notice = ""
-        forced_tool: str | None = None
-        if ReplyClaim.OFFERS_TIMES in unverified:
-            notice, forced_tool = _TIMES_NOTICE, "find_availability"
-        elif ReplyClaim.LISTS_APPOINTMENTS in unverified:
-            notice, forced_tool = _APPOINTMENTS_NOTICE, "find_my_appointments"
+        # A faked booking is the most harmful claim, so it takes priority on the one forced retry.
         if ReplyClaim.CONFIRMS_BOOKING in unverified:
-            notice += _BOOKING_NOTICE
-        return _Correction(notice, forced_tool)
+            return _Correction(_BOOKING_NOTICE, "book")
+        if ReplyClaim.OFFERS_TIMES in unverified:
+            return _Correction(_TIMES_NOTICE, "find_availability")
+        return _Correction(_APPOINTMENTS_NOTICE, "find_my_appointments")
 
     async def _dispatch(self, business: Business, customer: Customer, call: ToolCall) -> str:
         handler = self._handlers.get(call.name)
