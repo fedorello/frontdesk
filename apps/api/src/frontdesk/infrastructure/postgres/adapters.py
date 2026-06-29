@@ -21,7 +21,13 @@ from frontdesk.application.ports import (
     TelegramBotConfig,
 )
 from frontdesk.domain.availability import ensure_bookable, free_slots
-from frontdesk.domain.enums import AppointmentStatus, Channel, MessageRole, ReminderStatus
+from frontdesk.domain.enums import (
+    AppointmentStatus,
+    Channel,
+    MessageRole,
+    ReminderStatus,
+    UserRole,
+)
 from frontdesk.domain.errors import (
     AppointmentNotFound,
     DoubleBooking,
@@ -1069,6 +1075,7 @@ def _to_account(row: Row) -> Account:
         row["password_hash"],
         BusinessId(row["business_id"]) if row["business_id"] else None,
         row["sessions_valid_after"],
+        UserRole(row["role"]),
     )
 
 
@@ -1107,10 +1114,10 @@ class SqlAccountRepository:
             await session.execute(
                 text(
                     "INSERT INTO account (id, email, password_hash, business_id, "
-                    "sessions_valid_after) VALUES (:id, :email, :ph, :bid, :sva) "
+                    "sessions_valid_after, role) VALUES (:id, :email, :ph, :bid, :sva, :role) "
                     "ON CONFLICT (id) DO UPDATE SET "
                     "email = :email, password_hash = :ph, business_id = :bid, "
-                    "sessions_valid_after = :sva"
+                    "sessions_valid_after = :sva, role = :role"
                 ),
                 {
                     "id": str(account.id),
@@ -1118,6 +1125,7 @@ class SqlAccountRepository:
                     "ph": account.password_hash,
                     "bid": str(account.business_id) if account.business_id else None,
                     "sva": account.sessions_valid_after,
+                    "role": account.role.value,
                 },
             )
             await session.commit()

@@ -61,7 +61,9 @@ CREATE_STATEMENTS: tuple[str, ...] = (
         email text NOT NULL UNIQUE,
         password_hash text NOT NULL,
         business_id text REFERENCES business(id),
-        sessions_valid_after bigint NOT NULL DEFAULT 0
+        sessions_valid_after bigint NOT NULL DEFAULT 0,
+        role text NOT NULL DEFAULT 'owner' CHECK (role IN ('owner', 'admin')),
+        created_at timestamptz NOT NULL DEFAULT now()
     )
     """,
     # Per-business daily usage of the managed-default LLM (cost control; ADR-0009).
@@ -105,6 +107,7 @@ CREATE_STATEMENTS: tuple[str, ...] = (
         name text,
         language text,
         handled_by_owner boolean NOT NULL DEFAULT false,
+        created_at timestamptz NOT NULL DEFAULT now(),
         UNIQUE (business_id, channel, address)
     )
     """,
@@ -130,6 +133,7 @@ CREATE_STATEMENTS: tuple[str, ...] = (
         ends_at timestamptz NOT NULL,
         status text NOT NULL DEFAULT 'pending',
         intake jsonb NOT NULL DEFAULT '[]',
+        created_at timestamptz NOT NULL DEFAULT now(),
         CONSTRAINT no_double_book EXCLUDE USING gist (
             resource_id WITH =, tstzrange(starts_at, ends_at) WITH &&
         ) WHERE (status <> 'cancelled')
@@ -183,6 +187,13 @@ CREATE_STATEMENTS: tuple[str, ...] = (
     )
     """,
     "CREATE INDEX link_code_expiry ON telegram_link_code (expires_at)",
+    # Platform-analytics aggregation indexes (ADR-0012): signups / bookings / new-customers
+    # over time, and assistant-reply counts per day and per business.
+    "CREATE INDEX account_created_at ON account (created_at)",
+    "CREATE INDEX appointment_created_at ON appointment (created_at)",
+    "CREATE INDEX customer_created_at ON customer (created_at)",
+    "CREATE INDEX message_role_at ON message (role, at)",
+    "CREATE INDEX message_business_role ON message (business_id, role)",
 )
 
 DROP_STATEMENTS: tuple[str, ...] = tuple(
