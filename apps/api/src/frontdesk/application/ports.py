@@ -276,6 +276,9 @@ class Account:
     email: str
     password_hash: str
     business_id: BusinessId | None = None
+    # Tokens issued before this epoch-second cutoff are rejected — bumped on logout and password
+    # change so those actions actually revoke existing sessions. 0 means "never revoked".
+    sessions_valid_after: int = 0
 
 
 class AccountRepository(Protocol):

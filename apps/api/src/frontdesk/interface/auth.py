@@ -8,6 +8,7 @@ request whose token doesn't own the business in the path. Security events are lo
 import logging
 import time
 from collections.abc import Awaitable, Callable
+from dataclasses import replace
 
 from fastapi import APIRouter, Cookie, Header, HTTPException, Request, Response
 from pydantic import BaseModel, EmailStr, Field
@@ -51,6 +52,11 @@ class SignupInput(BaseModel):
 class LoginInput(BaseModel):
     email: EmailStr
     password: str
+
+
+class PasswordChangeInput(BaseModel):
+    current_password: str
+    new_password: str = Field(min_length=_MIN_PASSWORD_LENGTH)
 
 
 def _normalize_email(email: str) -> str:
@@ -121,12 +127,63 @@ def build_auth_router(
         return AuthView(business_id=str(account.business_id), email=account.email)
 
     @router.post("/api/logout")
-    async def logout(response: Response) -> dict[str, bool]:
+    async def logout(request: Request, response: Response) -> dict[str, bool]:
+        # Real revocation: bump the cutoff so every token issued so far (this device and others)
+        # stops being accepted, not just clear the cookie in this browser.
+        token = request.cookies.get(SESSION_COOKIE, "")
+        account = await _verified_account(
+            token, accounts, signing_key, settings.token_max_age_seconds
+        )
+        if account is not None:
+            await accounts.upsert(replace(account, sessions_valid_after=int(time.time())))
+            _logger.info("logout account=%s (sessions revoked)", account.id)
         clear_session_cookie(response, settings)
-        _logger.info("logout")
+        return {"ok": True}
+
+    @router.post("/api/account/password")
+    async def change_password(
+        body: PasswordChangeInput, request: Request, response: Response
+    ) -> dict[str, bool]:
+        token = request.cookies.get(SESSION_COOKIE, "")
+        account = await _verified_account(
+            token, accounts, signing_key, settings.token_max_age_seconds
+        )
+        if account is None:
+            raise HTTPException(401, "not authenticated")
+        if not verify_password(body.current_password, account.password_hash):
+            _logger.warning("password change rejected: wrong current password (%s)", account.id)
+            raise HTTPException(403, "current password is incorrect")
+        now = int(time.time())
+        await accounts.upsert(
+            replace(
+                account,
+                password_hash=hash_password(body.new_password),
+                sessions_valid_after=now,
+            )
+        )
+        # Keep THIS session alive with a fresh token (issued at the cutoff); revoke all others.
+        set_session_cookie(response, issue_token(str(account.id), signing_key, now), settings)
+        _logger.info("password changed account=%s (other sessions revoked)", account.id)
         return {"ok": True}
 
     return router
+
+
+async def _verified_account(
+    token: str, accounts: AccountRepository, key: str, max_age: int
+) -> Account | None:
+    """The account behind a valid, non-revoked token, or None.
+
+    Rejects a token whose issue time predates the account's ``sessions_valid_after`` cutoff (set on
+    logout / password change), so those actions actually revoke the account's existing sessions.
+    """
+    claims = verify_token(token, key, now=int(time.time()), max_age=max_age)
+    if claims is None:
+        return None
+    account = await accounts.get(AccountId(claims.account_id))
+    if account is None or claims.issued_at < account.sessions_valid_after:
+        return None
+    return account
 
 
 def make_owner_guard(
@@ -144,14 +201,13 @@ def make_owner_guard(
         authorization: str = Header(default=""),
     ) -> None:
         token = session or authorization.removeprefix("Bearer ").strip()
-        account_id = verify_token(token, key, now=int(time.time()), max_age=max_age)
-        if account_id is None:
+        account = await _verified_account(token, accounts, key, max_age)
+        if account is None:
             _logger.warning(
-                "auth rejected: missing/invalid/expired token (business=%s)", business_id
+                "auth rejected: missing/invalid/expired/revoked token (business=%s)", business_id
             )
             raise HTTPException(401, "not authenticated")
-        account = await accounts.get(AccountId(account_id))
-        if account is None or str(account.business_id) != business_id:
+        if str(account.business_id) != business_id:
             _logger.warning("auth rejected: token does not own business=%s", business_id)
             raise HTTPException(403, "not your business")
 

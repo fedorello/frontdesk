@@ -1028,6 +1028,7 @@ def _to_account(row: Row) -> Account:
         row["email"],
         row["password_hash"],
         BusinessId(row["business_id"]) if row["business_id"] else None,
+        row["sessions_valid_after"],
     )
 
 
@@ -1065,16 +1066,18 @@ class SqlAccountRepository:
         async with self._sf() as session:
             await session.execute(
                 text(
-                    "INSERT INTO account (id, email, password_hash, business_id) "
-                    "VALUES (:id, :email, :ph, :bid) "
+                    "INSERT INTO account (id, email, password_hash, business_id, "
+                    "sessions_valid_after) VALUES (:id, :email, :ph, :bid, :sva) "
                     "ON CONFLICT (id) DO UPDATE SET "
-                    "email = :email, password_hash = :ph, business_id = :bid"
+                    "email = :email, password_hash = :ph, business_id = :bid, "
+                    "sessions_valid_after = :sva"
                 ),
                 {
                     "id": str(account.id),
                     "email": account.email,
                     "ph": account.password_hash,
                     "bid": str(account.business_id) if account.business_id else None,
+                    "sva": account.sessions_valid_after,
                 },
             )
             await session.commit()

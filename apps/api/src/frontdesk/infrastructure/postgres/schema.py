@@ -60,7 +60,8 @@ CREATE_STATEMENTS: tuple[str, ...] = (
         id text PRIMARY KEY,
         email text NOT NULL UNIQUE,
         password_hash text NOT NULL,
-        business_id text REFERENCES business(id)
+        business_id text REFERENCES business(id),
+        sessions_valid_after bigint NOT NULL DEFAULT 0
     )
     """,
     # Per-business daily usage of the managed-default LLM (cost control; ADR-0009).

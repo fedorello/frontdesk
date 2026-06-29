@@ -4,8 +4,17 @@ import base64
 import hashlib
 import hmac
 import secrets
+from dataclasses import dataclass
 
 _ITERATIONS = 200_000
+
+
+@dataclass(frozen=True, slots=True)
+class TokenClaims:
+    """The verified contents of a session token."""
+
+    account_id: str
+    issued_at: int  # epoch seconds — compared against the account's sessions_valid_after cutoff
 
 
 def hash_password(password: str) -> str:
@@ -31,8 +40,8 @@ def issue_token(account_id: str, key: str, issued_at: int) -> str:
     return base64.urlsafe_b64encode(f"{payload}:{signature}".encode()).decode()
 
 
-def verify_token(token: str, key: str, *, now: int, max_age: int) -> str | None:
-    """Return the account id if the token's signature is valid and not expired.
+def verify_token(token: str, key: str, *, now: int, max_age: int) -> TokenClaims | None:
+    """Return the token's claims if its signature is valid and it has not expired, else None.
 
     ``max_age`` of 0 disables expiry. ``now``/``issued_at`` are unix epoch seconds.
     """
@@ -49,4 +58,4 @@ def verify_token(token: str, key: str, *, now: int, max_age: int) -> str | None:
         return None
     if max_age > 0 and now - issued_at > max_age:
         return None
-    return account_id
+    return TokenClaims(account_id, issued_at)

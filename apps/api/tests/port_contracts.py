@@ -287,7 +287,11 @@ async def check_resource_write(repo: ResourceRepository) -> None:
 async def check_account_repository(repo: AccountRepository) -> None:
     assert await repo.by_email("o@x.com") is None
 
-    await repo.upsert(Account(AccountId("acc-1"), "o@x.com", "hashed-pw", BusinessId("biz")))
+    await repo.upsert(
+        Account(
+            AccountId("acc-1"), "o@x.com", "hashed-pw", BusinessId("biz"), sessions_valid_after=4242
+        )
+    )
     by_email = await repo.by_email("o@x.com")
     assert by_email is not None
     assert by_email.id == AccountId("acc-1")
@@ -297,6 +301,7 @@ async def check_account_repository(repo: AccountRepository) -> None:
     assert got is not None
     assert got.email == "o@x.com"
     assert got.password_hash == "hashed-pw"
+    assert got.sessions_valid_after == 4242  # the revocation cutoff round-trips
 
 
 async def check_usage_store(store: UsageStore) -> None:

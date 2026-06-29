@@ -3,8 +3,9 @@
 import httpx
 from fastapi import Depends, FastAPI
 
+from frontdesk.application.ports import Account
 from frontdesk.core.settings import Settings
-from frontdesk.domain.ids import BusinessId
+from frontdesk.domain.ids import AccountId, BusinessId
 from frontdesk.infrastructure.keys import session_signing_key
 from frontdesk.infrastructure.memory import (
     InMemoryAccountRepository,
@@ -34,8 +35,10 @@ def test_password_hash_roundtrip() -> None:
 
 def test_token_roundtrip_and_expiry() -> None:
     token = issue_token("acc-1", "k", issued_at=1000)
-    assert verify_token(token, "k", now=1000, max_age=3600) == "acc-1"
-    assert verify_token(token, "k", now=1000, max_age=0) == "acc-1"  # 0 = never expires
+    valid = verify_token(token, "k", now=1000, max_age=3600)
+    assert valid is not None
+    assert (valid.account_id, valid.issued_at) == ("acc-1", 1000)
+    assert verify_token(token, "k", now=1000, max_age=0) is not None  # 0 = never expires
     assert verify_token(token, "k", now=1000 + 4000, max_age=3600) is None  # expired
     assert verify_token(token, "other-key", now=1000, max_age=3600) is None  # wrong key
     assert verify_token("garbage", "k", now=1000, max_age=3600) is None  # malformed
@@ -173,3 +176,107 @@ async def test_signup_creates_a_default_group() -> None:
     groups = await resources.for_business(BusinessId(business_id))
     assert len(groups) == 1
     assert groups[0].working_hours  # a starter weekly schedule
+
+
+def _auth_app(accounts: InMemoryAccountRepository) -> FastAPI:
+    app = FastAPI()
+    app.include_router(
+        build_auth_router(
+            accounts,
+            InMemoryBusinessRepository([], {}),
+            InMemoryResourceRepository(),
+            SequentialIdGenerator("id"),
+            SETTINGS,
+            InMemoryRateLimiter(),
+        )
+    )
+    return app
+
+
+async def test_guard_rejects_a_token_issued_before_the_revocation_cutoff() -> None:
+    accounts = InMemoryAccountRepository()
+    key = session_signing_key(SETTINGS.secret_key)
+    await accounts.upsert(
+        Account(AccountId("acc"), "a@x.com", "h", BusinessId("biz"), sessions_valid_after=5000)
+    )
+    app = FastAPI()
+    guard = make_owner_guard(accounts, key)
+
+    @app.get("/api/businesses/{business_id}/secret", dependencies=[Depends(guard)])
+    async def secret(business_id: str) -> dict[str, str]:
+        return {"ok": business_id}
+
+    transport = httpx.ASGITransport(app=app)
+    async with httpx.AsyncClient(transport=transport, base_url="http://test") as client:
+        stale = {"Authorization": f"Bearer {issue_token('acc', key, issued_at=1000)}"}  # < cutoff
+        fresh = {"Authorization": f"Bearer {issue_token('acc', key, issued_at=6000)}"}  # >= cutoff
+        assert (await client.get("/api/businesses/biz/secret", headers=stale)).status_code == 401
+        assert (await client.get("/api/businesses/biz/secret", headers=fresh)).status_code == 200
+
+
+async def test_logout_revokes_existing_sessions() -> None:
+    accounts = InMemoryAccountRepository()
+    transport = httpx.ASGITransport(app=_auth_app(accounts))
+    async with httpx.AsyncClient(transport=transport, base_url="http://test") as client:
+        await client.post(
+            "/api/signup",
+            json={"email": "a@x.com", "password": "test-pw-123", "business_name": "Ana"},
+        )
+        before = await accounts.by_email("a@x.com")
+        assert before is not None
+        assert before.sessions_valid_after == 0  # fresh account
+
+        await client.post("/api/logout")
+
+        after = await accounts.by_email("a@x.com")
+        assert after is not None
+        assert after.sessions_valid_after > 0  # the cutoff is bumped → prior tokens are rejected
+
+
+async def test_password_change_rehashes_and_revokes_other_sessions() -> None:
+    accounts = InMemoryAccountRepository()
+    transport = httpx.ASGITransport(app=_auth_app(accounts))
+    async with httpx.AsyncClient(transport=transport, base_url="http://test") as client:
+        await client.post(
+            "/api/signup",
+            json={"email": "a@x.com", "password": "old-pw-123", "business_name": "Ana"},
+        )
+
+        wrong = await client.post(
+            "/api/account/password",
+            json={"current_password": "WRONG", "new_password": "new-pw-456"},
+        )
+        assert wrong.status_code == 403  # must prove the current password
+
+        ok = await client.post(
+            "/api/account/password",
+            json={"current_password": "old-pw-123", "new_password": "new-pw-456"},
+        )
+        assert ok.status_code == 200
+
+        account = await accounts.by_email("a@x.com")
+        assert account is not None
+        assert verify_password("new-pw-456", account.password_hash)  # rehashed
+        assert account.sessions_valid_after > 0  # other sessions revoked
+        # This session survives (a fresh cookie was set) and the new password works.
+        login = await client.post("/api/login", json={"email": "a@x.com", "password": "new-pw-456"})
+        assert login.status_code == 200
+
+
+async def test_password_change_requires_authentication() -> None:
+    accounts = InMemoryAccountRepository()
+    transport = httpx.ASGITransport(app=_auth_app(accounts))
+    async with httpx.AsyncClient(transport=transport, base_url="http://test") as client:
+        response = await client.post(
+            "/api/account/password",
+            json={"current_password": "x", "new_password": "new-pw-456"},
+        )
+        assert response.status_code == 401  # no session
+
+
+async def test_logout_without_a_session_is_a_safe_noop() -> None:
+    accounts = InMemoryAccountRepository()
+    transport = httpx.ASGITransport(app=_auth_app(accounts))
+    async with httpx.AsyncClient(transport=transport, base_url="http://test") as client:
+        response = await client.post("/api/logout")
+        assert response.status_code == 200  # nothing to revoke, still idempotent ok
