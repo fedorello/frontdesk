@@ -150,7 +150,9 @@ class TelegramInbound:
             LoggingObserver(str(business_id)),
         )
         await assistant.handle(inbound)
-        _logger.info("handled business=%s from=%s", business_id, inbound.from_address)
+        # The chat id is a stable per-user identifier (PII) — keep it out of INFO, like the body.
+        _logger.info("handled business=%s", business_id)
+        _logger.debug("handled business=%s from=%s", business_id, inbound.from_address)
 
     async def _over_quota(self, business_id: BusinessId) -> bool:
         limit = self._settings.managed_default_daily_limit

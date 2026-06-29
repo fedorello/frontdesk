@@ -171,3 +171,9 @@ def test_provider_is_wrapped_to_record_prompts_when_a_log_dir_is_set(tmp_path: P
 def test_provider_is_not_wrapped_without_a_log_dir() -> None:
     provider = provider_from_config(None, SETTINGS, httpx.AsyncClient())
     assert not isinstance(provider, RecordingLlmProvider)  # the bare default provider
+
+
+def test_provider_is_not_wrapped_for_a_blank_log_dir() -> None:
+    settings = Settings(llm_api_key="k", llm_model="m", llm_base_url="https://x", llm_log_dir="   ")
+    provider = provider_from_config(None, settings, httpx.AsyncClient())
+    assert not isinstance(provider, RecordingLlmProvider)  # whitespace is treated as "off"

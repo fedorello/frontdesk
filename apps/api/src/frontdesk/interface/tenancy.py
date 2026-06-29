@@ -36,8 +36,9 @@ def provider_from_config(
 ) -> LlmProvider:
     """The business's own provider, or the platform default — wrapped to record prompts if asked."""
     provider = _raw_provider(config, settings, client)
-    if settings.llm_log_dir:
-        return RecordingLlmProvider(provider, Path(settings.llm_log_dir), SystemClock())
+    log_dir = settings.llm_log_dir.strip()  # treat blank/whitespace as "off", not a junk path
+    if log_dir:
+        return RecordingLlmProvider(provider, Path(log_dir), SystemClock())
     return provider
 
 
