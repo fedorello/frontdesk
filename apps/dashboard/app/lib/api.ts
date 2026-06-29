@@ -16,6 +16,105 @@ export class ApiError extends Error {
 export interface AuthResult {
   business_id: string;
   email: string;
+  role: string;
+}
+
+export interface MeResult {
+  email: string;
+  business_id: string | null;
+  role: string;
+}
+
+// Platform analytics (admin only, ADR-0012) — aggregate counts, never customer PII.
+export interface SignupCounts {
+  today: number;
+  last_7_days: number;
+  last_30_days: number;
+}
+
+export interface AppointmentStatusCounts {
+  pending: number;
+  confirmed: number;
+  completed: number;
+  cancelled: number;
+  no_show: number;
+  total: number;
+}
+
+export interface PlatformTotals {
+  total_businesses: number;
+  signups: SignupCounts;
+  active_businesses_30d: number;
+  total_customers: number;
+  total_agent_replies: number;
+  appointments: AppointmentStatusCounts;
+  telegram_bots_connected: number;
+  owner_telegram_links: number;
+  llm_modes: { default: number; own: number };
+  pending_approvals: number;
+}
+
+export interface ActivationFunnel {
+  signed_up: number;
+  connected_channel: number;
+  received_message: number;
+  booked_appointment: number;
+}
+
+export interface AdminOverview {
+  totals: PlatformTotals;
+  funnel: ActivationFunnel;
+  funnel_conversion: {
+    connected_pct: number;
+    received_message_pct: number;
+    booked_pct: number;
+  };
+  no_show_rate: number;
+  cancellation_rate: number;
+}
+
+export type TimeseriesMetric = "signups" | "bookings" | "replies" | "new_customers" | "llm_usage";
+
+export interface DailyCount {
+  day: string; // ISO date "YYYY-MM-DD"
+  count: number;
+}
+
+export type DirectorySort =
+  | "name"
+  | "signup_date"
+  | "appointments"
+  | "customers"
+  | "replies"
+  | "last_activity";
+
+export interface BusinessSummary {
+  business_id: string;
+  name: string;
+  locale: string;
+  timezone: string;
+  created_at: string;
+  service_count: number;
+  customer_count: number;
+  appointments: AppointmentStatusCounts;
+  agent_reply_count: number;
+  last_activity_at: string | null;
+  bot_connected: boolean;
+  uses_own_llm: boolean;
+  owner_telegram_linked: boolean;
+}
+
+export interface BusinessPage {
+  items: BusinessSummary[];
+  total: number;
+}
+
+export interface BusinessDirectoryQuery {
+  limit: number;
+  offset: number;
+  sort: DirectorySort;
+  descending: boolean;
+  q?: string;
 }
 
 export interface WorkingHours {
@@ -268,4 +367,26 @@ export const api = {
 
   setHandoff: (id: string, customerId: string, handled: boolean): Promise<{ handled: boolean }> =>
     request("POST", `/api/businesses/${id}/conversations/${customerId}/handoff`, { handled }),
+
+  // The signed-in identity + role (the source of truth for showing the Admin area).
+  me: (): Promise<MeResult> => request("GET", "/api/me"),
+
+  // Admin analytics (ADR-0012). The admin guard enforces access server-side.
+  adminOverview: (): Promise<AdminOverview> => request("GET", "/api/admin/overview"),
+
+  adminTimeseries: (metric: TimeseriesMetric, from: string, to: string): Promise<DailyCount[]> => {
+    const params = new URLSearchParams({ metric, from, to });
+    return request("GET", `/api/admin/timeseries?${params.toString()}`);
+  },
+
+  adminBusinesses: (query: BusinessDirectoryQuery): Promise<BusinessPage> => {
+    const params = new URLSearchParams({
+      limit: String(query.limit),
+      offset: String(query.offset),
+      sort: query.sort,
+      descending: String(query.descending),
+      q: query.q ?? "",
+    });
+    return request("GET", `/api/admin/businesses?${params.toString()}`);
+  },
 };

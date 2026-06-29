@@ -56,7 +56,7 @@ export default function LoginPage() {
     setError(null);
     try {
       const result = await api.login({ email, password });
-      setSession({ businessId: result.business_id, email: result.email });
+      setSession({ businessId: result.business_id, email: result.email, role: result.role });
       router.push("/");
     } catch (caught) {
       setError(t(errorMessageKey(caught)));

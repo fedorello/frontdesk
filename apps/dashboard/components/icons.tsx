@@ -10,7 +10,8 @@ export type IconName =
   | "moon"
   | "search"
   | "spark"
-  | "check";
+  | "check"
+  | "admin";
 
 const PATHS: Record<IconName, ReactNode> = {
   overview: (
@@ -54,6 +55,11 @@ const PATHS: Record<IconName, ReactNode> = {
   ),
   spark: <path d="M12 3l2.2 6 6 .3-4.7 3.9 1.6 5.8L12 15.8 6.9 19l1.6-5.8L3.8 9.3l6-.3z" />,
   check: <path d="m5 12.5 4.5 4.5L19 7" />,
+  admin: (
+    <>
+      <path d="M4 20V10M10 20V4M16 20v-7M22 20H2" />
+    </>
+  ),
 };
 
 export function Icon({ name, size = 20 }: { name: IconName; size?: number }) {

@@ -12,6 +12,13 @@ export interface Session {
   email?: string;
   name?: string;
   avatar?: string;
+  // The account role; "admin" unlocks the platform analytics nav (ADR-0012). The backend
+  // guard is the real gate — this only decides whether to show the Admin link.
+  role?: string;
+}
+
+export function isAdmin(session: Session | null): boolean {
+  return session?.role === "admin";
 }
 
 export function getSession(): Session | null {

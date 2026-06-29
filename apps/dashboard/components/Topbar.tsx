@@ -19,6 +19,8 @@ const TITLES: Record<string, MessageKey> = {
   "/calendar": "nav.calendar",
   "/approvals": "nav.approvals",
   "/settings": "nav.settings",
+  "/admin": "admin.title",
+  "/admin/businesses": "admin.businesses",
 };
 
 // Pages whose main list reads the ?q= search param. Elsewhere the box is hidden,

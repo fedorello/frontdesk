@@ -2,19 +2,29 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
+import { useEffect, useState } from "react";
 
 import { useI18n } from "@/app/lib/I18nProvider";
 import { useTheme } from "@/app/lib/ThemeProvider";
+import { getSession, isAdmin } from "@/app/lib/session";
 import { BotStatus } from "@/components/BotStatus";
 import { Icon } from "@/components/icons";
 import { LANDING_URL } from "@/app/lib/links";
 import { Logo } from "@/components/Logo";
-import { isActive, NAV_ITEMS } from "@/components/nav-items";
+import { isActive, navItemsFor } from "@/components/nav-items";
 
 export function Sidebar() {
   const { t } = useI18n();
   const { theme, toggle } = useTheme();
   const pathname = usePathname();
+  const [admin, setAdmin] = useState(false);
+
+  useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect
+    setAdmin(isAdmin(getSession()));
+  }, [pathname]);
+
+  const navItems = navItemsFor(admin);
 
   return (
     <aside className="hidden w-60 shrink-0 flex-col border-r border-line bg-surface px-3.5 pt-5 pb-4 sm:flex">
@@ -31,7 +41,7 @@ export function Sidebar() {
       </a>
 
       <nav className="flex flex-col gap-1">
-        {NAV_ITEMS.map((item) => {
+        {navItems.map((item) => {
           const active = isActive(pathname, item.href);
           return (
             <Link
