@@ -12,7 +12,7 @@ from datetime import datetime
 from enum import StrEnum
 from typing import Protocol
 
-from frontdesk.domain.enums import Channel
+from frontdesk.domain.enums import Channel, UserRole
 from frontdesk.domain.ids import (
     AccountId,
     AppointmentId,
@@ -279,6 +279,8 @@ class Account:
     # Tokens issued before this epoch-second cutoff are rejected — bumped on logout and password
     # change so those actions actually revoke existing sessions. 0 means "never revoked".
     sessions_valid_after: int = 0
+    # Owner by default; an admin (ADR-0012) owns no business and reads cross-tenant analytics.
+    role: UserRole = UserRole.OWNER
 
 
 class AccountRepository(Protocol):

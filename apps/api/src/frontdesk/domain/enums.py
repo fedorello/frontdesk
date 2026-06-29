@@ -10,6 +10,13 @@ class Channel(StrEnum):
     TELEGRAM = "telegram"
 
 
+class UserRole(StrEnum):
+    """An account's role. See ADR-0012."""
+
+    OWNER = "owner"  # a business owner — the only role today
+    ADMIN = "admin"  # a platform operator: cross-tenant, read-only analytics
+
+
 class AppointmentStatus(StrEnum):
     PENDING = "pending"
     CONFIRMED = "confirmed"
