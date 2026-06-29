@@ -12,6 +12,15 @@ from datetime import datetime
 from enum import StrEnum
 from typing import Protocol
 
+from frontdesk.application.analytics_models import (
+    ActivationFunnel,
+    BusinessSummary,
+    DailyCount,
+    DateWindow,
+    DirectoryQuery,
+    PlatformTotals,
+    TimeseriesMetric,
+)
 from frontdesk.domain.enums import Channel, UserRole
 from frontdesk.domain.ids import (
     AccountId,
@@ -421,6 +430,27 @@ class ReminderStore(Protocol):
     async def cancel_for(self, appointment_id: AppointmentId) -> None: ...
     async def claim_due(self, now: datetime, *, limit: int = 100) -> list[Reminder]: ...
     async def mark_sent(self, reminder_id: ReminderId) -> None: ...
+
+
+class PlatformSummaryRepository(Protocol):
+    """Cross-tenant headline counts and the activation funnel (ADR-0012). Read-only,
+    aggregate-only — it returns no customer PII."""
+
+    async def totals(self, now: datetime) -> PlatformTotals: ...
+    async def activation_funnel(self) -> ActivationFunnel: ...
+
+
+class PlatformTimeseriesRepository(Protocol):
+    """One daily-bucketed metric over a UTC window, across all tenants (ADR-0012)."""
+
+    async def daily(self, metric: TimeseriesMetric, window: DateWindow) -> list[DailyCount]: ...
+
+
+class BusinessDirectoryRepository(Protocol):
+    """A sorted, searched, paginated page of per-business rollups (ADR-0012). Counts
+    and config only — no customer PII."""
+
+    async def page(self, query: DirectoryQuery) -> tuple[list[BusinessSummary], int]: ...
 
 
 class EventPublisher(Protocol):

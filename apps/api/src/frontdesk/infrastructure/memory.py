@@ -4,10 +4,26 @@ Each fake is a real, working implementation backed by dicts/lists, not a mock.
 They satisfy the same port contracts the real adapters will.
 """
 
-from collections.abc import Mapping, Sequence
+from collections.abc import Callable, Mapping, Sequence
 from dataclasses import replace
 from datetime import datetime, timedelta
+from typing import TYPE_CHECKING
 
+if TYPE_CHECKING:
+    # The directory sort keys return heterogeneous comparables (str/int/datetime/float);
+    # this typeshed-only protocol is the precise "sortable" type for sorted()'s key=.
+    from _typeshed import SupportsRichComparison
+
+from frontdesk.application.analytics_models import (
+    ActivationFunnel,
+    BusinessSummary,
+    DailyCount,
+    DateWindow,
+    DirectoryQuery,
+    DirectorySort,
+    PlatformTotals,
+    TimeseriesMetric,
+)
 from frontdesk.application.ports import (
     Account,
     AppointmentQuery,
@@ -565,3 +581,59 @@ class AutoDecisionGate:
 
     async def guard(self, action: SensitiveAction) -> Decision:
         return Decision(approved=self._approved, reason=None if self._approved else "auto-rejected")
+
+
+class InMemoryPlatformSummary:
+    """Seeded headline totals + funnel (ADR-0012). The real aggregation lives in the SQL
+    adapter; this fake holds pre-computed aggregates so use-case tests stay focused."""
+
+    def __init__(self, totals: PlatformTotals, funnel: ActivationFunnel) -> None:
+        self._totals = totals
+        self._funnel = funnel
+
+    async def totals(self, now: datetime) -> PlatformTotals:
+        return self._totals
+
+    async def activation_funnel(self) -> ActivationFunnel:
+        return self._funnel
+
+
+class InMemoryPlatformTimeseries:
+    """Seeded per-metric daily points, returned filtered to the requested UTC window."""
+
+    def __init__(self, series: Mapping[TimeseriesMetric, Sequence[DailyCount]]) -> None:
+        self._series = {metric: list(points) for metric, points in series.items()}
+
+    async def daily(self, metric: TimeseriesMetric, window: DateWindow) -> list[DailyCount]:
+        start, end = window.start.date(), window.end.date()
+        return [point for point in self._series.get(metric, []) if start <= point.day < end]
+
+
+# How each directory sort maps to a single comparable key. A registry, not a switch (OCP):
+# a new sort is a new entry. last_activity is None-safe via a -inf surrogate so it always sorts.
+_DirectorySortKey = Callable[[BusinessSummary], "SupportsRichComparison"]
+_DIRECTORY_SORT_KEYS: dict[DirectorySort, _DirectorySortKey] = {
+    DirectorySort.NAME: lambda row: row.name.casefold(),
+    DirectorySort.SIGNUP_DATE: lambda row: row.created_at,
+    DirectorySort.APPOINTMENTS: lambda row: row.appointments.total,
+    DirectorySort.CUSTOMERS: lambda row: row.customer_count,
+    DirectorySort.REPLIES: lambda row: row.agent_reply_count,
+    DirectorySort.LAST_ACTIVITY: lambda row: (
+        row.last_activity_at.timestamp() if row.last_activity_at else float("-inf")
+    ),
+}
+
+
+class InMemoryBusinessDirectory:
+    """Seeded per-business rollups with real search / sort / pagination, so the SQL
+    adapter has a behavioral contract to match (ADR-0012)."""
+
+    def __init__(self, rows: Sequence[BusinessSummary]) -> None:
+        self._rows = list(rows)
+
+    async def page(self, query: DirectoryQuery) -> tuple[list[BusinessSummary], int]:
+        needle = query.search.strip().casefold()
+        matched = [row for row in self._rows if not needle or needle in row.name.casefold()]
+        ordered = sorted(matched, key=_DIRECTORY_SORT_KEYS[query.sort], reverse=query.descending)
+        page = ordered[query.offset : query.offset + query.limit]
+        return page, len(matched)
