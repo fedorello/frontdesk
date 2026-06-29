@@ -157,6 +157,12 @@ export const api = {
 
   logout: (): Promise<{ ok: boolean }> => request("POST", "/api/logout"),
 
+  changePassword: (currentPassword: string, newPassword: string): Promise<{ ok: boolean }> =>
+    request("POST", "/api/account/password", {
+      current_password: currentPassword,
+      new_password: newPassword,
+    }),
+
   getBusiness: (id: string): Promise<BusinessProfile> => request("GET", `/api/businesses/${id}`),
 
   putBusiness: (id: string, body: BusinessProfile): Promise<BusinessProfile> =>

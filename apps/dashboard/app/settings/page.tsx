@@ -16,6 +16,7 @@ import { CharCount } from "@/components/CharCount";
 import { ConfirmModal } from "@/components/ConfirmModal";
 import { GroupCard } from "@/components/GroupCard";
 import { OwnerNotificationsCard } from "@/components/OwnerNotificationsCard";
+import { PasswordChangeCard } from "@/components/PasswordChangeCard";
 import { ServiceCard, type Service } from "@/components/ServiceCard";
 import { ToggleSwitch } from "@/components/ToggleSwitch";
 import { EmptyState } from "@/components/ui/EmptyState";
@@ -449,6 +450,14 @@ export default function SettingsPage() {
           />
         </div>
       )}
+
+      <div className="mt-8">
+        <PasswordChangeCard
+          onSubmit={async (current, next) => {
+            await api.changePassword(current, next);
+          }}
+        />
+      </div>
 
       <section className="mt-8 rounded-2xl border border-danger/40 bg-danger-soft/30 p-5">
         <h2 className="text-base font-bold text-danger">{t("settings.dangerZone")}</h2>
