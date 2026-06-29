@@ -32,7 +32,7 @@ from frontdesk.infrastructure.memory import (
     InMemoryReplyClaimClassifier,
     ScriptedLlmProvider,
 )
-from tests.application.world import CUST_ADDR, NOW, build_world, inbound, make_customer
+from tests.application.world import CUST_ADDR, NOW, World, build_world, inbound, make_customer
 
 _SLOT = TimeSlot(datetime(2026, 6, 26, 15, tzinfo=UTC), datetime(2026, 6, 26, 16, tzinfo=UTC))
 
@@ -191,31 +191,60 @@ async def test_find_availability_reports_unknown_service() -> None:
     assert world.messaging.sent[-1][1].text.endswith("Sorry, we don't offer that yet.")
 
 
+async def _book_for(world: World, address: str) -> tuple[Customer, Appointment]:
+    customer = await world.customers.upsert(world.business.id, Channel.WHATSAPP, address)
+    appointment = await world.book(world.service, world.service.resource_ids[0], customer, _SLOT)
+    return customer, appointment
+
+
 async def test_sensitive_refund_is_gated_when_not_approved() -> None:
-    world = build_world(
-        [
-            _tool("1", "issue_refund", {"appointment_id": "ap-1", "amount": 49.99}),
-            Completion("I've flagged your refund for approval."),
-        ],
-        gate_approves=False,
+    world = build_world([], gate_approves=False)
+    customer, appointment = await _book_for(world, CUST_ADDR)
+
+    result = await world.assistant._do_refund(
+        world.business, customer, {"appointment_id": str(appointment.id), "amount": 49.99}
     )
 
-    await world.assistant.handle(inbound("I want a refund please"))
-
+    assert "sign-off" in result
     assert any(isinstance(event, ApprovalRequested) for event in world.events.events)
 
 
 async def test_sensitive_refund_runs_when_approved() -> None:
-    world = build_world(
-        [
-            _tool("1", "issue_refund", {"appointment_id": "ap-1", "amount": 49.99}),
-            Completion("Your refund is on its way."),
-        ],
-        gate_approves=True,
+    world = build_world([], gate_approves=True)
+    customer, appointment = await _book_for(world, CUST_ADDR)
+
+    result = await world.assistant._do_refund(
+        world.business, customer, {"appointment_id": str(appointment.id), "amount": 49.99}
     )
 
-    await world.assistant.handle(inbound("I want a refund please"))
+    assert "issued" in result
+    assert not any(isinstance(event, ApprovalRequested) for event in world.events.events)
 
+
+async def test_refund_for_another_customers_appointment_is_refused() -> None:
+    # Prompt injection could feed a foreign appointment id — the refund must never reference it,
+    # and must not even reach the approval gate.
+    world = build_world([], gate_approves=True)
+    _, appointment = await _book_for(world, "+OWNER")
+    intruder = await world.customers.upsert(world.business.id, Channel.WHATSAPP, "+INTRUDER")
+
+    result = await world.assistant._do_refund(
+        world.business, intruder, {"appointment_id": str(appointment.id), "amount": 49.99}
+    )
+
+    assert "different customer" in result
+    assert not any(isinstance(event, ApprovalRequested) for event in world.events.events)
+
+
+async def test_refund_for_a_missing_appointment_is_refused() -> None:
+    world = build_world([], gate_approves=True)
+    customer = await world.customers.upsert(world.business.id, Channel.WHATSAPP, CUST_ADDR)
+
+    result = await world.assistant._do_refund(
+        world.business, customer, {"appointment_id": "ghost", "amount": 10.0}
+    )
+
+    assert "No appointment" in result  # never reaches the gate with an unknown id
     assert not any(isinstance(event, ApprovalRequested) for event in world.events.events)
 
 

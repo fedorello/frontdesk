@@ -692,12 +692,21 @@ class Assistant:
     async def _do_refund(
         self, business: Business, customer: Customer, args: dict[str, object]
     ) -> str:
+        appointment_id = AppointmentId(_arg(args, "appointment_id"))
+        try:
+            appointment = await self._d.appointments.get(appointment_id)
+        except DomainError:
+            return _NO_SUCH_APPOINTMENT
+        # Never let a refund request reference another customer's appointment, even if the model
+        # is prompt-injected into passing a foreign id. The human gate still approves the rest.
+        if appointment.customer_id != customer.id:
+            return _NOT_THEIRS
         # Sensitive: the model can't issue a refund on its own — it passes the gate.
         action = SensitiveAction(
             str(business.id),
             "issue_refund",
             args,
-            f"Refund for {customer.channel_address} ({_arg(args, 'appointment_id')})",
+            f"Refund for {customer.channel_address} ({appointment_id})",
         )
         decision = await self._d.gate.guard(action)
         if not decision.approved:
