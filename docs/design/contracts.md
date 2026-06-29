@@ -45,6 +45,10 @@ class MessageRole(StrEnum):
     ASSISTANT = "assistant"
     SYSTEM = "system"
     TOOL = "tool"              # a tool result fed back into the loop
+
+class UserRole(StrEnum):       # an account's role (ADR-0012)
+    OWNER = "owner"            # a business owner — the only role today
+    ADMIN = "admin"           # a platform operator: cross-tenant, read-only analytics
 ```
 
 A `TOOL` message carries the result of a `ToolCall` (with its `tool_call_id`) and
@@ -240,6 +244,17 @@ class ReminderStore(Protocol):                    # durable scheduler (ADR-0004)
     async def claim_due(self, now: datetime, *, limit: int = 100) -> list[Reminder]: ...
     async def mark_sent(self, reminder_id: ReminderId) -> None: ...
 
+# --- Platform analytics (cross-tenant, read-only, aggregate-only; ADR-0012) ---
+class PlatformSummaryRepository(Protocol):
+    async def totals(self, now: datetime) -> PlatformTotals: ...
+    async def activation_funnel(self) -> ActivationFunnel: ...
+
+class PlatformTimeseriesRepository(Protocol):
+    async def daily(self, metric: TimeseriesMetric, window: DateWindow) -> list[DailyCount]: ...
+
+class BusinessDirectoryRepository(Protocol):
+    async def page(self, query: DirectoryQuery) -> tuple[list[BusinessSummary], int]: ...
+
 # --- Cross-cutting ---
 class EventPublisher(Protocol):
     async def publish(self, event: DomainEvent) -> None: ...
@@ -373,6 +388,14 @@ constraints (full DDL lives in Alembic migrations):
 - `reminder(id, business_id, appointment_id, due_at, kind, status)`
   - index `(status, due_at)` for the worker's claim query
 - `processed_message(provider_message_id PRIMARY KEY, …)` — webhook idempotency
+- `account(id, email UNIQUE, password_hash, business_id→business, role, …)` — `role text
+  NOT NULL DEFAULT 'owner' CHECK (role IN ('owner','admin'))` (ADR-0012); an admin has
+  `business_id NULL`
+- **Analytics columns (ADR-0012):** `account.created_at`, `appointment.created_at`,
+  `customer.created_at` — `timestamptz NOT NULL DEFAULT now()`, persistence-only (not on
+  the domain models), aggregated by the platform-analytics repositories. Indexes:
+  `account(created_at)`, `appointment(created_at)`, `customer(created_at)`,
+  `message(role, at)`, `message(business_id, role)`
 
 ## Events (for the live dashboard)
 

@@ -31,6 +31,11 @@ How the Frontdesk docs are organized. Keep this index in sync.
   backend detail behind the roadmap.
 - [`design/ux-brief.md`](./design/ux-brief.md) — the UI/UX brief for the dashboard
   (what screens are needed; hand to a designer).
+- [`design/admin-dashboard.md`](./design/admin-dashboard.md) — the admin role +
+  cross-tenant operator analytics dashboard (signups, agent activity, bookings,
+  funnel) — design, data-model gaps, hexagonal fit, and the phased plan.
+- [`plans/admin-dashboard-plan.md`](./plans/admin-dashboard-plan.md) — the inside-out
+  implementation plan for the admin dashboard (phases, files, tests, DoD per phase).
 
 ## Architecture Decision Records (`adr/`)
 
@@ -52,3 +57,5 @@ How the Frontdesk docs are organized. Keep this index in sync.
   per-tenant Telegram bots, self-serve onboarding, multilingual; Telegram-first.
 - [0009 — BYO LLM provider & API-key storage](./adr/0009-byo-llm-provider-and-secrets.md)
   — bring your own provider/key or use the managed default; how keys are stored safely.
+- [0012 — Admin role & cross-tenant analytics](./adr/0012-admin-role-and-cross-tenant-analytics.md)
+  — one read-only, aggregate-only role that crosses the tenant boundary of ADR-0003.
