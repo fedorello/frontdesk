@@ -79,6 +79,12 @@ export interface TelegramStatus {
   username?: string | null;
 }
 
+export interface OwnerTelegram {
+  linked: boolean;
+  telegram_name: string | null;
+  notifications_enabled: boolean;
+}
+
 export interface AppointmentView {
   id: string;
   service: string;
@@ -193,6 +199,18 @@ export const api = {
 
   telegramStatus: (id: string): Promise<TelegramStatus> =>
     request("GET", `/api/businesses/${id}/telegram`),
+
+  getOwnerTelegram: (id: string): Promise<OwnerTelegram> =>
+    request("GET", `/api/businesses/${id}/telegram-owner`),
+
+  confirmOwnerTelegram: (id: string, code: string): Promise<OwnerTelegram> =>
+    request("POST", `/api/businesses/${id}/telegram-owner/confirm`, { code }),
+
+  setOwnerNotifications: (id: string, enabled: boolean): Promise<OwnerTelegram> =>
+    request("PUT", `/api/businesses/${id}/telegram-owner/notifications`, { enabled }),
+
+  unlinkOwnerTelegram: (id: string): Promise<OwnerTelegram> =>
+    request("DELETE", `/api/businesses/${id}/telegram-owner`),
 
   appointments: (id: string): Promise<AppointmentView[]> =>
     request("GET", `/api/businesses/${id}/appointments`),

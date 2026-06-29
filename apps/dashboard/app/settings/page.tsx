@@ -3,7 +3,7 @@
 import { useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
 
-import { api, type BusinessProfile, type Group } from "@/app/lib/api";
+import { api, type BusinessProfile, type Group, type OwnerTelegram } from "@/app/lib/api";
 import { clearCache, readCache, writeCache } from "@/app/lib/cache";
 import { useBotStatus } from "@/app/lib/BotStatusProvider";
 import { errorMessageKey } from "@/app/lib/errors";
@@ -15,6 +15,7 @@ import { AutoTextarea } from "@/components/AutoTextarea";
 import { CharCount } from "@/components/CharCount";
 import { ConfirmModal } from "@/components/ConfirmModal";
 import { GroupCard } from "@/components/GroupCard";
+import { OwnerNotificationsCard } from "@/components/OwnerNotificationsCard";
 import { ServiceCard, type Service } from "@/components/ServiceCard";
 import { ToggleSwitch } from "@/components/ToggleSwitch";
 import { EmptyState } from "@/components/ui/EmptyState";
@@ -60,6 +61,18 @@ export default function SettingsPage() {
   const [botToken, setBotToken] = useState("");
   const [connecting, setConnecting] = useState(false);
   const [connectError, setConnectError] = useState<string | null>(null);
+  const [ownerTelegram, setOwnerTelegram] = useState<OwnerTelegram | null>(null);
+
+  const saveOwnerNotifications = async (enabled: boolean) => {
+    const current = getSession();
+    if (current === null) return;
+    setOwnerTelegram(await api.setOwnerNotifications(current.businessId, enabled));
+  };
+  const unlinkOwnerTelegram = async () => {
+    const current = getSession();
+    if (current === null) return;
+    setOwnerTelegram(await api.unlinkOwnerTelegram(current.businessId));
+  };
 
   useEffect(() => {
     const current = getSession();
@@ -72,6 +85,7 @@ export default function SettingsPage() {
       list: Service[],
       aiMode: string,
       groupList: Group[],
+      owner: OwnerTelegram | null,
     ) => {
       if (profile) {
         setName(profile.name);
@@ -84,6 +98,7 @@ export default function SettingsPage() {
       setServices(list);
       setAiMode(aiMode);
       setGroups(groupList);
+      if (owner) setOwnerTelegram(owner);
     };
     // Stale-while-revalidate: fill the form from the last-known values, then refetch.
     const cached = readCache<{
@@ -91,17 +106,32 @@ export default function SettingsPage() {
       services: Service[];
       aiMode: string;
       groups: Group[];
+      ownerTelegram: OwnerTelegram | null;
     }>(key);
-    if (cached) apply(cached.profile, cached.services, cached.aiMode, cached.groups ?? []);
+    if (cached)
+      apply(
+        cached.profile,
+        cached.services,
+        cached.aiMode,
+        cached.groups ?? [],
+        cached.ownerTelegram ?? null,
+      );
     void (async () => {
-      const [profile, list, llm, groupList] = await Promise.all([
+      const [profile, list, llm, groupList, owner] = await Promise.all([
         api.getBusiness(current.businessId).catch(() => null),
         api.getServices(current.businessId).catch(() => []),
         api.getLlm(current.businessId).catch(() => ({ mode: "default" })),
         api.getGroups(current.businessId).catch(() => []),
+        api.getOwnerTelegram(current.businessId).catch(() => null),
       ]);
-      apply(profile, list, llm.mode, groupList);
-      writeCache(key, { profile, services: list, aiMode: llm.mode, groups: groupList });
+      apply(profile, list, llm.mode, groupList, owner);
+      writeCache(key, {
+        profile,
+        services: list,
+        aiMode: llm.mode,
+        groups: groupList,
+        ownerTelegram: owner,
+      });
     })();
   }, []);
 
@@ -409,6 +439,16 @@ export default function SettingsPage() {
           </button>
         </div>
       </section>
+
+      {ownerTelegram && (
+        <div className="mt-8">
+          <OwnerNotificationsCard
+            status={ownerTelegram}
+            onToggle={saveOwnerNotifications}
+            onUnlink={unlinkOwnerTelegram}
+          />
+        </div>
+      )}
 
       <section className="mt-8 rounded-2xl border border-danger/40 bg-danger-soft/30 p-5">
         <h2 className="text-base font-bold text-danger">{t("settings.dangerZone")}</h2>

@@ -34,6 +34,11 @@ test("settings loads the live business config for editing", async ({ page }) => 
   await page.route("**/api/businesses/*/llm", (route) =>
     route.fulfill({ json: { mode: "default" } }),
   );
+  await page.route("**/api/businesses/*/telegram-owner", (route) =>
+    route.fulfill({
+      json: { linked: true, telegram_name: "Fedor", notifications_enabled: true },
+    }),
+  );
   await page.route("**/api/businesses/*", (route) =>
     route.request().method() === "GET"
       ? route.fulfill({ json: { name: "Ana Studio", timezone: "UTC", knowledge: [] } })
@@ -50,6 +55,25 @@ test("settings loads the live business config for editing", async ({ page }) => 
   await expect(page.getByText("Haircut", { exact: true })).toBeVisible(); // live services
   await expect(page.getByRole("heading", { name: "Groups" })).toBeVisible(); // groups section
   await expect(page.getByText("Ana", { exact: true })).toBeVisible(); // the live group
+  await expect(page.getByText("Linked: Fedor")).toBeVisible(); // owner notifications section
+});
+
+test("the connect-telegram page confirms an owner link code", async ({ page }) => {
+  let confirmedCode: string | null = null;
+  await page.route("**/api/businesses/*/telegram-owner/confirm", async (route) => {
+    confirmedCode = JSON.parse(route.request().postData() ?? "{}").code;
+    await route.fulfill({
+      json: { linked: true, telegram_name: "Fedor", notifications_enabled: true },
+    });
+  });
+  await page.addInitScript(() => {
+    window.localStorage.setItem("tovayo.session", JSON.stringify({ businessId: "b" }));
+  });
+
+  await page.goto("/connect-telegram?code=abc-123");
+
+  await expect(page.getByText(/schedule notifications in Telegram/)).toBeVisible();
+  expect(confirmedCode).toBe("abc-123");
 });
 
 test("a service's group is chosen from the group selector, not a per-service schedule", async ({

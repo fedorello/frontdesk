@@ -118,6 +118,19 @@ const MESSAGES = {
     "settings.ownerNamePlaceholder": "e.g. Alexander",
     "settings.ownerNameHint":
       "Shown to customers as [Your name] when you reply in the chat yourself.",
+    "settings.ownerNotificationsTitle": "Owner notifications",
+    "settings.ownerNotificationsHint":
+      "Get a Telegram message when a customer books, reschedules, or cancels.",
+    "settings.ownerNotificationsHowto":
+      "Open your bot in Telegram, send {command}, then open the link it replies with — while signed in here.",
+    "settings.ownerNotificationsLinked": "Linked: {name}",
+    "settings.ownerNotificationsToggle": "Notify me about schedule changes",
+    "settings.ownerNotificationsUnlink": "Unlink",
+    "connectTelegram.confirming": "Connecting your Telegram…",
+    "connectTelegram.success": "Done — you'll get schedule notifications in Telegram.",
+    "connectTelegram.failed":
+      "That link is invalid or expired. Send {command} to your bot again for a fresh one.",
+    "connectTelegram.back": "Back to settings",
     "settings.intakeHint": "Up to 5 questions the assistant asks the customer before booking.",
     "settings.intakeName": "Field name (e.g. Birth date)",
     "settings.intakeDescription": "What it is",
@@ -284,6 +297,19 @@ const MESSAGES = {
     "settings.ownerNamePlaceholder": "p. ej. Alejandro",
     "settings.ownerNameHint":
       "Se muestra a los clientes como [Tu nombre] cuando respondes tú mismo en el chat.",
+    "settings.ownerNotificationsTitle": "Avisos para el propietario",
+    "settings.ownerNotificationsHint":
+      "Recibe un mensaje de Telegram cuando un cliente reserva, reprograma o cancela.",
+    "settings.ownerNotificationsHowto":
+      "Abre tu bot en Telegram, envía {command} y abre el enlace que te responde — con la sesión iniciada aquí.",
+    "settings.ownerNotificationsLinked": "Vinculado: {name}",
+    "settings.ownerNotificationsToggle": "Avisarme de los cambios de agenda",
+    "settings.ownerNotificationsUnlink": "Desvincular",
+    "connectTelegram.confirming": "Conectando tu Telegram…",
+    "connectTelegram.success": "¡Listo! Recibirás avisos de agenda en Telegram.",
+    "connectTelegram.failed":
+      "Ese enlace no es válido o caducó. Envía {command} a tu bot de nuevo para uno nuevo.",
+    "connectTelegram.back": "Volver a ajustes",
     "settings.intakeHint": "Hasta 5 preguntas que el asistente hace al cliente antes de reservar.",
     "settings.intakeName": "Nombre del campo (p. ej. Fecha de nacimiento)",
     "settings.intakeDescription": "Qué es",
@@ -450,6 +476,19 @@ const MESSAGES = {
     "settings.ownerNamePlaceholder": "напр. Александр",
     "settings.ownerNameHint":
       "Показывается клиентам как [Ваше имя], когда вы сами отвечаете в чате.",
+    "settings.ownerNotificationsTitle": "Уведомления владельцу",
+    "settings.ownerNotificationsHint":
+      "Получайте сообщение в Telegram, когда клиент записывается, переносит или отменяет.",
+    "settings.ownerNotificationsHowto":
+      "Откройте своего бота в Telegram, отправьте {command} и откройте ссылку из ответа — будучи авторизованным здесь.",
+    "settings.ownerNotificationsLinked": "Привязано: {name}",
+    "settings.ownerNotificationsToggle": "Уведомлять об изменениях в расписании",
+    "settings.ownerNotificationsUnlink": "Отвязать",
+    "connectTelegram.confirming": "Подключаем ваш Telegram…",
+    "connectTelegram.success": "Готово — вы будете получать уведомления о расписании в Telegram.",
+    "connectTelegram.failed":
+      "Ссылка недействительна или истекла. Отправьте {command} боту ещё раз для новой.",
+    "connectTelegram.back": "Назад к настройкам",
     "settings.intakeHint": "До 5 вопросов, которые ассистент задаёт клиенту перед записью.",
     "settings.intakeName": "Название поля (напр. Дата рождения)",
     "settings.intakeDescription": "Что это",
@@ -612,6 +651,17 @@ const MESSAGES = {
     "settings.deleteConfirm": "是的，全部删除",
     "settings.ownerNamePlaceholder": "例如 张伟",
     "settings.ownerNameHint": "当您亲自在聊天中回复时，会以「您的名字」形式显示给客户。",
+    "settings.ownerNotificationsTitle": "店主通知",
+    "settings.ownerNotificationsHint": "当客户预约、改期或取消时，在 Telegram 收到消息。",
+    "settings.ownerNotificationsHowto":
+      "在 Telegram 打开您的机器人，发送 {command}，然后在此处（已登录）打开它回复的链接。",
+    "settings.ownerNotificationsLinked": "已绑定：{name}",
+    "settings.ownerNotificationsToggle": "通知我日程变化",
+    "settings.ownerNotificationsUnlink": "解除绑定",
+    "connectTelegram.confirming": "正在连接您的 Telegram…",
+    "connectTelegram.success": "完成 — 您将在 Telegram 收到日程通知。",
+    "connectTelegram.failed": "该链接无效或已过期。请再次向机器人发送 {command} 获取新链接。",
+    "connectTelegram.back": "返回设置",
     "settings.intakeHint": "助手在预约前向客户提出的最多 5 个问题。",
     "settings.intakeName": "字段名称（如出生日期）",
     "settings.intakeDescription": "这是什么",
