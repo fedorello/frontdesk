@@ -10,14 +10,16 @@ import uuid
 from dataclasses import replace
 
 from fastapi import APIRouter
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 
 from frontdesk.application.assistant import Assistant, AssistantDeps
 from frontdesk.application.ports import Clock, InboundMessage
 from frontdesk.domain.enums import Channel
+from frontdesk.domain.models import MAX_MESSAGE_LENGTH
 from frontdesk.infrastructure.channels.composite import CapturingMessaging
 
 _logger = logging.getLogger("frontdesk.chat")
+_MAX_SESSION_LENGTH = 200  # a web session id is a short opaque token, never a large payload
 
 
 class TraceStep(BaseModel):
@@ -29,8 +31,8 @@ class TraceStep(BaseModel):
 
 
 class ChatRequest(BaseModel):
-    text: str
-    session: str
+    text: str = Field(max_length=MAX_MESSAGE_LENGTH)
+    session: str = Field(max_length=_MAX_SESSION_LENGTH)
 
 
 class ChatReply(BaseModel):

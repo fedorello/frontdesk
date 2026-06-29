@@ -19,6 +19,10 @@ from .money import Money
 
 _LAST_WEEKDAY = 6  # Sunday, with Monday = 0
 
+# Upper bound on a single inbound customer message. Caps storage, history replay, and LLM token
+# cost from an oversized or abusive payload; matches Telegram's own per-message ceiling.
+MAX_MESSAGE_LENGTH = 4096
+
 
 @dataclass(frozen=True, slots=True)
 class TimeSlot:

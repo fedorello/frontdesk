@@ -14,7 +14,7 @@ from frontdesk.application.ports import (
 )
 from frontdesk.domain.enums import Channel
 from frontdesk.domain.ids import BusinessId
-from frontdesk.domain.models import Business, Customer
+from frontdesk.domain.models import MAX_MESSAGE_LENGTH, Business, Customer
 from frontdesk.infrastructure.channels.telegram_format import markdown_to_telegram_html
 
 _logger = logging.getLogger("frontdesk.telegram")
@@ -68,7 +68,7 @@ def parse_telegram_inbound(
             channel=Channel.TELEGRAM,
             from_address=str(message["chat"]["id"]),
             to_address=bot_address,
-            text=message["text"],
+            text=message["text"][:MAX_MESSAGE_LENGTH],
             received_at=datetime.fromtimestamp(int(message["date"]), tz=UTC),
             provider_message_id=f"{message['chat']['id']}:{message['message_id']}",
             sender_name=_telegram_sender_name(message.get("from")),

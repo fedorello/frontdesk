@@ -8,7 +8,7 @@ import httpx
 
 from frontdesk.application.ports import InboundMessage, OutboundMessage
 from frontdesk.domain.enums import Channel
-from frontdesk.domain.models import Customer
+from frontdesk.domain.models import MAX_MESSAGE_LENGTH, Customer
 
 _MAX_BUTTONS = 3  # WhatsApp interactive reply-button limit
 
@@ -69,7 +69,7 @@ def parse_whatsapp_inbound(payload: Mapping[str, Any]) -> InboundMessage | None:
             channel=Channel.WHATSAPP,
             from_address=message["from"],
             to_address=value["metadata"]["display_phone_number"],
-            text=message["text"]["body"],
+            text=message["text"]["body"][:MAX_MESSAGE_LENGTH],
             received_at=datetime.fromtimestamp(int(message["timestamp"]), tz=UTC),
             provider_message_id=message["id"],
         )

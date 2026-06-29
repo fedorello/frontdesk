@@ -8,7 +8,7 @@ import httpx
 from frontdesk.application.ports import MessagingPort, OutboundMessage
 from frontdesk.domain.enums import Channel
 from frontdesk.domain.ids import BusinessId, CustomerId
-from frontdesk.domain.models import Customer
+from frontdesk.domain.models import MAX_MESSAGE_LENGTH, Customer
 from frontdesk.infrastructure.channels.telegram import TelegramMessaging, parse_telegram_inbound
 from frontdesk.infrastructure.channels.whatsapp import WhatsAppMessaging, parse_whatsapp_inbound
 
@@ -118,3 +118,43 @@ def test_telegram_inbound_captures_the_sender_name() -> None:
     assert full.sender_name == "Fedor C"
     assert handle.sender_name == "@fedor"
     assert none.sender_name is None
+
+
+def test_telegram_inbound_truncates_an_oversized_message() -> None:
+    huge = "x" * (MAX_MESSAGE_LENGTH + 50)
+    payload = {"message": {"message_id": 5, "date": 1782000000, "chat": {"id": 1}, "text": huge}}
+
+    inbound = parse_telegram_inbound(payload, bot_address="+B")
+
+    assert inbound is not None
+    assert len(inbound.text) == MAX_MESSAGE_LENGTH  # capped, never stored/replayed unbounded
+
+
+def test_whatsapp_inbound_truncates_an_oversized_message() -> None:
+    huge = "x" * (MAX_MESSAGE_LENGTH + 50)
+    payload = {
+        "entry": [
+            {
+                "changes": [
+                    {
+                        "value": {
+                            "metadata": {"display_phone_number": "+BIZ"},
+                            "messages": [
+                                {
+                                    "from": "+100",
+                                    "id": "wamid.X",
+                                    "timestamp": "1782000000",
+                                    "text": {"body": huge},
+                                }
+                            ],
+                        }
+                    }
+                ]
+            }
+        ]
+    }
+
+    inbound = parse_whatsapp_inbound(payload)
+
+    assert inbound is not None
+    assert len(inbound.text) == MAX_MESSAGE_LENGTH

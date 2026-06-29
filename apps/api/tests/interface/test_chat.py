@@ -4,6 +4,7 @@ import httpx
 from fastapi import FastAPI
 
 from frontdesk.application.ports import Completion, ToolCall
+from frontdesk.domain.models import MAX_MESSAGE_LENGTH
 from frontdesk.interface.chat import build_chat_router
 from tests.application.world import BIZ_ADDR, World, build_world
 
@@ -51,3 +52,14 @@ async def test_chat_answers_without_booking() -> None:
 
     assert response.json()["reply"].endswith("We're open 9 to 17, Monday to Friday.")
     assert world.appointments.appointments == {}
+
+
+async def test_chat_rejects_an_oversized_message() -> None:
+    world = build_world([Completion("hi")])
+
+    async with _client(world) as client:
+        response = await client.post(
+            "/api/chat", json={"text": "x" * (MAX_MESSAGE_LENGTH + 1), "session": "s"}
+        )
+
+    assert response.status_code == 422  # rejected by max_length before the assistant runs
