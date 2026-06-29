@@ -22,6 +22,7 @@ from frontdesk.application.ports import (
     ResourceRepository,
 )
 from frontdesk.core.settings import Settings
+from frontdesk.domain.enums import UserRole
 from frontdesk.domain.ids import AccountId, BusinessId, ResourceId
 from frontdesk.domain.models import Business, default_group
 from frontdesk.infrastructure.keys import session_signing_key
@@ -72,6 +73,15 @@ class AuthView(BaseModel):
 
     business_id: str
     email: str
+    role: str
+
+
+class MeView(BaseModel):
+    """The signed-in account, read from the session cookie. An admin has no business."""
+
+    email: str
+    business_id: str | None
+    role: str
 
 
 def build_auth_router(
@@ -109,7 +119,7 @@ def build_auth_router(
             response, issue_token(account.id, signing_key, int(time.time())), settings
         )
         _logger.info("signup account=%s business=%s", account.id, business_id)
-        return AuthView(business_id=business_id, email=account.email)
+        return AuthView(business_id=business_id, email=account.email, role=account.role.value)
 
     @router.post("/api/login")
     async def login(body: LoginInput, request: Request, response: Response) -> AuthView:
@@ -124,7 +134,11 @@ def build_auth_router(
             response, issue_token(account.id, signing_key, int(time.time())), settings
         )
         _logger.info("login ok account=%s", account.id)
-        return AuthView(business_id=str(account.business_id), email=account.email)
+        return AuthView(
+            business_id=str(account.business_id) if account.business_id else "",
+            email=account.email,
+            role=account.role.value,
+        )
 
     @router.post("/api/logout")
     async def logout(request: Request, response: Response) -> dict[str, bool]:
@@ -186,6 +200,29 @@ async def _verified_account(
     return account
 
 
+def build_me_router(accounts: AccountRepository, settings: Settings) -> APIRouter:
+    """The signed-in identity (`GET /api/me`), the single source of the caller's role for the
+    client. Separate from the auth actions so each router stays one responsibility."""
+    router = APIRouter()
+    signing_key = session_signing_key(settings.secret_key)
+
+    @router.get("/api/me")
+    async def me(request: Request) -> MeView:
+        token = request.cookies.get(SESSION_COOKIE, "")
+        account = await _verified_account(
+            token, accounts, signing_key, settings.token_max_age_seconds
+        )
+        if account is None:
+            raise HTTPException(401, "not authenticated")
+        return MeView(
+            email=account.email,
+            business_id=str(account.business_id) if account.business_id else None,
+            role=account.role.value,
+        )
+
+    return router
+
+
 def make_owner_guard(
     accounts: AccountRepository, key: str, max_age: int = 0
 ) -> Callable[[str, str, str], Awaitable[None]]:
@@ -210,5 +247,30 @@ def make_owner_guard(
         if str(account.business_id) != business_id:
             _logger.warning("auth rejected: token does not own business=%s", business_id)
             raise HTTPException(403, "not your business")
+
+    return guard
+
+
+def make_admin_guard(
+    accounts: AccountRepository, key: str, max_age: int = 0
+) -> Callable[..., Awaitable[None]]:
+    """A dependency that requires the caller to be an admin (ADR-0012).
+
+    Cross-tenant: unlike the owner guard it does not scope to a path business_id. Reuses the
+    same HttpOnly session cookie / Bearer token; rejections are logged without PII.
+    """
+
+    async def guard(
+        session: str = Cookie(default="", alias=SESSION_COOKIE),
+        authorization: str = Header(default=""),
+    ) -> None:
+        token = session or authorization.removeprefix("Bearer ").strip()
+        account = await _verified_account(token, accounts, key, max_age)
+        if account is None:
+            _logger.warning("admin auth rejected: missing/invalid/expired/revoked token")
+            raise HTTPException(401, "not authenticated")
+        if account.role is not UserRole.ADMIN:
+            _logger.warning("admin auth rejected: account is not an admin (account=%s)", account.id)
+            raise HTTPException(403, "admin only")
 
     return guard
