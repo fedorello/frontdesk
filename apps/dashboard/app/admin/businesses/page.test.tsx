@@ -39,8 +39,8 @@ const ROW = {
 };
 
 describe("Admin businesses page", () => {
-  it("denies a non-admin", async () => {
-    window.localStorage.setItem("tovayo.session", JSON.stringify({ businessId: "b" }));
+  it("shows the denied state when the admin API rejects", async () => {
+    adminBusinesses.mockRejectedValue(new Error("403"));
     renderPage();
     expect(
       await screen.findByText("Sign in with an admin account to view platform analytics."),
@@ -48,10 +48,6 @@ describe("Admin businesses page", () => {
   });
 
   it("lists businesses for an admin", async () => {
-    window.localStorage.setItem(
-      "tovayo.session",
-      JSON.stringify({ businessId: "", role: "admin" }),
-    );
     adminBusinesses.mockResolvedValue({ items: [ROW], total: 1 });
 
     renderPage();

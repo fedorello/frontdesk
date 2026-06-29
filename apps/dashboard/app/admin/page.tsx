@@ -5,7 +5,6 @@ import { useEffect, useState } from "react";
 
 import { api, type AdminOverview, type DailyCount } from "@/app/lib/api";
 import { useI18n } from "@/app/lib/I18nProvider";
-import { getSession, isAdmin } from "@/app/lib/session";
 import { Card } from "@/components/ui/Card";
 import { EmptyState } from "@/components/ui/EmptyState";
 import { Skeleton } from "@/components/ui/Skeleton";
@@ -32,11 +31,8 @@ export default function AdminPage() {
   const [series, setSeries] = useState<Series | null>(null);
 
   useEffect(() => {
-    if (!isAdmin(getSession())) {
-      // eslint-disable-next-line react-hooks/set-state-in-effect
-      setState("denied");
-      return;
-    }
+    // No client-side role check: the backend admin guard is the gate. If the fetch is
+    // rejected (401/403), we show the denied state; otherwise we render the data.
     const to = new Date();
     const from = new Date(to.getTime() - WINDOW_DAYS * MS_PER_DAY);
     const fromIso = from.toISOString();

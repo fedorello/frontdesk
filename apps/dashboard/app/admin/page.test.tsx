@@ -18,10 +18,6 @@ afterEach(() => {
   adminTimeseries.mockReset();
 });
 
-function asAdmin() {
-  window.localStorage.setItem("tovayo.session", JSON.stringify({ businessId: "", role: "admin" }));
-}
-
 function renderAdmin() {
   return render(
     <I18nProvider>
@@ -50,8 +46,9 @@ const OVERVIEW = {
 };
 
 describe("Admin overview page", () => {
-  it("prompts to sign in as admin when the session is not an admin", async () => {
-    window.localStorage.setItem("tovayo.session", JSON.stringify({ businessId: "b" }));
+  it("shows the denied state when the admin API rejects (not an admin)", async () => {
+    adminOverview.mockRejectedValue(new Error("403"));
+    adminTimeseries.mockResolvedValue([]);
     renderAdmin();
     expect(
       await screen.findByText("Sign in with an admin account to view platform analytics."),
@@ -59,7 +56,6 @@ describe("Admin overview page", () => {
   });
 
   it("shows platform totals and the funnel for an admin", async () => {
-    asAdmin();
     adminOverview.mockResolvedValue(OVERVIEW);
     adminTimeseries.mockResolvedValue([{ day: "2026-06-01", count: 3 }]);
 

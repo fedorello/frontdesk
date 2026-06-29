@@ -6,7 +6,6 @@ import { useEffect, useState } from "react";
 import { api, type BusinessSummary, type DirectorySort } from "@/app/lib/api";
 import { formatDay } from "@/app/lib/format";
 import { useI18n } from "@/app/lib/I18nProvider";
-import { getSession, isAdmin } from "@/app/lib/session";
 import { Card } from "@/components/ui/Card";
 import { EmptyState } from "@/components/ui/EmptyState";
 import { Skeleton } from "@/components/ui/Skeleton";
@@ -36,11 +35,7 @@ export default function AdminBusinessesPage() {
   const [query, setQuery] = useState("");
 
   useEffect(() => {
-    if (!isAdmin(getSession())) {
-      // eslint-disable-next-line react-hooks/set-state-in-effect
-      setState("denied");
-      return;
-    }
+    // The backend admin guard is the gate; a rejected fetch (401/403) shows the denied state.
     api
       .adminBusinesses({ limit: PAGE_SIZE, offset, sort, descending: true, q: query })
       .then((page) => {
