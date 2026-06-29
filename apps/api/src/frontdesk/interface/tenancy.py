@@ -6,6 +6,8 @@ the webhook and worker fetch the config from the repositories and call these.
 See ADR-0008 / ADR-0009.
 """
 
+from pathlib import Path
+
 import httpx
 
 from frontdesk.application.ports import (
@@ -20,14 +22,26 @@ from frontdesk.core.settings import Settings
 from frontdesk.domain.models import Customer
 from frontdesk.infrastructure.channels.composite import LoggingMessaging
 from frontdesk.infrastructure.channels.telegram import TelegramMessaging
+from frontdesk.infrastructure.llm_recorder import RecordingLlmProvider
 from frontdesk.infrastructure.providers.anthropic import AnthropicProvider
 from frontdesk.infrastructure.providers.openai import OpenAiProvider
+from frontdesk.infrastructure.system import SystemClock
 
 _OPENAI_BASE = "https://api.openai.com/v1"
 _OPENROUTER_BASE = "https://openrouter.ai/api/v1"
 
 
 def provider_from_config(
+    config: LlmConfig | None, settings: Settings, client: httpx.AsyncClient
+) -> LlmProvider:
+    """The business's own provider, or the platform default — wrapped to record prompts if asked."""
+    provider = _raw_provider(config, settings, client)
+    if settings.llm_log_dir:
+        return RecordingLlmProvider(provider, Path(settings.llm_log_dir), SystemClock())
+    return provider
+
+
+def _raw_provider(
     config: LlmConfig | None, settings: Settings, client: httpx.AsyncClient
 ) -> LlmProvider:
     """The business's own provider, or the platform default when unset/`default`."""

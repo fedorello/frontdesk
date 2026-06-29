@@ -57,6 +57,9 @@ class Settings(BaseSettings):
     # Diagnostic: log the full prompt sent to the LLM + its reply (incl. tool calls). Off by
     # default (verbose + customer PII); enable temporarily via FRONTDESK_LOG_LLM_PROMPTS=true.
     log_llm_prompts: bool = False
+    # Diagnostic: if set, write every LLM turn (prompt + reply) to its own JSON file under this
+    # directory, for studying prompts offline. Off by default (verbose + customer PII).
+    llm_log_dir: str = ""
 
     # The business the web chat demo talks to (matches the seeded channel binding).
     demo_to_address: str = "+BIZ"

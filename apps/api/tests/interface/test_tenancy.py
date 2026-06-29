@@ -2,6 +2,7 @@
 
 import json
 from collections.abc import Callable
+from pathlib import Path
 from typing import Any
 
 import httpx
@@ -13,6 +14,7 @@ from frontdesk.domain.ids import BusinessId, CustomerId
 from frontdesk.domain.models import Customer
 from frontdesk.infrastructure.channels.composite import LoggingMessaging
 from frontdesk.infrastructure.channels.telegram import TelegramMessaging
+from frontdesk.infrastructure.llm_recorder import RecordingLlmProvider
 from frontdesk.infrastructure.memory import InMemoryTelegramBotRepository
 from frontdesk.interface.tenancy import (
     TenantTelegramMessaging,
@@ -156,3 +158,16 @@ async def test_messaging_honors_a_custom_api_base() -> None:
         Customer(CustomerId("c"), BusinessId("b"), Channel.TELEGRAM, "555"), OutboundMessage("hi")
     )
     assert captured["url"] == "http://mock-telegram:8081/bot123:TOK/sendMessage"  # the override
+
+
+def test_provider_is_wrapped_to_record_prompts_when_a_log_dir_is_set(tmp_path: Path) -> None:
+    settings = Settings(
+        llm_api_key="k", llm_model="m", llm_base_url="https://x", llm_log_dir=str(tmp_path)
+    )
+    provider = provider_from_config(None, settings, httpx.AsyncClient())
+    assert isinstance(provider, RecordingLlmProvider)  # recording wrapper around the default
+
+
+def test_provider_is_not_wrapped_without_a_log_dir() -> None:
+    provider = provider_from_config(None, SETTINGS, httpx.AsyncClient())
+    assert not isinstance(provider, RecordingLlmProvider)  # the bare default provider
