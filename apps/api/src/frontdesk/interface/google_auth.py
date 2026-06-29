@@ -64,7 +64,7 @@ def build_google_auth_router(
     async def start(request: Request) -> RedirectResponse:
         if not enabled:
             return _back("/login?error=google")
-        ip = client_ip(request)
+        ip = client_ip(request, settings.trusted_proxy_hops)
         if settings.login_rate_limit and not await limiter.hit(
             f"oauth:{ip}", settings.login_rate_limit, settings.login_rate_window_seconds
         ):

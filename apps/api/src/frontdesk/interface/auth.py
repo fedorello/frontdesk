@@ -80,7 +80,7 @@ def build_auth_router(
     signing_key = session_signing_key(settings.secret_key)  # purpose-separated from encryption
 
     async def _throttle(request: Request, action: str, limit: int, window: int) -> None:
-        ip = client_ip(request)
+        ip = client_ip(request, settings.trusted_proxy_hops)
         if limit and not await limiter.hit(f"{action}:{ip}", limit, window):
             _logger.warning("rate limited: %s ip=%s", action, ip)
             raise HTTPException(429, "too many attempts; please wait and try again")

@@ -52,6 +52,10 @@ class Settings(BaseSettings):
     login_rate_window_seconds: int = 300  # 5 minutes
     signup_rate_limit: int = 5
     signup_rate_window_seconds: int = 3600  # 1 hour
+    # Number of trusted reverse proxies in front of the app (Railway = 1). The client IP is read
+    # that many hops from the RIGHT of X-Forwarded-For, so a client cannot spoof it by prepending
+    # entries. Set to 0 only when the app is exposed directly with no proxy.
+    trusted_proxy_hops: int = 1
     # If set, the real data-flow logs (events, messaging, agent, webhook) also go here.
     log_file: str = ""
     # Diagnostic: log the full prompt sent to the LLM + its reply (incl. tool calls). Off by
