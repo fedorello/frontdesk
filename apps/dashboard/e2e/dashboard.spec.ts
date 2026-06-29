@@ -171,3 +171,31 @@ test("approving a pending action clears it from the inbox", async ({ page }) => 
 
   await expect(page.getByText(/Nothing waiting/)).toBeVisible();
 });
+
+test("the overview surfaces a 'Show all' footer with the count when the calendar is truncated", async ({
+  page,
+}) => {
+  const many = Array.from({ length: 8 }, (_, i) => ({
+    id: `ap${i}`,
+    service: "Haircut",
+    starts_at: `2026-06-29T1${i % 6}:00:00+00:00`,
+    ends_at: `2026-06-29T1${i % 6}:30:00+00:00`,
+    status: "confirmed",
+  }));
+  await page.route("**/api/businesses/*/appointments", (route) => route.fulfill({ json: many }));
+  await page.route("**/api/businesses/*/conversations", (route) => route.fulfill({ json: [] }));
+  await page.route("**/api/businesses/*", (route) =>
+    route.request().method() === "GET"
+      ? route.fulfill({ json: { name: "Ana", timezone: "UTC" } })
+      : route.fulfill({ json: {} }),
+  );
+  await page.addInitScript(() => {
+    window.localStorage.setItem("tovayo.session", JSON.stringify({ businessId: "b" }));
+  });
+
+  await page.goto("/");
+
+  const showAll = page.getByRole("link", { name: /Show all \(8\)/ });
+  await expect(showAll).toBeVisible(); // the hidden 2 are now obvious via the count
+  await expect(showAll).toHaveAttribute("href", "/calendar");
+});

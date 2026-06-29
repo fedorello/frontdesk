@@ -65,7 +65,8 @@ export default function Home() {
   }, []);
 
   const active = appointments.filter((appointment) => !isCancelled(appointment.status));
-  const chats = recentChats(messages, MAX_ROWS);
+  const allChats = recentChats(messages);
+  const chats = allChats.slice(0, MAX_ROWS);
 
   if (state === "loading") {
     return <OverviewSkeleton />;
@@ -122,9 +123,8 @@ export default function Home() {
           {active.length === 0 ? (
             <Hint text={t("calendar.empty")} />
           ) : (
-            active
-              .slice(0, MAX_ROWS)
-              .map((appointment) => (
+            <>
+              {active.slice(0, MAX_ROWS).map((appointment) => (
                 <AppointmentRow
                   key={appointment.id}
                   appointment={appointment}
@@ -137,7 +137,9 @@ export default function Home() {
                   }
                   onOpen={() => setSelected(appointment)}
                 />
-              ))
+              ))}
+              {active.length > MAX_ROWS && <ShowAllRow href="/calendar" total={active.length} />}
+            </>
           )}
         </Card>
 
@@ -150,9 +152,14 @@ export default function Home() {
           {chats.length === 0 ? (
             <Hint text={t("conversations.empty")} />
           ) : (
-            chats.map((chat) => (
-              <ChatRow key={chat.customer} chat={chat} locale={locale} timeZone={timeZone} />
-            ))
+            <>
+              {chats.map((chat) => (
+                <ChatRow key={chat.customer} chat={chat} locale={locale} timeZone={timeZone} />
+              ))}
+              {allChats.length > MAX_ROWS && (
+                <ShowAllRow href="/conversations" total={allChats.length} />
+              )}
+            </>
           )}
         </Card>
       </div>
@@ -244,7 +251,7 @@ interface ChatSummary {
 }
 
 // Newest-first feed → one entry per customer, most-recent first.
-function recentChats(messages: MessageView[], max: number): ChatSummary[] {
+function recentChats(messages: MessageView[]): ChatSummary[] {
   const seen = new Map<string, ChatSummary>();
   for (const message of messages) {
     if (message.role === "tool" || seen.has(message.customer)) continue;
@@ -254,7 +261,21 @@ function recentChats(messages: MessageView[], max: number): ChatSummary[] {
       at: message.at,
     });
   }
-  return [...seen.values()].slice(0, max);
+  return [...seen.values()];
+}
+
+// A footer that makes truncation obvious: shows the total and links to the full list.
+function ShowAllRow({ href, total }: { href: string; total: number }) {
+  const { t } = useI18n();
+  return (
+    <Link
+      href={href}
+      className="flex items-center justify-center gap-1.5 px-5 py-3.5 text-sm font-bold text-accent transition hover:bg-canvas"
+    >
+      {t("overview.showAll", { count: total })}
+      <span aria-hidden>→</span>
+    </Link>
+  );
 }
 
 function ChatRow({
