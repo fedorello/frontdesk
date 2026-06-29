@@ -2,17 +2,8 @@
 
 import { useState } from "react";
 
-import { api } from "./api";
-import { LOCALE_NAMES, LOCALES, type Locale } from "./i18n";
+import { LOCALE_NAMES, LOCALES } from "./i18n";
 import { useI18n } from "./I18nProvider";
-import { getSession } from "./session";
-
-// Persist the owner's choice to the business so the bot + owner notifications speak it too;
-// best-effort and only when signed in (the switcher also shows on login/onboarding).
-function persistLocale(locale: Locale): void {
-  const session = getSession();
-  if (session !== null) void api.setLocale(session.businessId, locale).catch(() => {});
-}
 
 const GlobeIcon = () => (
   <svg
@@ -83,7 +74,6 @@ export function LanguageSwitcher() {
                 type="button"
                 onClick={() => {
                   setLocale(l);
-                  persistLocale(l);
                   setOpen(false);
                 }}
                 className={`flex w-full items-center justify-between rounded-lg px-3 py-2 text-sm font-semibold transition ${

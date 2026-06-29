@@ -24,18 +24,17 @@ export function I18nProvider({ children }: { children: ReactNode }) {
   const [locale, setLocaleState] = useState<Locale>(DEFAULT_LOCALE);
 
   useEffect(() => {
-    // The shared cookie (also set by the marketing site) is the source of truth.
-    const shared = readSharedLocale();
-    if (shared !== null) {
-      // eslint-disable-next-line react-hooks/set-state-in-effect -- restore the shared language on mount
-      setLocaleState(shared);
-      return;
-    }
-    // No shared choice yet: signed-in owners fall back to the language saved on their
-    // business (DB, cross-device), and that seeds the cookie so both sites agree afterwards.
+    // Fast paint from the shared-cookie cache (it also bridges the marketing site).
+    const cached = readSharedLocale();
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- paint the cached language on mount
+    if (cached !== null) setLocaleState(cached);
+    // The single source of truth is the language saved on the business. A signed-in owner
+    // reconciles the UI to it (and refreshes the cache); signed out there is no business, so the
+    // cookie stands. This way the cookie can never silently diverge from the business.
     const session = getSession();
-    const pending = session && api.getBusiness?.(session.businessId);
-    if (!pending) return;
+    if (session === null) return;
+    const pending = api.getBusiness?.(session.businessId);
+    if (pending === undefined) return;
     pending
       .then((business) => {
         if (business.locale !== undefined && isLocale(business.locale)) {
@@ -48,10 +47,11 @@ export function I18nProvider({ children }: { children: ReactNode }) {
 
   const setLocale = (next: Locale) => {
     setLocaleState(next);
-    writeLocaleCookie(next); // the shared source of truth (app + marketing site)
+    writeLocaleCookie(next); // refresh the cache (shared with the marketing site)
     const session = getSession();
     if (session !== null) {
-      // Also persist on the business so it follows the owner across devices and drives the bot.
+      // The authoritative write: the business's language is the source of truth — it follows the
+      // owner across devices and drives the bot + owner notifications.
       void api.setLocale?.(session.businessId, next)?.catch(() => {});
     }
   };
