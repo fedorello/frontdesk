@@ -13,7 +13,10 @@ product** built with an **AI-native** workflow.
 ## Rules
 
 1. **English only.** All code, comments, docs, commits, and identifiers are in
-   English.
+   English. **Exception — chat language:** when replying to the user (Fedor) in
+   the chat, always reply in **Russian**, using **plain, short, clear** language
+   (simple words, no jargon dumps). This applies only to conversational replies,
+   never to repository artifacts (which stay English).
 2. **Follow [`CODING_PRINCIPLES.md`](./CODING_PRINCIPLES.md) strictly.** It is the
    engineering standard for this repo — clean code, tests, and discipline. When in
    doubt, it wins.
@@ -64,7 +67,13 @@ for the layout). Keep this index in sync — when you add a document, add it her
   invariants, the database schema, and errors.
 - [`docs/plans/implementation-plan.md`](./docs/plans/implementation-plan.md) — the
   phased, inside-out build with a status snapshot and per-phase Definition of Done.
+- [`docs/design/admin-dashboard.md`](./docs/design/admin-dashboard.md) — the admin
+  role + cross-tenant operator analytics dashboard (design, data-model gaps,
+  hexagonal fit, phased plan).
+- [`docs/plans/admin-dashboard-plan.md`](./docs/plans/admin-dashboard-plan.md) — the
+  inside-out implementation plan for the admin dashboard (phases, files, tests, DoD).
 - **ADRs** (`docs/adr/`): hexagonal foundations (0001), channels behind a
   messaging port (0002), multi-tenant by business (0003), durable reminders in
   PostgreSQL (0004), human-in-the-loop via Airlock (0005), model-agnostic LLM
-  provider (0006), the assistant as a tool-use agent (0007).
+  provider (0006), the assistant as a tool-use agent (0007), admin role &
+  cross-tenant analytics (0012).
