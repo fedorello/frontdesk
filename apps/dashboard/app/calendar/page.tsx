@@ -5,7 +5,7 @@ import { Suspense, useEffect, useState } from "react";
 
 import { api, type AppointmentView } from "@/app/lib/api";
 import { readCache, writeCache } from "@/app/lib/cache";
-import { isCancelled, PENDING, STATUS_LABEL } from "@/app/lib/appointments";
+import { PENDING, STATUS_LABEL } from "@/app/lib/appointments";
 import { formatDay, formatTime } from "@/app/lib/format";
 import type { Locale } from "@/app/lib/i18n";
 import { useI18n } from "@/app/lib/I18nProvider";
@@ -39,83 +39,79 @@ function durationMinutes(startsAt: string, endsAt: string): number {
   return Number.isFinite(minutes) ? Math.round(minutes) : 0;
 }
 
-// Search a booking by service, booking code, or any captured intake field/answer.
-function matchesQuery(appointment: AppointmentView, query: string): boolean {
-  return (
-    appointment.service.toLowerCase().includes(query) ||
-    appointment.id.toLowerCase().includes(query) ||
-    (appointment.intake ?? []).some(
-      (answer) =>
-        answer.name.toLowerCase().includes(query) || answer.value.toLowerCase().includes(query),
-    )
-  );
-}
-
 function CalendarContent() {
   const { t, locale } = useI18n();
   const searchParams = useSearchParams();
+  const query = (searchParams.get("q") ?? "").trim();
   const [state, setState] = useState<LoadState>("loading");
-  const [appointments, setAppointments] = useState<AppointmentView[]>([]);
+  const [items, setItems] = useState<AppointmentView[]>([]);
+  const [total, setTotal] = useState(0);
   const [timeZone, setTimeZone] = useState("UTC");
   const [showCancelled, setShowCancelled] = useState(false);
   const [page, setPage] = useState(0);
+  const [reload, setReload] = useState(0);
   const [selected, setSelected] = useState<AppointmentView | null>(null);
   const session = getSession();
+  const pageCount = Math.max(1, Math.ceil(total / PAGE_SIZE));
 
+  // A new search (from the Topbar, via the URL) starts back at the first page. Adjusting state
+  // during render is the React-sanctioned way to react to a changed input without an effect.
+  const [lastQuery, setLastQuery] = useState(query);
+  if (query !== lastQuery) {
+    setLastQuery(query);
+    setPage(0);
+  }
+
+  // Fetch ONE page from the server — the list is never pulled in full, so it scales to any volume.
   useEffect(() => {
-    const session = getSession();
-    if (session === null) {
+    const current = getSession();
+    if (current === null) {
       // eslint-disable-next-line react-hooks/set-state-in-effect
       setState("anon");
       return;
     }
-    const bid = session.businessId;
+    const bid = current.businessId;
+    const isFirstView = page === 0 && !showCancelled && query === "";
     const key = `calendar.${bid}`;
-    // Stale-while-revalidate: show the last-known bookings immediately, then refetch.
-    const cached = readCache<{ appointments: AppointmentView[]; timeZone: string }>(key);
-    if (cached) {
-      setAppointments(cached.appointments);
-      setTimeZone(cached.timeZone);
-      setState("ready");
+    // Stale-while-revalidate, but only for the default landing view (first page, no filter/search).
+    if (isFirstView) {
+      const cached = readCache<{ items: AppointmentView[]; total: number; timeZone: string }>(key);
+      if (cached) {
+        setItems(cached.items);
+        setTotal(cached.total);
+        setTimeZone(cached.timeZone);
+        setState("ready");
+      }
     }
     void (async () => {
-      const [items, business] = await Promise.all([
-        api.appointments(bid).catch(() => []),
+      const [pageData, business] = await Promise.all([
+        api
+          .appointments(bid, {
+            limit: PAGE_SIZE,
+            offset: page * PAGE_SIZE,
+            includeCancelled: showCancelled,
+            q: query,
+          })
+          .catch(() => ({ items: [], total: 0 })),
         api.getBusiness(bid).catch(() => null),
       ]);
-      const timeZone = business ? business.timezone : (cached?.timeZone ?? "UTC");
-      setAppointments(items);
-      setTimeZone(timeZone);
+      const tz = business ? business.timezone : "UTC";
+      setItems(pageData.items);
+      setTotal(pageData.total);
+      setTimeZone(tz);
       setState("ready");
-      writeCache(key, { appointments: items, timeZone });
+      if (isFirstView) {
+        writeCache(key, { items: pageData.items, total: pageData.total, timeZone: tz });
+      }
     })();
-  }, []);
+  }, [page, showCancelled, query, reload]);
 
-  // Confirm a pending booking; apply the status the server actually returns (no optimism).
+  // Confirm a pending booking, then refetch so status/order/membership stay correct on this page.
   const confirm = async (appointmentId: string) => {
-    const session = getSession();
-    if (session === null) return;
-    const result = await api.confirmAppointment(session.businessId, appointmentId);
-    setAppointments((previous) =>
-      previous.map((item) =>
-        item.id === appointmentId ? { ...item, status: result.status } : item,
-      ),
-    );
-  };
-
-  const cancelledCount = appointments.filter((item) => isCancelled(item.status)).length;
-  const afterCancel = showCancelled
-    ? appointments
-    : appointments.filter((item) => !isCancelled(item.status));
-  const query = (searchParams.get("q") ?? "").trim().toLowerCase();
-  const visible = query ? afterCancel.filter((item) => matchesQuery(item, query)) : afterCancel;
-  const pageCount = Math.max(1, Math.ceil(visible.length / PAGE_SIZE));
-  const safePage = Math.min(page, pageCount - 1);
-  const paged = visible.slice(safePage * PAGE_SIZE, (safePage + 1) * PAGE_SIZE);
-
-  const toggleCancelled = (show: boolean) => {
-    setShowCancelled(show);
-    setPage(0);
+    const current = getSession();
+    if (current === null) return;
+    await api.confirmAppointment(current.businessId, appointmentId);
+    setReload((value) => value + 1);
   };
 
   return (
@@ -130,31 +126,28 @@ function CalendarContent() {
 
       {state === "anon" && <EmptyState icon="calendar" title={t("calendar.connectFirst")} />}
 
-      {state === "ready" && appointments.length === 0 && (
-        <EmptyState icon="calendar" title={t("calendar.empty")} />
-      )}
-
-      {state === "ready" && appointments.length > 0 && (
+      {state === "ready" && (
         <>
-          {cancelledCount > 0 && (
-            <label className="mb-4 flex items-center justify-end gap-2 text-sm">
-              <span className="text-muted">{t("calendar.showCancelled")}</span>
-              <ToggleSwitch
-                checked={showCancelled}
-                onChange={toggleCancelled}
-                label={t("calendar.showCancelled")}
-              />
-            </label>
-          )}
+          <label className="mb-4 flex items-center justify-end gap-2 text-sm">
+            <span className="text-muted">{t("calendar.showCancelled")}</span>
+            <ToggleSwitch
+              checked={showCancelled}
+              onChange={(show) => {
+                setShowCancelled(show);
+                setPage(0);
+              }}
+              label={t("calendar.showCancelled")}
+            />
+          </label>
 
-          {visible.length === 0 ? (
+          {items.length === 0 ? (
             <EmptyState
               icon={query ? "search" : "calendar"}
               title={query ? t("common.noResults") : t("calendar.empty")}
             />
           ) : (
             <div className="space-y-2.5">
-              {paged.map((appointment) => (
+              {items.map((appointment) => (
                 <AppointmentCard
                   key={appointment.id}
                   appointment={appointment}
@@ -176,7 +169,7 @@ function CalendarContent() {
 
           {pageCount > 1 && (
             <Pagination
-              page={safePage}
+              page={page}
               pageCount={pageCount}
               onPage={setPage}
               prevLabel={t("calendar.prev")}
@@ -193,20 +186,9 @@ function CalendarContent() {
           locale={locale}
           businessId={session.businessId}
           onClose={() => setSelected(null)}
-          onChanged={(result) => {
-            setAppointments((previous) =>
-              previous.map((item) =>
-                item.id === result.id
-                  ? {
-                      ...item,
-                      status: result.status,
-                      starts_at: result.starts_at,
-                      ends_at: result.ends_at,
-                    }
-                  : item,
-              ),
-            );
+          onChanged={() => {
             setSelected(null);
+            setReload((value) => value + 1); // a cancel/reschedule can change this page's membership
           }}
         />
       )}

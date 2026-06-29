@@ -1,16 +1,20 @@
 import { expect, test } from "@playwright/test";
 
 test("the calendar shows the business's live bookings", async ({ page }) => {
-  await page.route("**/api/businesses/**/appointments", (route) =>
+  await page.route("**/api/businesses/**/appointments*", (route) =>
     route.fulfill({
-      json: [
-        {
-          service: "Haircut",
-          starts_at: "2026-06-26T13:00:00+00:00",
-          ends_at: "2026-06-26T14:00:00+00:00",
-          status: "confirmed",
-        },
-      ],
+      json: {
+        items: [
+          {
+            id: "ap1",
+            service: "Haircut",
+            starts_at: "2026-06-26T13:00:00+00:00",
+            ends_at: "2026-06-26T14:00:00+00:00",
+            status: "confirmed",
+          },
+        ],
+        total: 1,
+      },
     }),
   );
   await page.addInitScript(() => {
@@ -182,7 +186,9 @@ test("the overview surfaces a 'Show all' footer with the count when the calendar
     ends_at: `2026-06-29T1${i % 6}:30:00+00:00`,
     status: "confirmed",
   }));
-  await page.route("**/api/businesses/*/appointments", (route) => route.fulfill({ json: many }));
+  await page.route("**/api/businesses/*/appointments*", (route) =>
+    route.fulfill({ json: { items: many.slice(0, 6), total: many.length } }),
+  );
   await page.route("**/api/businesses/*/conversations", (route) => route.fulfill({ json: [] }));
   await page.route("**/api/businesses/*", (route) =>
     route.request().method() === "GET"
@@ -198,4 +204,40 @@ test("the overview surfaces a 'Show all' footer with the count when the calendar
   const showAll = page.getByRole("link", { name: /Show all \(8\)/ });
   await expect(showAll).toBeVisible(); // the hidden 2 are now obvious via the count
   await expect(showAll).toHaveAttribute("href", "/calendar");
+});
+
+test("the calendar paginates server-side: Next fetches the second page", async ({ page }) => {
+  // 10 bookings, 8 per page; the mock returns only the slice for the requested offset/limit.
+  const all = Array.from({ length: 10 }, (_, i) => ({
+    id: `ap${i}`,
+    service: `Service ${i}`,
+    starts_at: "2026-06-29T10:00:00+00:00",
+    ends_at: "2026-06-29T10:30:00+00:00",
+    status: "confirmed",
+  }));
+  await page.route("**/api/businesses/*/appointments*", (route) => {
+    const params = new URL(route.request().url()).searchParams;
+    const offset = Number(params.get("offset") ?? "0");
+    const limit = Number(params.get("limit") ?? "8");
+    route.fulfill({ json: { items: all.slice(offset, offset + limit), total: all.length } });
+  });
+  await page.route("**/api/businesses/*", (route) =>
+    route.request().method() === "GET"
+      ? route.fulfill({ json: { name: "Ana", timezone: "UTC" } })
+      : route.fulfill({ json: {} }),
+  );
+  await page.addInitScript(() => {
+    window.localStorage.setItem("tovayo.session", JSON.stringify({ businessId: "b" }));
+  });
+
+  await page.goto("/calendar");
+
+  await expect(page.getByText("Service 0", { exact: true })).toBeVisible(); // first page
+  await expect(page.getByText("1 / 2")).toBeVisible(); // two pages, not all 10 at once
+  await expect(page.getByText("Service 9", { exact: true })).toHaveCount(0); // not loaded yet
+
+  await page.getByRole("button", { name: "Next" }).click();
+
+  await expect(page.getByText("Service 9", { exact: true })).toBeVisible(); // fetched on demand
+  await expect(page.getByText("2 / 2")).toBeVisible();
 });

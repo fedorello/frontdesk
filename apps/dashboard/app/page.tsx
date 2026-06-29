@@ -5,7 +5,7 @@ import { useEffect, useState } from "react";
 
 import { api, type AppointmentView, type MessageView } from "@/app/lib/api";
 import { readCache, writeCache } from "@/app/lib/cache";
-import { isCancelled, STATUS_LABEL } from "@/app/lib/appointments";
+import { STATUS_LABEL } from "@/app/lib/appointments";
 import { formatDay, formatTime } from "@/app/lib/format";
 import type { Locale } from "@/app/lib/i18n";
 import { useI18n } from "@/app/lib/I18nProvider";
@@ -24,6 +24,7 @@ export default function Home() {
   const { t, locale } = useI18n();
   const [state, setState] = useState<LoadState>("loading");
   const [appointments, setAppointments] = useState<AppointmentView[]>([]);
+  const [bookingTotal, setBookingTotal] = useState(0);
   const [messages, setMessages] = useState<MessageView[]>([]);
   const [timeZone, setTimeZone] = useState("UTC");
   const [selected, setSelected] = useState<AppointmentView | null>(null);
@@ -41,30 +42,38 @@ export default function Home() {
     // Stale-while-revalidate: paint the last-known data immediately, then refetch.
     const cached = readCache<{
       appointments: AppointmentView[];
+      bookingTotal: number;
       messages: MessageView[];
       timeZone: string;
     }>(key);
     if (cached) {
       setAppointments(cached.appointments);
+      setBookingTotal(cached.bookingTotal);
       setMessages(cached.messages);
       setTimeZone(cached.timeZone);
       setState("ready");
     }
+    // Only the first page of upcoming bookings + the true total — never the whole list.
     Promise.all([
-      api.appointments(bid).catch(() => []),
+      api.appointments(bid, { limit: MAX_ROWS, offset: 0 }).catch(() => ({ items: [], total: 0 })),
       api.conversations(bid).catch(() => []),
       api.getBusiness(bid).catch(() => null),
-    ]).then(([appts, msgs, business]) => {
+    ]).then(([bookings, msgs, business]) => {
       const timeZone = business ? business.timezone : (cached?.timeZone ?? "UTC");
-      setAppointments(appts);
+      setAppointments(bookings.items);
+      setBookingTotal(bookings.total);
       setMessages(msgs);
       setTimeZone(timeZone);
       setState("ready");
-      writeCache(key, { appointments: appts, messages: msgs, timeZone });
+      writeCache(key, {
+        appointments: bookings.items,
+        bookingTotal: bookings.total,
+        messages: msgs,
+        timeZone,
+      });
     });
   }, []);
 
-  const active = appointments.filter((appointment) => !isCancelled(appointment.status));
   const allChats = recentChats(messages);
   const chats = allChats.slice(0, MAX_ROWS);
 
@@ -107,7 +116,7 @@ export default function Home() {
           icon="calendar"
           tone="accent"
           label={t("overview.bookings")}
-          value={active.length}
+          value={bookingTotal}
         />
         <StatCard
           icon="conversations"
@@ -120,11 +129,11 @@ export default function Home() {
       <div className="mt-5 grid items-start gap-5 lg:grid-cols-[1.4fr_1fr]">
         <Card className="overflow-hidden">
           <CardHead title={t("nav.calendar")} href="/calendar" cta={t("overview.viewAll")} />
-          {active.length === 0 ? (
+          {appointments.length === 0 ? (
             <Hint text={t("calendar.empty")} />
           ) : (
             <>
-              {active.slice(0, MAX_ROWS).map((appointment) => (
+              {appointments.map((appointment) => (
                 <AppointmentRow
                   key={appointment.id}
                   appointment={appointment}
@@ -138,7 +147,7 @@ export default function Home() {
                   onOpen={() => setSelected(appointment)}
                 />
               ))}
-              {active.length > MAX_ROWS && <ShowAllRow href="/calendar" total={active.length} />}
+              {bookingTotal > MAX_ROWS && <ShowAllRow href="/calendar" total={bookingTotal} />}
             </>
           )}
         </Card>

@@ -2,7 +2,9 @@ import { expect, test } from "@playwright/test";
 
 test("an existing owner logs in and reaches the dashboard", async ({ page }) => {
   await page.route("**/api/businesses/**", (route) => route.fulfill({ json: {} }));
-  await page.route("**/api/businesses/*/appointments", (route) => route.fulfill({ json: [] }));
+  await page.route("**/api/businesses/*/appointments*", (route) =>
+    route.fulfill({ json: { items: [], total: 0 } }),
+  );
   await page.route("**/api/businesses/*/conversations", (route) => route.fulfill({ json: [] }));
   await page.route("**/api/login", (route) =>
     route.fulfill({ json: { token: "t", business_id: "b" } }),

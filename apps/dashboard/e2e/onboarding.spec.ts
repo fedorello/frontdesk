@@ -9,7 +9,9 @@ async function mockApi(page: Page): Promise<void> {
   await page.route("**/api/signup", (route) =>
     route.fulfill({ json: { token: "tok-1", business_id: "biz-1" } }),
   );
-  await page.route("**/api/businesses/*/appointments", (route) => route.fulfill({ json: [] }));
+  await page.route("**/api/businesses/*/appointments*", (route) =>
+    route.fulfill({ json: { items: [], total: 0 } }),
+  );
   await page.route("**/api/businesses/*/conversations", (route) => route.fulfill({ json: [] }));
   await page.route("**/api/businesses/*/telegram", (route) =>
     route.fulfill({ json: { connected: false } }),

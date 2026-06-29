@@ -94,6 +94,18 @@ export interface AppointmentView {
   intake?: IntakeAnswer[];
 }
 
+export interface AppointmentPage {
+  items: AppointmentView[];
+  total: number; // matching appointments across all pages, for the page count
+}
+
+export interface AppointmentQuery {
+  limit: number;
+  offset: number;
+  includeCancelled?: boolean;
+  q?: string;
+}
+
 export interface AppointmentResult {
   id: string;
   status: string;
@@ -218,8 +230,15 @@ export const api = {
   unlinkOwnerTelegram: (id: string): Promise<OwnerTelegram> =>
     request("DELETE", `/api/businesses/${id}/telegram-owner`),
 
-  appointments: (id: string): Promise<AppointmentView[]> =>
-    request("GET", `/api/businesses/${id}/appointments`),
+  appointments: (id: string, query: AppointmentQuery): Promise<AppointmentPage> => {
+    const params = new URLSearchParams({
+      limit: String(query.limit),
+      offset: String(query.offset),
+      include_cancelled: String(query.includeCancelled ?? false),
+      q: query.q ?? "",
+    });
+    return request("GET", `/api/businesses/${id}/appointments?${params.toString()}`);
+  },
 
   confirmAppointment: (
     id: string,
