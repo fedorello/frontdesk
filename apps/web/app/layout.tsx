@@ -3,6 +3,7 @@ import { Manrope } from "next/font/google";
 import { headers } from "next/headers";
 
 import "./globals.css";
+import { SITE_DESCRIPTION, SITE_TITLE, SITE_URL } from "./lib/site";
 
 // Manrope covers Latin AND Cyrillic in one geometric sans close to Plus Jakarta Sans,
 // so en/es/ru/zh all render in the same typeface (no system fallback for Cyrillic).
@@ -13,9 +14,22 @@ const jakarta = Manrope({
 });
 
 export const metadata: Metadata = {
-  title: "Tovayo — a free AI front desk for your small business",
-  description:
-    "Tovayo answers customers, books appointments, and sends reminders — 24/7, in their language. Free and open source, or hosted for you. Both free.",
+  metadataBase: new URL(SITE_URL),
+  title: SITE_TITLE,
+  description: SITE_DESCRIPTION,
+  alternates: { canonical: "/" },
+  openGraph: {
+    type: "website",
+    siteName: "Tovayo",
+    url: SITE_URL,
+    title: SITE_TITLE,
+    description: SITE_DESCRIPTION,
+  },
+  twitter: {
+    card: "summary_large_image",
+    title: SITE_TITLE,
+    description: SITE_DESCRIPTION,
+  },
 };
 
 // Set the theme before paint so there's no flash. Reads the shared `tovayo.theme` cookie
