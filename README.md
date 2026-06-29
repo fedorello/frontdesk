@@ -113,6 +113,34 @@ make stack-down    # stop and wipe the volume
 The LLM is model-agnostic — any OpenAI-compatible or Anthropic endpoint; the demo
 defaults to `deepseek/deepseek-v4-flash` via OpenRouter.
 
+## Platform admin
+
+Beyond the per-business owner dashboard, platform operators get a **cross-tenant
+analytics dashboard** at `/admin`: signups over time, agent activity, bookings with
+no-show / cancellation rates, an activation funnel, and a searchable per-business
+directory. It is **read-only and aggregate-only** — counts and configuration, never a
+customer's messages, phone number, or intake answers
+([ADR-0012](./docs/adr/0012-admin-role-and-cross-tenant-analytics.md),
+[design](./docs/design/admin-dashboard.md)).
+
+### Granting the admin role
+
+`admin` is a separate account role, provisioned **out-of-band** — never self-granted and
+never from the request path:
+
+1. Make sure the account already exists (it has signed up).
+2. List the emails to grant (comma-separated) in the API's environment:
+   `FRONTDESK_ADMIN_EMAILS=ops@example.com,you@example.com`.
+3. Run the idempotent promotion (with the database up):
+
+   ```bash
+   make promote-admin
+   ```
+
+It sets `role=admin` on the listed accounts and is safe to re-run. The role lives in the
+database; the request path checks only the stored role. Sign in again (or reload) and the
+**Admin** link appears in the nav.
+
 ## Documentation
 
 - **[Usage guide](./docs/usage.md)** — what it does, how it works, and how to run,
