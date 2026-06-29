@@ -82,7 +82,7 @@ class Settings(BaseSettings):
     llm_api_key: str = ""
     llm_model: str = "deepseek/deepseek-v4-flash"
     llm_base_url: str = "https://openrouter.ai/api/v1"
-    llm_max_tokens: int = 2048  # enough for a reasoning model to think AND emit the tool call
+    llm_max_tokens: int = 4096  # room for a reasoning model to think AND still emit its reply
 
     # Supervisor (Groq): a fast classifier that catches replies offering times without a fresh
     # find_availability call. Empty api key disables the guardrail (a no-op detector).

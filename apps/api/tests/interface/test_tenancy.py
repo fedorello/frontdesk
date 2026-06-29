@@ -57,7 +57,7 @@ async def test_no_config_uses_the_platform_default() -> None:
     assert "openrouter.ai" in sent["url"]
     assert sent["headers"]["authorization"] == "Bearer platform-key"
     assert sent["body"]["model"] == "deepseek/deepseek-v4-flash"
-    assert sent["body"]["max_tokens"] == 2048
+    assert sent["body"]["max_tokens"] == 4096  # the settings default budget
 
 
 async def test_default_mode_uses_the_platform_default() -> None:

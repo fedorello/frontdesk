@@ -304,6 +304,25 @@ async def test_appointments_block_includes_recent_past_appointments() -> None:
     assert "past-1" in block  # history the model can refer to, always accurate
 
 
+async def test_empty_completion_is_retried_before_replying() -> None:
+    # The model returns nothing usable (no text, no tools) — retry instead of sending a dead end.
+    world = build_world([Completion(None), Completion("Here you go!")])
+
+    await world.assistant.handle(inbound("hi"))
+
+    assert world.messaging.sent[-1][1].text.endswith("Here you go!")  # recovered on the retry
+    assert isinstance(world.deps.llm, ScriptedLlmProvider)
+    assert world.deps.llm.calls == 2
+
+
+async def test_persistent_empty_completion_escalates_rather_than_hangs() -> None:
+    world = build_world([Completion(None), Completion(None), Completion(None)])
+
+    await world.assistant.handle(inbound("hi"))
+
+    assert world.messaging.sent[-1][1].text.endswith(ESCALATION_FALLBACK["en"])  # graceful hand-off
+
+
 async def test_reschedule_unknown_id_steers_to_lookup() -> None:
     world = build_world([])
 

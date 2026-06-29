@@ -68,6 +68,7 @@ _CLAIM_FOR_TOOL = {
 # Appended to the system prompt on the corrective retry. The backing tool is forced on that
 # retry (tool_choice), so its fresh result enters the chat — these only steer how to use it.
 _MAX_CORRECTIONS = 2  # at most this many corrective retries before sending the model's reply
+_MAX_EMPTY_RETRIES = 2  # at most this many retries when the model returns nothing usable
 _TIMES_NOTICE = (
     "\n\nSTOP: the appointment times in your previous draft are NOT real — you did not call "
     "find_availability this turn, you reused a list from earlier in the chat, and slots change "
@@ -456,6 +457,7 @@ class Assistant:
         )
         verified: set[ReplyClaim] = set()  # claims backed by a tool call this turn
         corrections = 0  # how many corrective retries the supervisor has spent
+        empty_retries = 0  # how many empty (no text, no tool) completions we've retried
         forced_tool: str | None = None  # the tool the next retry must call (tool_choice)
         for _ in range(MAX_STEPS):
             completion = await self._d.llm.complete(
@@ -463,7 +465,16 @@ class Assistant:
             )
             forced_tool = None  # force at most the single next call
             if not completion.tool_calls:
-                reply = completion.text or _escalation(business)
+                if not completion.text:
+                    # The model emitted nothing usable (often a reasoning model that ran out of
+                    # room). Retry a couple of times before falling back to a human hand-off,
+                    # rather than send the customer a dead end.
+                    if empty_retries < _MAX_EMPTY_RETRIES:
+                        empty_retries += 1
+                        _logger.info("empty completion — retrying (business=%s)", business.id)
+                        continue
+                    return _escalation(business)
+                reply = completion.text
                 correction = (
                     None
                     if corrections >= _MAX_CORRECTIONS
