@@ -52,3 +52,11 @@ def test_cipher_still_decrypts_legacy_ciphertext() -> None:
 
     assert cipher.decrypt(legacy) == "old-secret"  # legacy fallback
     assert cipher.decrypt(cipher.encrypt("new-secret")) == "new-secret"  # derived key
+
+
+def test_key_derivation_fails_closed_on_an_empty_master() -> None:
+    # An empty secret must never derive (deterministic, attacker-known) subkeys — every
+    # consumer raises, independently of which one is built first.
+    for derive in (session_signing_key, oauth_state_key, encryption_key):
+        with pytest.raises(ValueError, match="FRONTDESK_SECRET_KEY"):
+            derive("")

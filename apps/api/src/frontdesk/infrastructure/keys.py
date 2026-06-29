@@ -12,6 +12,10 @@ from cryptography.hazmat.primitives.kdf.hkdf import HKDF
 
 
 def _derive(master: str, info: bytes, length: int = 32) -> bytes:
+    # Fail closed: an empty master would derive deterministic, attacker-known subkeys (forgeable
+    # session/OAuth tokens). Guard here so EVERY consumer is safe, not only the cipher.
+    if not master:
+        raise ValueError("FRONTDESK_SECRET_KEY is required and must not be empty")
     return HKDF(algorithm=hashes.SHA256(), length=length, salt=None, info=info).derive(
         master.encode()
     )
