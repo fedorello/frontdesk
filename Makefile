@@ -6,7 +6,7 @@ DASHBOARD := apps/dashboard
 COMPOSE := docker compose -f deploy/docker/docker-compose.yml
 
 .PHONY: help \
-	install fmt fmt-check lint typecheck test test-integration check demo serve \
+	install fmt fmt-check lint typecheck test test-integration check demo serve promote-admin \
 	dashboard-install dashboard-check dashboard-e2e dashboard-dev \
 	up down logs stack-build stack-up stack-down stack-logs
 
@@ -41,6 +41,9 @@ check: fmt-check lint typecheck test ## The full backend gate
 
 demo: ## Seed a demo business and book through the real stack (needs `make up` + FD_LLM_KEY)
 	cd $(API) && uv run python scripts/demo.py
+
+promote-admin: ## Grant admin to FRONTDESK_ADMIN_EMAILS accounts (idempotent; needs `make up`)
+	cd $(API) && uv run python scripts/promote_admin.py
 
 serve: ## Run the API locally with reload (needs `make up`)
 	cd $(API) && uv run uvicorn frontdesk.interface.app:create_production_app --factory --reload

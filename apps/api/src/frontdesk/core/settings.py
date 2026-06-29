@@ -78,6 +78,10 @@ class Settings(BaseSettings):
     # Freeze "now" (ISO 8601) for a stable demo; empty = the real system clock.
     fixed_now: str = ""
 
+    # Comma-separated emails to grant the admin role (ADR-0012). Consumed ONLY by
+    # scripts/promote_admin.py (`make promote-admin`) — never in the request path.
+    admin_emails: str = ""
+
     # Whether a business may bring its own LLM provider + key (vs the managed default).
     # Off until the feature is launched; enable via FRONTDESK_ALLOW_OWN_LLM=true.
     allow_own_llm: bool = False
