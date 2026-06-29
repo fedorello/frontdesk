@@ -11,6 +11,7 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
 
+from frontdesk.application.analytics import PlatformAnalytics
 from frontdesk.application.appointments import (
     BookAppointment,
     CancelAppointment,
@@ -70,6 +71,11 @@ from frontdesk.infrastructure.postgres.adapters import (
     SqlTelegramLinkCodeStore,
     SqlUsageStore,
 )
+from frontdesk.infrastructure.postgres.analytics import (
+    SqlBusinessDirectoryRepository,
+    SqlPlatformSummaryRepository,
+    SqlPlatformTimeseriesRepository,
+)
 from frontdesk.infrastructure.providers.anthropic import AnthropicProvider
 from frontdesk.infrastructure.providers.groq import (
     GroqReplyClaimClassifier,
@@ -85,9 +91,15 @@ from frontdesk.infrastructure.system import (
     UuidIdGenerator,
 )
 from frontdesk.interface.account_api import build_account_router
+from frontdesk.interface.admin_api import build_admin_router
 from frontdesk.interface.appointments_api import build_appointments_router
 from frontdesk.interface.approvals import build_approvals_router
-from frontdesk.interface.auth import build_auth_router, make_owner_guard
+from frontdesk.interface.auth import (
+    build_auth_router,
+    build_me_router,
+    make_admin_guard,
+    make_owner_guard,
+)
 from frontdesk.interface.business_config import build_llm_config_router
 from frontdesk.interface.chat import build_chat_router
 from frontdesk.interface.config_api import build_config_router
@@ -370,4 +382,16 @@ def create_production_app() -> FastAPI:
     )
     app.include_router(build_account_router(SqlBusinessEraser(sessions), guard))
     app.include_router(build_metrics_router(usage, settings, clock, guard))
+    # Cross-tenant admin analytics (ADR-0012), behind the admin guard; /api/me for the client role.
+    analytics = PlatformAnalytics(
+        SqlPlatformSummaryRepository(sessions),
+        SqlPlatformTimeseriesRepository(sessions),
+        SqlBusinessDirectoryRepository(sessions),
+        clock,
+    )
+    admin_guard = make_admin_guard(
+        accounts, session_signing_key(settings.secret_key), settings.token_max_age_seconds
+    )
+    app.include_router(build_admin_router(analytics, admin_guard))
+    app.include_router(build_me_router(accounts, settings))
     return app
