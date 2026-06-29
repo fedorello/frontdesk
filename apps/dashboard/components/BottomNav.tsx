@@ -2,10 +2,9 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { useEffect, useState } from "react";
 
 import { useI18n } from "@/app/lib/I18nProvider";
-import { getSession, isAdmin } from "@/app/lib/session";
+import { useIsAdmin } from "@/app/lib/useIsAdmin";
 import { Icon } from "@/components/icons";
 import { isActive, navItemsFor } from "@/components/nav-items";
 
@@ -13,12 +12,7 @@ import { isActive, navItemsFor } from "@/components/nav-items";
 export function BottomNav() {
   const { t } = useI18n();
   const pathname = usePathname();
-  const [admin, setAdmin] = useState(false);
-
-  useEffect(() => {
-    // eslint-disable-next-line react-hooks/set-state-in-effect
-    setAdmin(isAdmin(getSession()));
-  }, [pathname]);
+  const admin = useIsAdmin();
 
   return (
     <nav className="flex border-t border-line bg-surface px-1 py-1.5 sm:hidden">

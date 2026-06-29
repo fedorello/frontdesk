@@ -2,11 +2,10 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { useEffect, useState } from "react";
 
 import { useI18n } from "@/app/lib/I18nProvider";
 import { useTheme } from "@/app/lib/ThemeProvider";
-import { getSession, isAdmin } from "@/app/lib/session";
+import { useIsAdmin } from "@/app/lib/useIsAdmin";
 import { BotStatus } from "@/components/BotStatus";
 import { Icon } from "@/components/icons";
 import { LANDING_URL } from "@/app/lib/links";
@@ -17,14 +16,7 @@ export function Sidebar() {
   const { t } = useI18n();
   const { theme, toggle } = useTheme();
   const pathname = usePathname();
-  const [admin, setAdmin] = useState(false);
-
-  useEffect(() => {
-    // eslint-disable-next-line react-hooks/set-state-in-effect
-    setAdmin(isAdmin(getSession()));
-  }, [pathname]);
-
-  const navItems = navItemsFor(admin);
+  const navItems = navItemsFor(useIsAdmin());
 
   return (
     <aside className="hidden w-60 shrink-0 flex-col border-r border-line bg-surface px-3.5 pt-5 pb-4 sm:flex">
