@@ -51,6 +51,25 @@ async def _run(config: LlmConfig | None, reply: dict[str, Any]) -> dict[str, Any
     return captured
 
 
+async def _run_channel(
+    config: LlmConfig | None, settings: Settings, reply: dict[str, Any], channel: Channel
+) -> dict[str, Any]:
+    captured: dict[str, Any] = {}
+    client = _capturing_client(captured, reply)
+    provider = provider_from_config(config, settings, client, channel=channel)
+    await provider.complete(system="s", messages=[], tools=[])
+    return captured
+
+
+_VOICE_SETTINGS = Settings(
+    llm_api_key="platform-key",
+    llm_model="deepseek/deepseek-v4-flash",
+    llm_base_url="https://openrouter.ai/api/v1",
+    groq_api_key="groq-key",
+    voice_llm_model="voice-fast-model",
+)
+
+
 async def test_no_config_uses_the_platform_default() -> None:
     sent = await _run(None, _OPENAI_REPLY)
 
@@ -58,6 +77,29 @@ async def test_no_config_uses_the_platform_default() -> None:
     assert sent["headers"]["authorization"] == "Bearer platform-key"
     assert sent["body"]["model"] == "deepseek/deepseek-v4-flash"
     assert sent["body"]["max_tokens"] == 4096  # the settings default budget
+
+
+async def test_voice_channel_uses_the_groq_fast_tier() -> None:
+    sent = await _run_channel(None, _VOICE_SETTINGS, _OPENAI_REPLY, Channel.VOICE)
+
+    assert "api.groq.com" in sent["url"]
+    assert sent["headers"]["authorization"] == "Bearer groq-key"
+    assert sent["body"]["model"] == "voice-fast-model"
+
+
+async def test_text_channel_keeps_the_default_even_when_voice_tier_configured() -> None:
+    sent = await _run_channel(None, _VOICE_SETTINGS, _OPENAI_REPLY, Channel.TELEGRAM)
+
+    assert "openrouter.ai" in sent["url"]
+    assert sent["body"]["model"] == "deepseek/deepseek-v4-flash"
+
+
+async def test_voice_falls_back_to_default_when_groq_unset() -> None:
+    # No groq_api_key configured → the per-channel switch is off; voice uses the default provider.
+    sent = await _run_channel(None, SETTINGS, _OPENAI_REPLY, Channel.VOICE)
+
+    assert "openrouter.ai" in sent["url"]
+    assert sent["headers"]["authorization"] == "Bearer platform-key"
 
 
 async def test_default_mode_uses_the_platform_default() -> None:

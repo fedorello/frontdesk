@@ -98,6 +98,12 @@ class Settings(BaseSettings):
     supervisor_model: str = "llama-3.1-8b-instant"
     groq_base_url: str = "https://api.groq.com/openai/v1"
 
+    # The voice channel uses a low-latency provider (Groq) instead of the text default
+    # (VOICE_RECEPTIONIST.md §6), reusing groq_api_key + groq_base_url. An empty model disables the
+    # per-channel switch (voice falls back to the default provider). The model must do reliable
+    # tool-calling + EN/ES — re-validate the booking guardrails against it in Phase 0.
+    voice_llm_model: str = "llama-3.3-70b-versatile"
+
     # WhatsApp Cloud API.
     whatsapp_token: str = ""
     whatsapp_phone_number_id: str = ""

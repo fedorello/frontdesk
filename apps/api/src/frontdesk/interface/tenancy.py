@@ -19,6 +19,7 @@ from frontdesk.application.ports import (
     TelegramBotRepository,
 )
 from frontdesk.core.settings import Settings
+from frontdesk.domain.enums import Channel
 from frontdesk.domain.models import Customer
 from frontdesk.infrastructure.channels.composite import LoggingMessaging
 from frontdesk.infrastructure.channels.telegram import TelegramMessaging
@@ -32,14 +33,43 @@ _OPENROUTER_BASE = "https://openrouter.ai/api/v1"
 
 
 def provider_from_config(
-    config: LlmConfig | None, settings: Settings, client: httpx.AsyncClient
+    config: LlmConfig | None,
+    settings: Settings,
+    client: httpx.AsyncClient,
+    channel: Channel | None = None,
 ) -> LlmProvider:
-    """The business's own provider, or the platform default — wrapped to record prompts if asked."""
-    provider = _raw_provider(config, settings, client)
+    """The provider for this turn — wrapped to record prompts if asked.
+
+    Voice gets the platform fast tier (Groq) for latency; text channels keep the business's own
+    provider or the platform default. Per-channel, not a global switch (VOICE_RECEPTIONIST.md §6).
+    """
+    provider = (
+        _voice_provider(settings, client)
+        if channel is Channel.VOICE and _voice_tier_configured(settings)
+        else _raw_provider(config, settings, client)
+    )
     log_dir = settings.llm_log_dir.strip()  # treat blank/whitespace as "off", not a junk path
     if log_dir:
         return RecordingLlmProvider(provider, Path(log_dir), SystemClock())
     return provider
+
+
+def _voice_tier_configured(settings: Settings) -> bool:
+    """The voice fast tier needs both a Groq key and a model; otherwise voice uses the default."""
+    return bool(settings.groq_api_key and settings.voice_llm_model)
+
+
+def _voice_provider(settings: Settings, client: httpx.AsyncClient) -> LlmProvider:
+    """The low-latency voice model (Groq, OpenAI-compatible). Re-validate the no-false-booking
+    guardrails against it — they were tuned to the text model (VOICE_RECEPTIONIST.md §6)."""
+    return OpenAiProvider(
+        api_key=settings.groq_api_key,
+        model=settings.voice_llm_model,
+        client=client,
+        base_url=settings.groq_base_url,
+        max_tokens=settings.llm_max_tokens,
+        log_prompts=settings.log_llm_prompts,
+    )
 
 
 def _raw_provider(
