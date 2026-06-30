@@ -202,6 +202,14 @@ class CustomerNotifier(Protocol):
     async def notify(self, business: Business, customer: Customer, text: str) -> None: ...
 
 
+class SmsPort(Protocol):
+    """Sends a one-off SMS — e.g. the confirmation after a voice booking, where reading a link
+    aloud is hostile. The implementation is a premium adapter (Twilio) in frontdesk-voice; the
+    core depends only on this port. ``to_number`` is E.164."""
+
+    async def send(self, to_number: str, body: str) -> None: ...
+
+
 class BusinessEraser(Protocol):
     """Permanently deletes a business and ALL of its data (account, chats, bookings, …)."""
 

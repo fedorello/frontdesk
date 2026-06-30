@@ -583,6 +583,16 @@ class AutoDecisionGate:
         return Decision(approved=self._approved, reason=None if self._approved else "auto-rejected")
 
 
+class InMemorySms:
+    """Records sent SMS messages (the SmsPort fake). The real Twilio adapter is private."""
+
+    def __init__(self) -> None:
+        self.sent: list[tuple[str, str]] = []  # (to_number, body)
+
+    async def send(self, to_number: str, body: str) -> None:
+        self.sent.append((to_number, body))
+
+
 class InMemoryPlatformSummary:
     """Seeded headline totals + funnel (ADR-0012). The real aggregation lives in the SQL
     adapter; this fake holds pre-computed aggregates so use-case tests stay focused."""
