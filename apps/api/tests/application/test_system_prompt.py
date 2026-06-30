@@ -99,6 +99,9 @@ def test_voice_prompt_is_terser_and_speech_tuned_yet_still_grounded() -> None:
     assert "ONE or TWO short" in voice
     assert "ONE at a time" in voice  # flow fix: collect intake one field at a time
     assert "no Markdown" in voice  # plain spoken words, not a messenger
+    assert "FEMININE" in voice  # persona: a young woman — never the masculine 'понял'
+    assert "поняла" in voice
+    assert "never as digits" in voice  # numbers spoken as words, not robotic digits
     assert "- Haircut (60 min)" in voice  # still grounded on the real menu
     assert "Q: hours\nA: 9-5" in voice  # ...the knowledge base
     assert "APPOINTMENTS-BLOCK" in voice  # ...and the customer's appointments
