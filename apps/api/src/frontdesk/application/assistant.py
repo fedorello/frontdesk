@@ -6,7 +6,7 @@ and escalates when unsure. See ADR-0007.
 """
 
 import logging
-from collections.abc import Awaitable, Callable, Sequence
+from collections.abc import AsyncIterator, Awaitable, Callable, Sequence
 from dataclasses import dataclass, replace
 from datetime import UTC, datetime, timedelta
 from zoneinfo import ZoneInfo
@@ -141,6 +141,18 @@ _AI_PREFIX = {
 def ai_prefix_for(locale: str) -> str:
     """The localized '[AI assistant]: ' tag shown on every message the AI sends."""
     return _AI_PREFIX.get(locale, _AI_PREFIX["en"])
+
+
+# Appended to the system prompt for a voice turn: the receptionist narrates each step out loud
+# (in the caller's language) so a phone call has no dead air while a tool runs (see §6 of the
+# voice design). The voice endpoint that consumes the stream lives in frontdesk-voice.
+_VOICE_NARRATION = (
+    "\n\nYou are on a live phone call. Before you use any tool, FIRST say one short, natural "
+    "sentence in the caller's language telling them what you are about to do — e.g. 'Let me check "
+    "Friday for you' before checking times, or 'Booking that now' before booking. Keep every "
+    "spoken line brief and warm, the way a receptionist speaks on the phone. Never read out ids, "
+    "links, or long codes aloud."
+)
 
 
 def _ai_prefix(business: Business) -> str:
@@ -508,6 +520,54 @@ class Assistant:
                     Message(MessageRole.TOOL, result, self._d.clock.now(), tool_call_id=call.id)
                 )
         return _escalation(business)
+
+    async def stream(self, business: Business, customer: Customer) -> AsyncIterator[str]:
+        """A voice turn: run the tool loop, speaking each step as it happens.
+
+        Yields each spoken line as the model produces it — a short narration before a tool runs
+        ('Let me check Friday…'), then the final answer — so the caller's text-to-speech has no
+        dead air. The reply-claim supervisor is intentionally OFF this hot path for latency
+        (VOICE_RECEPTIONIST.md §6); the no-false-booking floor still holds via the appointments
+        injected into the prompt and the deterministic booking receipt. Re-validate the guardrails
+        against the voice model in Phase 0. Persistence is the caller's job, as in ``_run``.
+        """
+        messages = self._initial_messages(await self._d.conversations.history(customer), business)
+        system = (
+            _system_prompt(
+                business,
+                await self._d.services.for_business(business.id),
+                self._d.clock.now(),
+                await self._appointments_block(business, customer),
+            )
+            + _VOICE_NARRATION
+        )
+        spoke = False  # whether we have yielded any line this turn
+        empty_retries = 0
+        for _ in range(MAX_STEPS):
+            completion = await self._d.llm.complete(
+                system=system, messages=messages, tools=TOOL_SPECS
+            )
+            if completion.text:
+                spoke = True
+                yield completion.text
+            if not completion.tool_calls:
+                if not completion.text and empty_retries < _MAX_EMPTY_RETRIES:
+                    empty_retries += 1
+                    continue
+                if not spoke:
+                    yield _escalation(business)
+                return
+            messages.append(
+                Message(MessageRole.ASSISTANT, completion.text or "", self._d.clock.now())
+            )
+            for call in completion.tool_calls:
+                result = await self._dispatch(business, customer, call)
+                await self._observer.on_tool(call.name, call.args, result)
+                messages.append(
+                    Message(MessageRole.TOOL, result, self._d.clock.now(), tool_call_id=call.id)
+                )
+        if not spoke:  # the loop ran out of steps without ever speaking — hand off
+            yield _escalation(business)
 
     def _initial_messages(self, history: Sequence[Message], business: Business) -> list[Message]:
         # Mark the owner's hand-written turns so the model treats them as the human owner,
