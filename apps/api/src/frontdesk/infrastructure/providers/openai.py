@@ -25,6 +25,16 @@ def _to_message(message: Message) -> dict[str, object]:
     payload: dict[str, object] = {"role": _ROLE[message.role], "content": message.text}
     if message.role is MessageRole.TOOL:
         payload["tool_call_id"] = message.tool_call_id or ""
+    if message.tool_calls:
+        # Declare the assistant's calls so a following tool result is valid for strict providers.
+        payload["tool_calls"] = [
+            {
+                "id": call.id,
+                "type": "function",
+                "function": {"name": call.name, "arguments": call.arguments},
+            }
+            for call in message.tool_calls
+        ]
     return payload
 
 

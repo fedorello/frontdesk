@@ -167,11 +167,23 @@ class Customer:
 
 
 @dataclass(frozen=True, slots=True)
+class ToolCallRef:
+    """An assistant's tool call, kept on its Message so the wire history stays valid for strict
+    OpenAI-compatible providers (e.g. Groq): a tool result must follow an assistant turn that
+    declares the matching call. ``arguments`` is the JSON-encoded call arguments."""
+
+    id: str
+    name: str
+    arguments: str
+
+
+@dataclass(frozen=True, slots=True)
 class Message:
     role: MessageRole
     text: str
     at: datetime
     tool_call_id: str | None = None  # set on MessageRole.TOOL results
+    tool_calls: tuple[ToolCallRef, ...] = ()  # set on an assistant turn that called tools
 
 
 @dataclass(frozen=True, slots=True)

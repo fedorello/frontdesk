@@ -11,7 +11,7 @@ import httpx
 
 from frontdesk.application.ports import Completion, LlmProvider, ReplyClaim, ToolSpec
 from frontdesk.domain.enums import MessageRole
-from frontdesk.domain.models import Message
+from frontdesk.domain.models import Message, ToolCallRef
 from frontdesk.infrastructure.providers.anthropic import AnthropicProvider
 from frontdesk.infrastructure.providers.groq import (
     GroqReplyClaimClassifier,
@@ -42,6 +42,41 @@ async def test_openai_parses_plain_text() -> None:
     result = await provider.complete(system="s", messages=[], tools=[])
 
     assert result == Completion("We're open 9-17.")
+
+
+async def test_openai_serializes_assistant_tool_calls_with_the_tool_result() -> None:
+    # Strict providers (Groq) require a tool result to follow an assistant turn that declares the
+    # matching call; the assistant Message must serialize its tool_calls.
+    captured: dict[str, object] = {}
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        captured["messages"] = json.loads(request.content)["messages"]
+        return httpx.Response(200, json={"choices": [{"message": {"content": "done"}}]})
+
+    provider: LlmProvider = OpenAiProvider(api_key="k", model="gpt", client=_client(handler))
+    history = [
+        Message(MessageRole.CUSTOMER, "book friday", NOW),
+        Message(
+            MessageRole.ASSISTANT,
+            "checking",
+            NOW,
+            tool_calls=(ToolCallRef("c1", "find_availability", '{"service": "Haircut"}'),),
+        ),
+        Message(MessageRole.TOOL, "Free slots: ...", NOW, tool_call_id="c1"),
+    ]
+
+    await provider.complete(system="s", messages=history, tools=[])
+
+    messages = captured["messages"]
+    assert isinstance(messages, list)
+    assert messages[2]["tool_calls"] == [
+        {
+            "id": "c1",
+            "type": "function",
+            "function": {"name": "find_availability", "arguments": '{"service": "Haircut"}'},
+        }
+    ]
+    assert messages[3] == {"role": "tool", "content": "Free slots: ...", "tool_call_id": "c1"}
 
 
 async def test_openai_builds_request_and_parses_tool_call() -> None:

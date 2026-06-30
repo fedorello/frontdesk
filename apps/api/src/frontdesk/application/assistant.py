@@ -5,6 +5,7 @@ how* it happens. It answers only from the knowledge base and the real calendar,
 and escalates when unsure. See ADR-0007.
 """
 
+import json
 import logging
 from collections.abc import AsyncIterator, Awaitable, Callable, Sequence
 from dataclasses import dataclass, replace
@@ -51,6 +52,7 @@ from frontdesk.domain.models import (
     Message,
     Service,
     TimeSlot,
+    ToolCallRef,
 )
 
 _logger = logging.getLogger("frontdesk.supervisor")
@@ -103,6 +105,12 @@ _BOOKING_DONE_MARKERS = (
 def _mutation_confirmed(result: str) -> bool:
     """True if a book/reschedule/cancel went through (vs returned an error to the model)."""
     return any(marker in result for marker in _BOOKING_DONE_MARKERS)
+
+
+def _tool_call_refs(calls: Sequence[ToolCall]) -> tuple[ToolCallRef, ...]:
+    """Carry the assistant's tool calls onto its history Message, so the next wire request keeps
+    the assistant-turn → tool-result pairing that strict providers (Groq) require."""
+    return tuple(ToolCallRef(call.id, call.name, json.dumps(call.args)) for call in calls)
 
 
 # Tool results (fed back to the model) that steer it away from guessing appointment ids.
@@ -504,7 +512,12 @@ class Assistant:
             if completion.text:
                 await self._observer.on_thought(completion.text)
             messages.append(
-                Message(MessageRole.ASSISTANT, completion.text or "", self._d.clock.now())
+                Message(
+                    MessageRole.ASSISTANT,
+                    completion.text or "",
+                    self._d.clock.now(),
+                    tool_calls=_tool_call_refs(completion.tool_calls),
+                )
             )
             for call in completion.tool_calls:
                 result = await self._dispatch(business, customer, call)
@@ -558,7 +571,12 @@ class Assistant:
                     yield _escalation(business)
                 return
             messages.append(
-                Message(MessageRole.ASSISTANT, completion.text or "", self._d.clock.now())
+                Message(
+                    MessageRole.ASSISTANT,
+                    completion.text or "",
+                    self._d.clock.now(),
+                    tool_calls=_tool_call_refs(completion.tool_calls),
+                )
             )
             for call in completion.tool_calls:
                 result = await self._dispatch(business, customer, call)
