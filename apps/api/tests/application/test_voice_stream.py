@@ -12,6 +12,8 @@ def _find(text: str | None) -> Completion:
 
 
 async def _spoken(world_script: list[Completion]) -> list[str]:
+    # stream() yields whole sentences: it buffers the model's streamed text deltas and flushes each
+    # sentence once complete. The scripted provider hands text back in halves to exercise that.
     world = build_world(world_script)
     return [line async for line in world.assistant.stream(world.business, make_customer())]
 
@@ -25,6 +27,14 @@ async def test_narrates_before_a_tool_then_gives_the_final_answer() -> None:
     )
 
     assert lines == ["Sure, let me check Friday for you.", "I have 3 PM — does that work?"]
+
+
+async def test_streams_a_multi_sentence_reply_one_sentence_at_a_time() -> None:
+    # A single completion of two sentences is spoken as two units, so TTS starts on the first
+    # without waiting for the whole reply.
+    lines = await _spoken([Completion("First, the good news. Then the rest.")])
+
+    assert lines == ["First, the good news.", "Then the rest."]
 
 
 async def test_narrates_each_step_and_actually_books() -> None:

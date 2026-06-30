@@ -122,6 +122,56 @@ async def test_openai_builds_request_and_parses_tool_call() -> None:
     assert result.tool_calls[0].args == {"service": "Haircut"}
 
 
+async def test_openai_streams_text_deltas_then_a_final_completion() -> None:
+    events = [
+        {"choices": [{"delta": {"content": "Let me "}}]},
+        {"choices": [{"delta": {"content": "check."}}]},
+        # a tool call whose name + arguments arrive split across two deltas
+        {
+            "choices": [
+                {
+                    "delta": {
+                        "tool_calls": [
+                            {"index": 0, "id": "c1", "function": {"name": "find_availability"}}
+                        ]
+                    }
+                }
+            ]
+        },
+        {
+            "choices": [
+                {"delta": {"tool_calls": [{"index": 0, "function": {"arguments": '{"x": 1}'}}]}}
+            ]
+        },
+    ]
+    body = "".join(f"data: {json.dumps(e)}\n\n" for e in events) + "data: [DONE]\n\n"
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        assert json.loads(request.content)["stream"] is True
+        return httpx.Response(200, content=body, headers={"content-type": "text/event-stream"})
+
+    provider = OpenAiProvider(api_key="k", model="gpt", client=_client(handler))
+    chunks = [chunk async for chunk in provider.complete_stream(system="s", messages=[], tools=[])]
+
+    assert [c.text_delta for c in chunks if c.text_delta] == ["Let me ", "check."]
+    final = chunks[-1].completion
+    assert final is not None
+    assert final.text == "Let me check."  # deltas reassembled
+    assert final.tool_calls[0].name == "find_availability"  # accumulated across deltas
+    assert final.tool_calls[0].args == {"x": 1}
+
+
+async def test_anthropic_streams_a_single_buffered_chunk() -> None:
+    def handler(request: httpx.Request) -> httpx.Response:
+        return httpx.Response(200, json={"content": [{"type": "text", "text": "We're open 9-17."}]})
+
+    provider: LlmProvider = AnthropicProvider(api_key="k", model="claude", client=_client(handler))
+    chunks = [chunk async for chunk in provider.complete_stream(system="s", messages=[], tools=[])]
+
+    assert [c.text_delta for c in chunks if c.text_delta] == ["We're open 9-17."]
+    assert chunks[-1].completion == Completion("We're open 9-17.")
+
+
 async def test_anthropic_builds_request_and_parses_blocks() -> None:
     def handler(request: httpx.Request) -> httpx.Response:
         body = json.loads(request.content)

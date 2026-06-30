@@ -7,6 +7,7 @@ and escalates when unsure. See ADR-0007.
 
 import json
 import logging
+import re
 from collections.abc import AsyncIterator, Awaitable, Callable, Sequence
 from dataclasses import dataclass, replace
 from datetime import UTC, datetime, timedelta
@@ -26,6 +27,7 @@ from frontdesk.application.ports import (
     BusinessRepository,
     Calendar,
     Clock,
+    Completion,
     ConversationRepository,
     CustomerRepository,
     Escalated,
@@ -455,6 +457,22 @@ def _voice_system_prompt(
     )
 
 
+# A sentence ends at .!?… (with any closing quote/bracket) followed by whitespace. Used to flush
+# whole sentences from the streamed reply, so text-to-speech speaks natural units, not fragments.
+_SENTENCE_BOUNDARY = re.compile(r"[.!?…]+[\"»”’)\]]*\s+")
+
+
+def _drain_sentences(buffer: str) -> tuple[list[str], str]:
+    """Split complete sentences off the front of ``buffer``, keeping the trailing fragment so a
+    sentence is spoken only once it is whole. Returns (complete sentences, leftover fragment)."""
+    sentences: list[str] = []
+    start = 0
+    for match in _SENTENCE_BOUNDARY.finditer(buffer):
+        sentences.append(buffer[start : match.end()].strip())
+        start = match.end()
+    return sentences, buffer[start:]
+
+
 class Assistant:
     """Handles one inbound message: run the tool-use loop, reply, persist."""
 
@@ -578,15 +596,25 @@ class Assistant:
             self._d.clock.now(),
             await self._appointments_block(business, customer),
         )
-        spoke = False  # whether we have yielded any line this turn
+        spoke = False  # whether we have yielded any text this turn
         empty_retries = 0
         for _ in range(MAX_STEPS):
-            completion = await self._d.llm.complete(
+            completion = Completion(text=None)
+            buffer = ""
+            async for chunk in self._d.llm.complete_stream(
                 system=system, messages=messages, tools=TOOL_SPECS
-            )
-            if completion.text:
+            ):
+                if chunk.text_delta:
+                    buffer += chunk.text_delta
+                    sentences, buffer = _drain_sentences(buffer)
+                    for sentence in sentences:  # speak each sentence as soon as it is whole
+                        spoke = True
+                        yield sentence
+                if chunk.completion is not None:
+                    completion = chunk.completion
+            if tail := buffer.strip():  # flush this turn's trailing fragment before acting
                 spoke = True
-                yield completion.text
+                yield tail
             if not completion.tool_calls:
                 if not completion.text and empty_retries < _MAX_EMPTY_RETRIES:
                     empty_retries += 1
@@ -594,22 +622,32 @@ class Assistant:
                 if not spoke:
                     yield _escalation(business)
                 return
-            messages.append(
-                Message(
-                    MessageRole.ASSISTANT,
-                    completion.text or "",
-                    self._d.clock.now(),
-                    tool_calls=_tool_call_refs(completion.tool_calls),
-                )
-            )
-            for call in completion.tool_calls:
-                result = await self._dispatch(business, customer, call)
-                await self._observer.on_tool(call.name, call.args, result)
-                messages.append(
-                    Message(MessageRole.TOOL, result, self._d.clock.now(), tool_call_id=call.id)
-                )
+            await self._run_tools(business, customer, completion, messages)
         if not spoke:  # the loop ran out of steps without ever speaking — hand off
             yield _escalation(business)
+
+    async def _run_tools(
+        self,
+        business: Business,
+        customer: Customer,
+        completion: Completion,
+        messages: list[Message],
+    ) -> None:
+        """Record the assistant's tool-call turn, then run each tool and append its result."""
+        messages.append(
+            Message(
+                MessageRole.ASSISTANT,
+                completion.text or "",
+                self._d.clock.now(),
+                tool_calls=_tool_call_refs(completion.tool_calls),
+            )
+        )
+        for call in completion.tool_calls:
+            result = await self._dispatch(business, customer, call)
+            await self._observer.on_tool(call.name, call.args, result)
+            messages.append(
+                Message(MessageRole.TOOL, result, self._d.clock.now(), tool_call_id=call.id)
+            )
 
     def _initial_messages(self, history: Sequence[Message], business: Business) -> list[Message]:
         # Mark the owner's hand-written turns so the model treats them as the human owner,

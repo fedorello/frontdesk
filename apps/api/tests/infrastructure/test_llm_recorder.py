@@ -1,11 +1,11 @@
 """The recorder writes each LLM turn to its own file and never breaks the turn on a write error."""
 
 import json
-from collections.abc import Sequence
+from collections.abc import AsyncIterator, Sequence
 from datetime import UTC, datetime
 from pathlib import Path
 
-from frontdesk.application.ports import Completion, ToolCall, ToolSpec
+from frontdesk.application.ports import Completion, StreamChunk, ToolCall, ToolSpec, buffered_stream
 from frontdesk.domain.enums import MessageRole
 from frontdesk.domain.models import Message
 from frontdesk.infrastructure.llm_recorder import RecordingLlmProvider
@@ -28,6 +28,17 @@ class _StubLlm:
     ) -> Completion:
         return self.completion
 
+    async def complete_stream(
+        self,
+        *,
+        system: str,
+        messages: Sequence[Message],
+        tools: Sequence[ToolSpec],
+        tool_choice: str | None = None,
+    ) -> AsyncIterator[StreamChunk]:
+        async for chunk in buffered_stream(self.completion):
+            yield chunk
+
 
 async def test_records_each_turn_to_its_own_file(tmp_path: Path) -> None:
     inner = _StubLlm(Completion("Booked!", (ToolCall("c", "book", {"start": "x"}),)))
@@ -49,6 +60,22 @@ async def test_records_each_turn_to_its_own_file(tmp_path: Path) -> None:
     assert record["messages"][0]["text"] == "book me"
     assert record["tools"] == ["book"]
     assert record["response"]["tool_calls"][0]["name"] == "book"
+
+
+async def test_records_a_streamed_turn_after_the_final_chunk(tmp_path: Path) -> None:
+    inner = _StubLlm(Completion("Booked!", (ToolCall("c", "book", {"start": "x"}),)))
+    recorder = RecordingLlmProvider(inner, tmp_path, FixedClock(NOW))
+
+    chunks = [
+        chunk
+        async for chunk in recorder.complete_stream(
+            system="You are a bot", messages=[], tools=[], tool_choice=None
+        )
+    ]
+
+    assert "".join(c.text_delta for c in chunks) == "Booked!"  # deltas stream through untouched
+    record = json.loads(next(tmp_path.glob("*.json")).read_text(encoding="utf-8"))
+    assert record["response"]["tool_calls"][0]["name"] == "book"  # the final completion is recorded
 
 
 async def test_a_write_failure_does_not_break_the_turn(tmp_path: Path) -> None:

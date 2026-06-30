@@ -4,7 +4,7 @@ Each fake is a real, working implementation backed by dicts/lists, not a mock.
 They satisfy the same port contracts the real adapters will.
 """
 
-from collections.abc import Callable, Mapping, Sequence
+from collections.abc import AsyncIterator, Callable, Mapping, Sequence
 from dataclasses import replace
 from datetime import datetime, timedelta
 from typing import TYPE_CHECKING
@@ -38,6 +38,7 @@ from frontdesk.application.ports import (
     ReplyClaim,
     SensitiveAction,
     ServiceRepository,
+    StreamChunk,
     TelegramBotConfig,
 )
 from frontdesk.domain.availability import ensure_bookable, free_slots
@@ -152,6 +153,26 @@ class ScriptedLlmProvider:
         completion = self._completions[self.calls]
         self.calls += 1
         return completion
+
+    async def complete_stream(
+        self,
+        *,
+        system: str,
+        messages: Sequence[Message],
+        tools: Sequence[object],
+        tool_choice: str | None = None,
+    ) -> AsyncIterator[StreamChunk]:
+        # Reuse complete() (advances the script + captures), then hand the text back in two
+        # faithful halves so the streaming path is genuinely exercised by tests.
+        completion = await self.complete(
+            system=system, messages=messages, tools=tools, tool_choice=tool_choice
+        )
+        text = completion.text or ""
+        midpoint = len(text) // 2
+        for part in (text[:midpoint], text[midpoint:]):
+            if part:
+                yield StreamChunk(text_delta=part)
+        yield StreamChunk(completion=completion)
 
 
 class InMemoryOwnerTelegramLinkRepository:

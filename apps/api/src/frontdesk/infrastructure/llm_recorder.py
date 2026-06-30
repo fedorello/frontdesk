@@ -4,11 +4,11 @@ isolation. Best-effort: a write failure is logged and never breaks the conversat
 
 import json
 import logging
-from collections.abc import Sequence
+from collections.abc import AsyncIterator, Sequence
 from pathlib import Path
 from uuid import uuid4
 
-from frontdesk.application.ports import Clock, Completion, LlmProvider, ToolSpec
+from frontdesk.application.ports import Clock, Completion, LlmProvider, StreamChunk, ToolSpec
 from frontdesk.domain.models import Message
 
 _logger = logging.getLogger("frontdesk.llm_recorder")
@@ -35,6 +35,24 @@ class RecordingLlmProvider:
         )
         self._record(system, messages, tools, tool_choice, completion)
         return completion
+
+    async def complete_stream(
+        self,
+        *,
+        system: str,
+        messages: Sequence[Message],
+        tools: Sequence[ToolSpec],
+        tool_choice: str | None = None,
+    ) -> AsyncIterator[StreamChunk]:
+        completion: Completion | None = None
+        async for chunk in self._inner.complete_stream(
+            system=system, messages=messages, tools=tools, tool_choice=tool_choice
+        ):
+            if chunk.completion is not None:
+                completion = chunk.completion
+            yield chunk
+        if completion is not None:
+            self._record(system, messages, tools, tool_choice, completion)
 
     def _record(
         self,

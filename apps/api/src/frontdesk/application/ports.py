@@ -6,7 +6,7 @@ Adding an adapter never touches the core. See docs/design/contracts.md.
 
 from __future__ import annotations
 
-from collections.abc import Sequence
+from collections.abc import AsyncIterator, Sequence
 from dataclasses import dataclass
 from datetime import datetime
 from enum import StrEnum
@@ -85,6 +85,22 @@ class ToolCall:
 class Completion:
     text: str | None
     tool_calls: tuple[ToolCall, ...] = ()
+
+
+@dataclass(frozen=True, slots=True)
+class StreamChunk:
+    """One piece of a streamed turn. ``text_delta`` is an incremental fragment of the reply (for
+    speaking as it is generated). The final chunk carries the assembled ``completion`` (full text +
+    tool calls) for the assistant loop to act on; earlier chunks leave it ``None``."""
+
+    text_delta: str = ""
+    completion: Completion | None = None
+
+
+async def buffered_stream(completion: Completion) -> AsyncIterator[StreamChunk]:
+    """Adapt a non-streaming completion to the streaming contract: emit the whole text as one
+    delta, then the final chunk. Honest (it returns the real reply), just not token by token."""
+    yield StreamChunk(text_delta=completion.text or "", completion=completion)
 
 
 @dataclass(frozen=True, slots=True)
@@ -242,6 +258,19 @@ class LlmProvider(Protocol):
         tool_choice: str | None = None,
     ) -> Completion:
         """Run one turn. ``tool_choice`` forces that tool to be called (supervisor retries)."""
+        ...
+
+    def complete_stream(
+        self,
+        *,
+        system: str,
+        messages: Sequence[Message],
+        tools: Sequence[ToolSpec],
+        tool_choice: str | None = None,
+    ) -> AsyncIterator[StreamChunk]:
+        """Stream one turn: yield text deltas as they arrive, then a final chunk carrying the full
+        ``Completion``. Lets the voice turn speak as the model generates. Providers that cannot
+        stream incrementally may yield a single buffered chunk (see ``buffered_stream``)."""
         ...
 
 

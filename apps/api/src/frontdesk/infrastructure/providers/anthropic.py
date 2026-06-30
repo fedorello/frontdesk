@@ -1,10 +1,16 @@
 """Anthropic Messages API adapter (HTTP, no SDK)."""
 
-from collections.abc import Sequence
+from collections.abc import AsyncIterator, Sequence
 
 import httpx
 
-from frontdesk.application.ports import Completion, ToolCall, ToolSpec
+from frontdesk.application.ports import (
+    Completion,
+    StreamChunk,
+    ToolCall,
+    ToolSpec,
+    buffered_stream,
+)
 from frontdesk.domain.enums import MessageRole
 from frontdesk.domain.models import Message
 
@@ -85,3 +91,19 @@ class AnthropicProvider:
             if block["type"] == "tool_use"
         )
         return Completion(text=text, tool_calls=tool_calls)
+
+    async def complete_stream(
+        self,
+        *,
+        system: str,
+        messages: Sequence[Message],
+        tools: Sequence[ToolSpec],
+        tool_choice: str | None = None,
+    ) -> AsyncIterator[StreamChunk]:
+        """Anthropic isn't the voice (streaming) path, so it returns the whole turn as one buffered
+        chunk. True token streaming lives in the OpenAI adapter that the voice channel uses."""
+        completion = await self.complete(
+            system=system, messages=messages, tools=tools, tool_choice=tool_choice
+        )
+        async for chunk in buffered_stream(completion):
+            yield chunk
