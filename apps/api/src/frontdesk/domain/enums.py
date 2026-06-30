@@ -8,6 +8,7 @@ class Channel(StrEnum):
 
     WHATSAPP = "whatsapp"
     TELEGRAM = "telegram"
+    VOICE = "voice"  # a phone call, handled by the voice receptionist (frontdesk-voice)
 
 
 class UserRole(StrEnum):
