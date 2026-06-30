@@ -151,24 +151,6 @@ def ai_prefix_for(locale: str) -> str:
     return _AI_PREFIX.get(locale, _AI_PREFIX["en"])
 
 
-# Appended to the system prompt for a voice turn: the receptionist narrates each step out loud
-# (in the caller's language) so a phone call has no dead air while a tool runs (see §6 of the
-# voice design). The voice endpoint that consumes the stream lives in frontdesk-voice.
-_VOICE_NARRATION = (
-    "\n\nYou are on a live PHONE CALL and everything you write is read aloud by text-to-speech. "
-    "Write ONLY plain spoken words in the caller's language — never Markdown: no asterisks, "
-    "underscores, backticks, headings, bullet lists, or links. "
-    "Keep every reply to one or two short, natural sentences, the way a receptionist speaks. "
-    "NEVER say aloud an id, reference code, ISO date-time, the technical 'start=' value, a URL, or "
-    "an email. Say dates and times the natural spoken way (for example 'tomorrow at around two in "
-    "the afternoon'), never as a raw timestamp or a string of digits. "
-    "Collect booking details ONE at a time: ask for the next single item and wait — never read out "
-    "a list of several fields at once. Offer at most two or three times, spoken naturally. "
-    "Before you use a tool, first say one short line about what you're doing (e.g. 'One moment, "
-    "let me check the calendar')."
-)
-
-
 def _ai_prefix(business: Business) -> str:
     return ai_prefix_for(business.locale)
 
@@ -434,6 +416,39 @@ def _system_prompt(
     )
 
 
+def _voice_system_prompt(
+    business: Business, services: Sequence[Service], now: datetime, appointments: str
+) -> str:
+    """A terse, speech-tuned prompt for a phone call: a smaller prefill (lower latency) and rules
+    written for spoken dialogue, not a messenger. Reuses the same data helpers as the text path."""
+    menu = "\n".join(_menu_line(s) for s in services) or "- (none yet)"
+    knowledge = "\n".join(f"Q: {item.question}\nA: {item.answer}" for item in business.knowledge)
+    local_now = now.astimezone(ZoneInfo(business.timezone))
+    about = f" {business.description}" if business.description else ""
+    return (
+        f"You are the phone receptionist for {business.name}.{about}{_location_line(business)}\n\n"
+        "This is a LIVE PHONE CALL — everything you say is spoken aloud. Reply in the caller's "
+        "language in ONE or TWO short, natural sentences. Plain spoken words only: no Markdown, "
+        "lists, ids, codes, URLs, emails, or ISO timestamps — say dates and times the natural way "
+        "('tomorrow at two'), never digits like '14:00' or a date string. Before a tool runs, say "
+        "one short line about what you're doing (e.g. 'one moment, let me check').\n\n"
+        "Use the tools for real availability and booking — never invent times, prices, "
+        "or services. These are the ONLY services; if asked for anything else, say you "
+        f"don't offer it:\n{menu}\n\n"
+        "Collect booking details ONE at a time: ask for the next single item and wait. Call "
+        "find_availability right before offering times, offer at most three, and never reuse an "
+        "earlier list. To change or cancel, use the customer's existing appointment listed below — "
+        "reschedule or cancel that one; do NOT offer new slots or re-ask details you can already "
+        "see. If the caller already has the appointment they ask about, simply confirm it."
+        f"{_intake_block(services)}"
+        f"\n\nThe current date and time is {local_now.strftime('%A, %d %B %Y, %H:%M')} "
+        f"({business.timezone}, {_utc_offset(local_now)}). Turn 'today'/'tomorrow'/a weekday into "
+        "exact ISO datetimes for the tools."
+        f"\n\n{appointments}"
+        f"\n\nKnowledge base:\n{knowledge}"
+    )
+
+
 class Assistant:
     """Handles one inbound message: run the tool-use loop, reply, persist."""
 
@@ -551,14 +566,11 @@ class Assistant:
         against the voice model in Phase 0. Persistence is the caller's job, as in ``_run``.
         """
         messages = self._initial_messages(await self._d.conversations.history(customer), business)
-        system = (
-            _system_prompt(
-                business,
-                await self._d.services.for_business(business.id),
-                self._d.clock.now(),
-                await self._appointments_block(business, customer),
-            )
-            + _VOICE_NARRATION
+        system = _voice_system_prompt(
+            business,
+            await self._d.services.for_business(business.id),
+            self._d.clock.now(),
+            await self._appointments_block(business, customer),
         )
         spoke = False  # whether we have yielded any line this turn
         empty_retries = 0

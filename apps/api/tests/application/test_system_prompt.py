@@ -2,7 +2,7 @@
 
 from datetime import UTC, datetime
 
-from frontdesk.application.assistant import _system_prompt
+from frontdesk.application.assistant import _system_prompt, _voice_system_prompt
 from frontdesk.domain.ids import BusinessId, ServiceId
 from frontdesk.domain.models import Business, KnowledgeItem, Service
 
@@ -79,6 +79,29 @@ def test_prompt_allows_light_markdown() -> None:
     prompt = _system_prompt(Business(BusinessId("b"), "Ana", "UTC"), [], NOW, "")
     assert "Markdown" in prompt
     assert "prefer short bullet lists over tables" in prompt
+
+
+def test_voice_prompt_is_terser_and_speech_tuned_yet_still_grounded() -> None:
+    business = Business(
+        BusinessId("b"),
+        "Ana Studio",
+        "America/Montevideo",
+        knowledge=(KnowledgeItem("hours", "9-5"),),
+        description="A cosy salon.",
+    )
+    services = [Service(ServiceId("s"), BusinessId("b"), "Haircut", 60)]
+
+    voice = _voice_system_prompt(business, services, NOW, "APPOINTMENTS-BLOCK")
+    text = _system_prompt(business, services, NOW, "APPOINTMENTS-BLOCK")
+
+    assert len(voice) < len(text)  # a smaller prefill → lower latency on the call
+    assert "PHONE CALL" in voice  # speech-tuned
+    assert "ONE or TWO short" in voice
+    assert "ONE at a time" in voice  # flow fix: collect intake one field at a time
+    assert "no Markdown" in voice  # plain spoken words, not a messenger
+    assert "- Haircut (60 min)" in voice  # still grounded on the real menu
+    assert "Q: hours\nA: 9-5" in voice  # ...the knowledge base
+    assert "APPOINTMENTS-BLOCK" in voice  # ...and the customer's appointments
 
 
 def test_escalation_fallback_follows_business_locale() -> None:
