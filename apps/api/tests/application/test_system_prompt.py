@@ -131,6 +131,16 @@ def test_voice_prompt_is_speech_tuned_yet_still_grounded() -> None:
     assert "APPOINTMENTS-BLOCK" in voice  # ...and the customer's appointments
 
 
+def test_voice_prompt_reads_details_back_before_booking() -> None:
+    business = Business(BusinessId("b"), "Ana Studio", "America/Montevideo")
+    services = [Service(ServiceId("s"), BusinessId("b"), "Haircut", 60)]
+
+    voice = _voice_system_prompt(business, services, NOW, "APPTS")
+
+    assert "read ALL the collected details back" in voice  # confirm before booking
+    assert "Book only after they confirm" in voice
+
+
 def test_voice_prompt_mirrors_the_caller_language_by_default() -> None:
     business = Business(BusinessId("b"), "Ana Studio", "America/Montevideo")
     services = [Service(ServiceId("s"), BusinessId("b"), "Haircut", 60)]
