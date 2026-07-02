@@ -79,6 +79,9 @@ for the layout). Keep this index in sync — when you add a document, add it her
 - [`docs/design/customer-memory.md`](./docs/design/customer-memory.md) — a persistent structured
   customer profile: a save tool + a "what we already know" prompt section so the assistant reads
   facts instead of remembering the transcript, and remembers repeat callers (concept).
+- [`docs/plans/customer-memory-plan.md`](./docs/plans/customer-memory-plan.md) — the inside-out
+  implementation plan for customer memory, grounded in the current assistant/intake code (domain,
+  port, `remember_customer` tool, prompt section, booking integration; phases, tests, DoD).
 - **ADRs** (`docs/adr/`): hexagonal foundations (0001), channels behind a
   messaging port (0002), multi-tenant by business (0003), durable reminders in
   PostgreSQL (0004), human-in-the-loop via Airlock (0005), model-agnostic LLM
