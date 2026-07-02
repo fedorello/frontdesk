@@ -201,6 +201,7 @@ const MESSAGES = {
     "settings.intakeName": "Field name (e.g. Birth date)",
     "settings.intakeDescription": "What it is",
     "settings.intakeAsk": "How to ask (optional)",
+    "settings.intakeNormalize": "How to format the answer (optional, e.g. date as DD.MM.YYYY)",
     "settings.addIntakeField": "Add field",
     "settings.requiresConfirmation": "Requires your confirmation",
     "settings.requiresConfirmationHint":
@@ -447,6 +448,7 @@ const MESSAGES = {
     "settings.intakeName": "Nombre del campo (p. ej. Fecha de nacimiento)",
     "settings.intakeDescription": "Qué es",
     "settings.intakeAsk": "Cómo preguntar (opcional)",
+    "settings.intakeNormalize": "Cómo formatear la respuesta (opcional, p. ej. fecha como DD.MM.AAAA)",
     "settings.addIntakeField": "Agregar campo",
     "settings.requiresConfirmation": "Requiere tu confirmación",
     "settings.requiresConfirmationHint":
@@ -691,6 +693,7 @@ const MESSAGES = {
     "settings.intakeName": "Название поля (напр. Дата рождения)",
     "settings.intakeDescription": "Что это",
     "settings.intakeAsk": "Как спросить (необязательно)",
+    "settings.intakeNormalize": "Как форматировать ответ (необязательно, напр. дата как ДД.ММ.ГГГГ)",
     "settings.addIntakeField": "Добавить поле",
     "settings.requiresConfirmation": "Требует вашего подтверждения",
     "settings.requiresConfirmationHint":
@@ -929,6 +932,7 @@ const MESSAGES = {
     "settings.intakeName": "字段名称（如出生日期）",
     "settings.intakeDescription": "这是什么",
     "settings.intakeAsk": "如何询问（可选）",
+    "settings.intakeNormalize": "如何格式化答案（可选，例如日期格式 DD.MM.YYYY）",
     "settings.addIntakeField": "添加字段",
     "settings.requiresConfirmation": "需要您确认",
     "settings.requiresConfirmationHint":

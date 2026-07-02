@@ -384,9 +384,13 @@ class CustomerProfileRepository(Protocol):
 
 
 class FactNormalizer(Protocol):
-    """Clean a captured fact value (drop prepositions/filler, tidy) before it is saved."""
+    """Clean a captured fact value (drop prepositions/filler, tidy) before it is saved.
 
-    async def normalize(self, field: str, value: str) -> str: ...
+    ``instruction`` is the field's optional owner-defined rule (e.g. a target date format); it
+    overrides the normalizer's defaults. Empty means use the defaults only.
+    """
+
+    async def normalize(self, field: str, value: str, instruction: str = "") -> str: ...
 
 
 class CustomerRepository(Protocol):

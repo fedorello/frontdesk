@@ -51,6 +51,7 @@ class IntakeFieldIO(BaseModel):
     name: str = Field(max_length=MAX_NAME)
     description: str = Field(default="", max_length=MAX_DESCRIPTION)
     ask: str = Field(default="", max_length=MAX_DESCRIPTION)
+    normalize: str = Field(default="", max_length=MAX_DESCRIPTION)
 
 
 class BusinessProfile(BaseModel):
@@ -165,7 +166,7 @@ def _service_view(service: Service) -> ServiceView:
         description=service.description,
         max_advance_days=service.max_advance_days,
         intake_fields=[
-            IntakeFieldIO(name=f.name, description=f.description, ask=f.ask)
+            IntakeFieldIO(name=f.name, description=f.description, ask=f.ask, normalize=f.normalize)
             for f in service.intake_fields
         ],
         requires_confirmation=service.requires_confirmation,
@@ -248,7 +249,8 @@ def build_config_router(
             description=body.description,
             max_advance_days=body.max_advance_days,
             intake_fields=tuple(
-                IntakeField(f.name, f.description, f.ask) for f in body.intake_fields
+                IntakeField(f.name, f.description, f.ask, f.normalize)
+                for f in body.intake_fields
             ),
             requires_confirmation=body.requires_confirmation,
         )

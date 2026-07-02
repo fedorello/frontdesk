@@ -186,7 +186,12 @@ async def test_intake_fields_roundtrip_and_capped_at_five() -> None:
                 "name": "Reading",
                 "duration_minutes": 60,
                 "intake_fields": [
-                    {"name": "Birth date", "description": "DOB", "ask": "When were you born?"},
+                    {
+                        "name": "Birth date",
+                        "description": "DOB",
+                        "ask": "When were you born?",
+                        "normalize": "Format as DD.MM.YYYY",
+                    },
                     {"name": "Birth time", "description": "time of birth"},
                 ],
             },
@@ -194,6 +199,7 @@ async def test_intake_fields_roundtrip_and_capped_at_five() -> None:
         fields = (await client.get("/api/businesses/ana/services")).json()[0]["intake_fields"]
         assert [f["name"] for f in fields] == ["Birth date", "Birth time"]
         assert fields[0]["ask"] == "When were you born?"
+        assert fields[0]["normalize"] == "Format as DD.MM.YYYY"  # per-field rule round-trips
 
         six = await client.put(
             "/api/businesses/ana/services/svc2",

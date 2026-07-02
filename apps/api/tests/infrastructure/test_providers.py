@@ -335,6 +335,22 @@ async def test_groq_fact_normalizer_cleans_a_value() -> None:
     assert await normalizer.normalize("Birth place", "in London") == "London"
 
 
+async def test_groq_fact_normalizer_forwards_the_per_field_instruction() -> None:
+    from frontdesk.infrastructure.providers.groq import GroqFactNormalizer
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        body = json.loads(request.content)
+        user = body["messages"][-1]["content"]
+        assert "Extra rule for this field: Format as DD.MM.YYYY" in user
+        return httpx.Response(200, json={"choices": [{"message": {"content": "21.12.1984"}}]})
+
+    normalizer = GroqFactNormalizer(
+        api_key="gk", model="openai/gpt-oss-20b", client=_client(handler), base_url=_GROQ_BASE
+    )
+    out = await normalizer.normalize("Birth date", "21 december 1984", "Format as DD.MM.YYYY")
+    assert out == "21.12.1984"
+
+
 async def test_groq_fact_normalizer_keeps_the_raw_value_when_unreachable() -> None:
     from frontdesk.infrastructure.providers.groq import GroqFactNormalizer
 

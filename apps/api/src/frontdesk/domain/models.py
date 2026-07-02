@@ -77,6 +77,7 @@ class IntakeField:
     name: str  # e.g. "Birth date"
     description: str = ""  # what it is — guides the assistant
     ask: str = ""  # optional: how to phrase the question to the customer
+    normalize: str = ""  # optional: how to clean/format the answer before it is saved
 
 
 @dataclass(frozen=True, slots=True)

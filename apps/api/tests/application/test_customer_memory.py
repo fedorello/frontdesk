@@ -28,7 +28,10 @@ def _remember(
         BIZ,
         "Reading",
         60,
-        intake_fields=(IntakeField("Birth date"), IntakeField("Birth time")),
+        intake_fields=(
+            IntakeField("Birth date", normalize="Format as DD.MM.YYYY"),
+            IntakeField("Birth time"),
+        ),
     )
     profiles = InMemoryCustomerProfileRepository()
     use_case = RememberCustomer(
@@ -56,8 +59,31 @@ async def test_saves_recognised_intake_fields_and_the_universal_name() -> None:
 class _UppercaseNormalizer:
     """A stub normalizer that uppercases, so a test can prove cleaning is applied before saving."""
 
-    async def normalize(self, field: str, value: str) -> str:
+    async def normalize(self, field: str, value: str, instruction: str = "") -> str:
         return value.upper()
+
+
+class _RecordingNormalizer:
+    """Records the (field, instruction) it was called with, so a test can assert the per-field
+    normalization rule is forwarded from the intake field to the normalizer."""
+
+    def __init__(self) -> None:
+        self.calls: list[tuple[str, str]] = []
+
+    async def normalize(self, field: str, value: str, instruction: str = "") -> str:
+        self.calls.append((field, instruction))
+        return value
+
+
+async def test_field_normalization_rule_is_forwarded_to_the_normalizer() -> None:
+    normalizer = _RecordingNormalizer()
+    use_case, _ = _remember(normalizer)
+
+    await use_case.execute(BIZ, CUST, {"Birth date": "21 december", "name": "Theo"})
+
+    # "Birth date" carries the owner's rule; the universal "name" has none.
+    assert ("Birth date", "Format as DD.MM.YYYY") in normalizer.calls
+    assert ("name", "") in normalizer.calls
 
 
 async def test_values_are_cleaned_by_the_normalizer_before_saving() -> None:

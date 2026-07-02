@@ -21,7 +21,8 @@ export function IntakeFieldsEditor({
   const patch = (index: number, change: Partial<IntakeField>) =>
     onChange(value.map((item, i) => (i === index ? { ...item, ...change } : item)));
   const remove = (index: number) => onChange(value.filter((_, i) => i !== index));
-  const add = () => onChange([...value, { name: "", description: "", ask: "" }]);
+  const add = () =>
+    onChange([...value, { name: "", description: "", ask: "", normalize: "" }]);
 
   return (
     <div className="space-y-2">
@@ -55,6 +56,13 @@ export function IntakeFieldsEditor({
             value={item.ask ?? ""}
             onChange={(event) => patch(index, { ask: event.target.value })}
             placeholder={t("settings.intakeAsk")}
+            className={field}
+          />
+          <input
+            aria-label={t("settings.intakeNormalize")}
+            value={item.normalize ?? ""}
+            onChange={(event) => patch(index, { normalize: event.target.value })}
+            placeholder={t("settings.intakeNormalize")}
             className={field}
           />
         </div>

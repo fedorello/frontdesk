@@ -21,16 +21,31 @@ describe("IntakeFieldsEditor", () => {
     const onChange = vi.fn();
     renderEditor([], onChange);
     fireEvent.click(screen.getByText(/Add field/));
-    expect(onChange).toHaveBeenCalledWith([{ name: "", description: "", ask: "" }]);
+    expect(onChange).toHaveBeenCalledWith([
+      { name: "", description: "", ask: "", normalize: "" },
+    ]);
   });
 
   it("edits a field's name", () => {
     const onChange = vi.fn();
-    renderEditor([{ name: "", description: "", ask: "" }], onChange);
+    renderEditor([{ name: "", description: "", ask: "", normalize: "" }], onChange);
     fireEvent.change(screen.getByLabelText("Field name (e.g. Birth date)"), {
       target: { value: "Birth date" },
     });
-    expect(onChange).toHaveBeenCalledWith([{ name: "Birth date", description: "", ask: "" }]);
+    expect(onChange).toHaveBeenCalledWith([
+      { name: "Birth date", description: "", ask: "", normalize: "" },
+    ]);
+  });
+
+  it("edits a field's normalization rule", () => {
+    const onChange = vi.fn();
+    renderEditor([{ name: "Birth date", description: "", ask: "", normalize: "" }], onChange);
+    fireEvent.change(screen.getByLabelText(/How to format the answer/), {
+      target: { value: "Format as DD.MM.YYYY" },
+    });
+    expect(onChange).toHaveBeenCalledWith([
+      { name: "Birth date", description: "", ask: "", normalize: "Format as DD.MM.YYYY" },
+    ]);
   });
 
   it("removes a field", () => {

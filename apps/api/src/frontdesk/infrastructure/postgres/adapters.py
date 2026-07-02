@@ -111,13 +111,17 @@ def _hours_json(working_hours: Sequence[WorkingHours]) -> str:
 
 def _to_intake_fields(value: object) -> tuple[IntakeField, ...]:
     return tuple(
-        IntakeField(f["name"], f.get("description", ""), f.get("ask", "")) for f in _json(value)
+        IntakeField(f["name"], f.get("description", ""), f.get("ask", ""), f.get("normalize", ""))
+        for f in _json(value)
     )
 
 
 def _intake_fields_json(fields: Sequence[IntakeField]) -> str:
     return json.dumps(
-        [{"name": f.name, "description": f.description, "ask": f.ask} for f in fields]
+        [
+            {"name": f.name, "description": f.description, "ask": f.ask, "normalize": f.normalize}
+            for f in fields
+        ]
     )
 
 

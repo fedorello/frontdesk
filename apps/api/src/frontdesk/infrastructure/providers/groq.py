@@ -81,7 +81,9 @@ _NORMALIZE_PROMPT = (
     "language (like 'in', 'at', 'the city of'); (2) for a place, give just the place name in its "
     "dictionary/nominative form; (3) for a time, keep the WHOLE remaining phrase, including the "
     "part of day (morning/afternoon/evening); (4) KEEP spelled-out numbers, times and dates as "
-    "WORDS — never turn them into digits; (5) keep the customer's language — do NOT translate. "
+    "WORDS — never turn them into digits; (5) keep the customer's language — do NOT translate; "
+    "(6) if an 'Extra rule for this field' is given, follow it EXACTLY — it OVERRIDES the rules "
+    "above whenever they conflict (e.g. a rule asking for a digit date format wins over rule 4). "
     "Reply with ONLY the cleaned value, nothing else. Examples: field 'Birth place' value 'in the "
     "city of London' -> London; field 'Birth time' value 'at half past two in the afternoon' -> "
     "half past two in the afternoon."
@@ -106,10 +108,13 @@ class GroqFactNormalizer:
         self._client = client
         self._base = base_url.rstrip("/")
 
-    async def normalize(self, field: str, value: str) -> str:
+    async def normalize(self, field: str, value: str, instruction: str = "") -> str:
         clean = value.strip()
         if not clean:
             return clean
+        user = f"field '{field}' value '{clean}'"
+        if instruction.strip():
+            user += f"\nExtra rule for this field: {instruction.strip()}"
         payload = {
             "model": self._model,
             "max_tokens": _NORMALIZE_MAX_TOKENS,
@@ -117,7 +122,7 @@ class GroqFactNormalizer:
             "reasoning_effort": _NORMALIZE_REASONING_EFFORT,
             "messages": [
                 {"role": "system", "content": _NORMALIZE_PROMPT},
-                {"role": "user", "content": f"field '{field}' value '{clean}'"},
+                {"role": "user", "content": user},
             ],
         }
         try:
@@ -137,5 +142,5 @@ class GroqFactNormalizer:
 class NullFactNormalizer:
     """Used when no Groq key is configured: keep the raw value (only trimmed)."""
 
-    async def normalize(self, field: str, value: str) -> str:
+    async def normalize(self, field: str, value: str, instruction: str = "") -> str:
         return value.strip()

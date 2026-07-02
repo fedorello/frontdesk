@@ -47,10 +47,11 @@ class RememberCustomer:
         now = self._clock.now()
         facts: list[CustomerFact] = []
         for raw_key, raw_value in details.items():
-            canonical = allowed.get(normalize_key(raw_key))
+            entry = allowed.get(normalize_key(raw_key))
             value = str(raw_value).strip()
-            if canonical is not None and value:
-                value = await self._normalizer.normalize(canonical, value)
+            if entry is not None and value:
+                canonical, instruction = entry
+                value = await self._normalizer.normalize(canonical, value, instruction)
                 facts.append(CustomerFact(canonical, value, now))
         if facts:
             await self._profiles.upsert_facts(business_id, customer_id, facts)
@@ -59,10 +60,14 @@ class RememberCustomer:
         _logger.info("customer_facts_saved business=%s keys=%s", business_id, list(saved))
         return saved
 
-    async def _allowed_keys(self, business_id: BusinessId) -> dict[str, str]:
-        """Normalized key -> canonical name, for ``name`` plus every service's intake fields."""
-        keys = {normalize_key(NAME_KEY): NAME_KEY}
+    async def _allowed_keys(self, business_id: BusinessId) -> dict[str, tuple[str, str]]:
+        """Normalized key -> (canonical name, normalization instruction).
+
+        Covers the universal ``name`` (no instruction) plus every service's intake fields, each
+        carrying its owner-defined normalization rule.
+        """
+        keys = {normalize_key(NAME_KEY): (NAME_KEY, "")}
         for service in await self._services.for_business(business_id):
             for field in service.intake_fields:
-                keys[normalize_key(field.name)] = field.name
+                keys[normalize_key(field.name)] = (field.name, field.normalize)
         return keys

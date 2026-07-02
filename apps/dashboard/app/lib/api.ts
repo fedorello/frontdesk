@@ -127,6 +127,7 @@ export interface IntakeField {
   name: string;
   description?: string;
   ask?: string;
+  normalize?: string;
 }
 
 export interface IntakeAnswer {
