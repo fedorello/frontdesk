@@ -72,6 +72,10 @@ for the layout). Keep this index in sync — when you add a document, add it her
   hexagonal fit, phased plan).
 - [`docs/plans/admin-dashboard-plan.md`](./docs/plans/admin-dashboard-plan.md) — the
   inside-out implementation plan for the admin dashboard (phases, files, tests, DoD).
+- [`docs/plans/premium-features-plan.md`](./docs/plans/premium-features-plan.md) — the general
+  premium-feature entitlements system (config-driven registry, per-business entitlements,
+  self-serve request + admin approval, Google-gated landing demo) and its first consumer, the
+  voice receptionist.
 - **ADRs** (`docs/adr/`): hexagonal foundations (0001), channels behind a
   messaging port (0002), multi-tenant by business (0003), durable reminders in
   PostgreSQL (0004), human-in-the-loop via Airlock (0005), model-agnostic LLM
