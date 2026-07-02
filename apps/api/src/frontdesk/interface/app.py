@@ -122,6 +122,7 @@ from frontdesk.interface.business_config import build_llm_config_router
 from frontdesk.interface.chat import build_chat_router
 from frontdesk.interface.config_api import build_config_router
 from frontdesk.interface.conversations_api import build_conversations_router
+from frontdesk.interface.customer_memory_api import build_customer_facts_router
 from frontdesk.interface.demo_api import DemoAccessConfig, build_demo_router
 from frontdesk.interface.features_api import build_features_router
 from frontdesk.interface.google_auth import build_google_auth_router
@@ -378,6 +379,7 @@ def create_production_app() -> FastAPI:
             guard,
         )
     )
+    app.include_router(build_customer_facts_router(SqlCustomerProfileRepository(sessions), guard))
     notifier = TelegramCustomerNotifier(telegram_bots, client, settings.telegram_api_base)
     app.include_router(
         build_appointments_router(
