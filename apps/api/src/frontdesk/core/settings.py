@@ -2,7 +2,7 @@
 
 from enum import StrEnum
 
-from pydantic import field_validator
+from pydantic import BaseModel, field_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 DEFAULT_TELEGRAM_API_BASE = "https://api.telegram.org"
@@ -13,6 +13,40 @@ class TelegramMode(StrEnum):
 
     POLLING = "polling"  # the poller long-polls getUpdates; no public URL needed
     WEBHOOK = "webhook"  # Telegram pushes to the public URL
+
+
+class PremiumFeatureConfig(BaseModel):
+    """A premium feature the platform offers, declared in config (the catalog is data, not code)."""
+
+    key: str
+    name: str
+    description: str
+    pricing: str  # display copy, e.g. "$1 per call"
+
+
+class DemoNumberConfig(BaseModel):
+    """A landing-demo phone number for one language."""
+
+    language: str  # BCP-47-ish tag, e.g. "en"
+    e164: str  # the dialable number, e.g. "+16055463259"
+    label: str  # what to show, e.g. "English"
+
+
+# The catalog the tovayo deployment ships with; override via FRONTDESK_PREMIUM_FEATURES (JSON).
+# The open code stays feature-agnostic — "voice_receptionist" lives here as data, not logic.
+_DEFAULT_PREMIUM_FEATURES = [
+    PremiumFeatureConfig(
+        key="voice_receptionist",
+        name="Voice receptionist",
+        description="An AI receptionist that answers phone calls and books appointments.",
+        pricing="$1 per call",
+    ),
+]
+_DEFAULT_VOICE_DEMO_NUMBERS = [
+    DemoNumberConfig(language="en", e164="+16055463259", label="English"),
+    DemoNumberConfig(language="ru", e164="+19306001900", label="Русский"),
+    DemoNumberConfig(language="es", e164="+16055463337", label="Español"),
+]
 
 
 class Settings(BaseSettings):
@@ -81,6 +115,12 @@ class Settings(BaseSettings):
     # Comma-separated emails to grant the admin role (ADR-0012). Consumed ONLY by
     # scripts/promote_admin.py (`make promote-admin`) — never in the request path.
     admin_emails: str = ""
+
+    # Premium features & entitlements (docs/plans/premium-features-plan.md). The catalog and the
+    # landing demo numbers are config data, so adding a feature never edits code. Override via
+    # FRONTDESK_PREMIUM_FEATURES / FRONTDESK_VOICE_DEMO_NUMBERS (JSON).
+    premium_features: list[PremiumFeatureConfig] = _DEFAULT_PREMIUM_FEATURES
+    voice_demo_numbers: list[DemoNumberConfig] = _DEFAULT_VOICE_DEMO_NUMBERS
 
     # Whether a business may bring its own LLM provider + key (vs the managed default).
     # Off until the feature is launched; enable via FRONTDESK_ALLOW_OWN_LLM=true.

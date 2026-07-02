@@ -35,6 +35,14 @@ class TenantMismatch(DomainError):
     """A cross-business access — always a bug, must never happen."""
 
 
+class UnknownFeature(DomainError):
+    """A feature key that is not in the premium-feature registry (a config/routing bug)."""
+
+    def __init__(self, key: str) -> None:
+        super().__init__(f"unknown premium feature: {key}")
+        self.key = key
+
+
 class LinkCodeError(DomainError):
     """A Telegram link code could not be redeemed; ``problem`` says why (machine-readable)."""
 

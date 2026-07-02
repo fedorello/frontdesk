@@ -42,13 +42,20 @@ from frontdesk.application.ports import (
     TelegramBotConfig,
 )
 from frontdesk.domain.availability import ensure_bookable, free_slots
-from frontdesk.domain.enums import AppointmentStatus, Channel, ReminderStatus
+from frontdesk.domain.entitlements import DemoLead, Entitlement
+from frontdesk.domain.enums import (
+    AppointmentStatus,
+    Channel,
+    EntitlementStatus,
+    ReminderStatus,
+)
 from frontdesk.domain.errors import AppointmentNotFound, DoubleBooking, ServiceNotFound
 from frontdesk.domain.ids import (
     AccountId,
     AppointmentId,
     BusinessId,
     CustomerId,
+    FeatureKey,
     LinkCode,
     ReminderId,
     ResourceId,
@@ -269,6 +276,44 @@ class InMemoryAccountRepository:
     async def upsert(self, account: Account) -> None:
         self._by_id[account.id] = account
         self._by_email[account.email] = account
+
+
+class InMemoryEntitlementRepository:
+    """Backs both EntitlementRepository (read + write) and EntitlementDirectory (operator views)."""
+
+    def __init__(self, entitlements: Sequence[Entitlement] = ()) -> None:
+        self._by_key: dict[tuple[BusinessId, FeatureKey], Entitlement] = {
+            (item.business_id, item.feature_key): item for item in entitlements
+        }
+
+    async def active_features(self, business_id: BusinessId) -> frozenset[FeatureKey]:
+        return frozenset(
+            key
+            for (business, key), item in self._by_key.items()
+            if business == business_id and item.is_active
+        )
+
+    async def get(self, business_id: BusinessId, feature_key: FeatureKey) -> Entitlement | None:
+        return self._by_key.get((business_id, feature_key))
+
+    async def save(self, entitlement: Entitlement) -> None:
+        self._by_key[(entitlement.business_id, entitlement.feature_key)] = entitlement
+
+    async def pending(self) -> tuple[Entitlement, ...]:
+        return tuple(
+            item for item in self._by_key.values() if item.status is EntitlementStatus.REQUESTED
+        )
+
+    async def for_business(self, business_id: BusinessId) -> tuple[Entitlement, ...]:
+        return tuple(item for item in self._by_key.values() if item.business_id == business_id)
+
+
+class InMemoryDemoLeadRepository:
+    def __init__(self) -> None:
+        self.leads: list[DemoLead] = []
+
+    async def record(self, lead: DemoLead) -> None:
+        self.leads.append(lead)
 
 
 class InMemoryUsageStore:

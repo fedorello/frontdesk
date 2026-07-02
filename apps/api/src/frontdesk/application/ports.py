@@ -21,12 +21,14 @@ from frontdesk.application.analytics_models import (
     PlatformTotals,
     TimeseriesMetric,
 )
+from frontdesk.domain.entitlements import DemoLead, Entitlement
 from frontdesk.domain.enums import Channel, UserRole
 from frontdesk.domain.ids import (
     AccountId,
     AppointmentId,
     BusinessId,
     CustomerId,
+    FeatureKey,
     LinkCode,
     ReminderId,
     ResourceId,
@@ -333,6 +335,27 @@ class AccountRepository(Protocol):
     async def by_email(self, email: str) -> Account | None: ...
     async def get(self, account_id: AccountId) -> Account | None: ...
     async def upsert(self, account: Account) -> None: ...
+
+
+class EntitlementRepository(Protocol):
+    """Per-business premium-feature access — the hot read plus the single write."""
+
+    async def active_features(self, business_id: BusinessId) -> frozenset[FeatureKey]: ...
+    async def get(self, business_id: BusinessId, feature_key: FeatureKey) -> Entitlement | None: ...
+    async def save(self, entitlement: Entitlement) -> None: ...
+
+
+class EntitlementDirectory(Protocol):
+    """Operator read views over entitlements, kept off the per-request hot path (ISP)."""
+
+    async def pending(self) -> tuple[Entitlement, ...]: ...
+    async def for_business(self, business_id: BusinessId) -> tuple[Entitlement, ...]: ...
+
+
+class DemoLeadRepository(Protocol):
+    """Stores a landing-demo lead — a Google-signed-in visitor's email."""
+
+    async def record(self, lead: DemoLead) -> None: ...
 
 
 class UsageStore(Protocol):

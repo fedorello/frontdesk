@@ -187,6 +187,28 @@ CREATE_STATEMENTS: tuple[str, ...] = (
     )
     """,
     "CREATE INDEX link_code_expiry ON telegram_link_code (expires_at)",
+    # Per-business premium-feature entitlements (docs/plans/premium-features-plan.md). feature_key
+    # is validated against the config-driven registry in the domain, so it is not an FK.
+    """
+    CREATE TABLE business_entitlement (
+        business_id text NOT NULL REFERENCES business(id) ON DELETE CASCADE,
+        feature_key text NOT NULL,
+        status text NOT NULL CHECK (status IN ('requested', 'active', 'suspended')),
+        requested_at timestamptz NOT NULL,
+        decided_at timestamptz NULL,
+        PRIMARY KEY (business_id, feature_key)
+    )
+    """,
+    "CREATE INDEX entitlement_status ON business_entitlement (status)",
+    # Landing-demo leads: a Google-signed-in visitor's email, captured to unlock the demo numbers.
+    """
+    CREATE TABLE demo_lead (
+        id text PRIMARY KEY,
+        email text NOT NULL,
+        feature_key text NOT NULL,
+        created_at timestamptz NOT NULL
+    )
+    """,
     # Platform-analytics aggregation indexes (ADR-0012): signups / bookings / new-customers
     # over time, and assistant-reply counts per day and per business.
     "CREATE INDEX account_created_at ON account (created_at)",
@@ -199,6 +221,8 @@ CREATE_STATEMENTS: tuple[str, ...] = (
 DROP_STATEMENTS: tuple[str, ...] = tuple(
     f"DROP TABLE IF EXISTS {table} CASCADE"
     for table in (
+        "demo_lead",
+        "business_entitlement",
         "telegram_link_code",
         "owner_telegram_link",
         "approval",

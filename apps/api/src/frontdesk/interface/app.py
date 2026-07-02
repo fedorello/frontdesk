@@ -4,6 +4,7 @@
 webhook API wired to Postgres, a real LLM provider, and the live channels.
 """
 
+from collections.abc import Sequence
 from datetime import datetime
 
 import httpx
@@ -37,7 +38,9 @@ from frontdesk.application.ports import (
     ReplyClaimClassifier,
     SecretCipher,
 )
-from frontdesk.core.settings import Settings
+from frontdesk.core.settings import PremiumFeatureConfig, Settings
+from frontdesk.domain.entitlements import FeatureRegistry, PremiumFeature
+from frontdesk.domain.ids import FeatureKey
 from frontdesk.infrastructure.airlock_gate import AirlockApprovalGate
 from frontdesk.infrastructure.channels.composite import LoggingMessaging, RoutingMessaging
 from frontdesk.infrastructure.channels.telegram import (
@@ -122,6 +125,13 @@ def build_clock(settings: Settings) -> Clock:
 
 def build_cipher(settings: Settings) -> SecretCipher:
     return FernetCipher(settings.secret_key)
+
+
+def feature_registry_from(features: Sequence[PremiumFeatureConfig]) -> FeatureRegistry:
+    """Map the configured premium-feature catalog into the domain registry (config, not code)."""
+    return FeatureRegistry(
+        [PremiumFeature(FeatureKey(f.key), f.name, f.description, f.pricing) for f in features]
+    )
 
 
 def build_provider(settings: Settings, client: httpx.AsyncClient) -> LlmProvider:

@@ -94,7 +94,7 @@ def test_voice_prompt_is_speech_tuned_yet_still_grounded() -> None:
     voice = _voice_system_prompt(business, services, NOW, "APPOINTMENTS-BLOCK")
     text = _system_prompt(business, services, NOW, "APPOINTMENTS-BLOCK")
 
-    # The voice prompt drops the text channel's messenger formatting guidance (it speaks, not types).
+    # The voice prompt drops the text channel's messenger formatting guidance (it speaks, not types)
     assert "prefer short bullet lists over tables" in text
     assert "prefer short bullet lists over tables" not in voice
     assert "PHONE CALL" in voice  # speech-tuned

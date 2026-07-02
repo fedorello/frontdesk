@@ -18,6 +18,14 @@ class UserRole(StrEnum):
     ADMIN = "admin"  # a platform operator: cross-tenant, read-only analytics
 
 
+class EntitlementStatus(StrEnum):
+    """A business's stake in a premium feature. See docs/plans/premium-features-plan.md."""
+
+    REQUESTED = "requested"  # the owner asked; awaiting an operator's decision
+    ACTIVE = "active"  # granted — the feature works for this business
+    SUSPENDED = "suspended"  # turned off by an operator (or a rejected request)
+
+
 class AppointmentStatus(StrEnum):
     PENDING = "pending"
     CONFIRMED = "confirmed"
