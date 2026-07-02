@@ -86,7 +86,11 @@ _NORMALIZE_PROMPT = (
     "city of London' -> London; field 'Birth time' value 'at half past two in the afternoon' -> "
     "half past two in the afternoon."
 )
-_NORMALIZE_MAX_TOKENS = 40
+# gpt-oss is a reasoning model: its thinking consumes the completion budget, so leave ample room
+# (a tiny cap starves the actual answer and the value comes back unchanged), and keep reasoning
+# shallow — a form-field cleanup needs no deep chain of thought.
+_NORMALIZE_MAX_TOKENS = 256
+_NORMALIZE_REASONING_EFFORT = "low"
 
 
 class GroqFactNormalizer:
@@ -109,6 +113,7 @@ class GroqFactNormalizer:
             "model": self._model,
             "max_tokens": _NORMALIZE_MAX_TOKENS,
             "temperature": 0,
+            "reasoning_effort": _NORMALIZE_REASONING_EFFORT,
             "messages": [
                 {"role": "system", "content": _NORMALIZE_PROMPT},
                 {"role": "user", "content": f"field '{field}' value '{clean}'"},

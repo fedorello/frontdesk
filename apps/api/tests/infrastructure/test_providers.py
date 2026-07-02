@@ -322,12 +322,15 @@ async def test_groq_fact_normalizer_cleans_a_value() -> None:
 
     def handler(request: httpx.Request) -> httpx.Response:
         body = json.loads(request.content)
-        assert body["model"] == "llama-3.1-8b-instant"
+        assert body["model"] == "openai/gpt-oss-20b"
         assert body["temperature"] == 0
+        # A reasoning model needs room + shallow effort, else its thinking starves the answer.
+        assert body["max_tokens"] >= 256
+        assert body["reasoning_effort"] == "low"
         return httpx.Response(200, json={"choices": [{"message": {"content": "London"}}]})
 
     normalizer = GroqFactNormalizer(
-        api_key="gk", model="llama-3.1-8b-instant", client=_client(handler), base_url=_GROQ_BASE
+        api_key="gk", model="openai/gpt-oss-20b", client=_client(handler), base_url=_GROQ_BASE
     )
     assert await normalizer.normalize("Birth place", "in London") == "London"
 
