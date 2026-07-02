@@ -170,6 +170,26 @@ class _NullObserver:
 
 _NULL_OBSERVER: AssistantObserver = _NullObserver()
 
+_REMEMBER_SPEC = ToolSpec(
+    "remember_customer",
+    "Save details the customer just gave about themselves so you never ask again (and remember "
+    "them next time). Pass 'details' as a map of intake field name to the value they stated.",
+    {
+        "type": "object",
+        "properties": {"details": {"type": "object"}},
+        "required": ["details"],
+    },
+)
+
+# Extraction pass: force a remember_customer call so a stated detail is captured even if the reply
+# turn forgot to. Deterministic — run every turn while intake is incomplete.
+_EXTRACT_FACTS = (
+    "Extract personal details the caller stated in their LAST message and call remember_customer "
+    "with them, as a 'details' map of field name to the stated value. Only these fields count: "
+    "{fields}. Copy the value exactly as the caller said it (keep the language). If the last "
+    "message states none of these, call remember_customer with empty details {{}}."
+)
+
 TOOL_SPECS: tuple[ToolSpec, ...] = (
     ToolSpec(
         "answer_question",
@@ -218,16 +238,7 @@ TOOL_SPECS: tuple[ToolSpec, ...] = (
             "required": ["appointment_id"],
         },
     ),
-    ToolSpec(
-        "remember_customer",
-        "Save details the customer just gave about themselves so you never ask again (and remember "
-        "them next time). Pass 'details' as a map of intake field name to the value they stated.",
-        {
-            "type": "object",
-            "properties": {"details": {"type": "object"}},
-            "required": ["details"],
-        },
-    ),
+    _REMEMBER_SPEC,
     ToolSpec(
         "escalate",
         "Hand off to a human when you cannot help.",
@@ -593,13 +604,14 @@ class Assistant:
     async def _run(self, business: Business, customer: Customer) -> str:
         messages = self._initial_messages(await self._d.conversations.history(customer), business)
         services = await self._d.services.for_business(business.id)
-        profile = await self._d.profiles.get(business.id, customer.id)
+        required = _required_intake(services)
+        profile = await self._capture_and_reload(business, customer, messages, required)
         system = _system_prompt(
             business,
             services,
             self._d.clock.now(),
             await self._appointments_block(business, customer),
-            _known_customer_block(profile, _required_intake(services)),
+            _known_customer_block(profile, required),
         )
         verified: set[ReplyClaim] = set()  # claims backed by a tool call this turn
         corrections = 0  # how many corrective retries the supervisor has spent
@@ -672,13 +684,14 @@ class Assistant:
         """
         messages = self._initial_messages(await self._d.conversations.history(customer), business)
         services = await self._d.services.for_business(business.id)
-        profile = await self._d.profiles.get(business.id, customer.id)
+        required = _required_intake(services)
+        profile = await self._capture_and_reload(business, customer, messages, required)
         system = _voice_system_prompt(
             business,
             services,
             self._d.clock.now(),
             await self._appointments_block(business, customer),
-            _known_customer_block(profile, _required_intake(services)),
+            _known_customer_block(profile, required),
         )
         spoke = False  # whether we have yielded any text this turn
         empty_retries = 0
@@ -786,6 +799,39 @@ class Assistant:
             business.id, customer.id, details
         )
         return f"Saved: {', '.join(saved)}." if saved else "Nothing new to save."
+
+    async def _capture_and_reload(
+        self,
+        business: Business,
+        customer: Customer,
+        messages: list[Message],
+        required: Sequence[str],
+    ) -> CustomerProfile:
+        """Load the profile; while intake is incomplete, force an extraction pass and reload it."""
+        profile = await self._d.profiles.get(business.id, customer.id)
+        if required and profile.missing(required):
+            await self._capture_facts(business, customer, messages, required)
+            profile = await self._d.profiles.get(business.id, customer.id)
+        return profile
+
+    async def _capture_facts(
+        self,
+        business: Business,
+        customer: Customer,
+        messages: list[Message],
+        required: Sequence[str],
+    ) -> None:
+        """Force a remember_customer call so a stated detail is saved even if the reply turn skips
+        it — the model only extracts; saving is deterministic (a forced tool_choice)."""
+        completion = await self._d.llm.complete(
+            system=_EXTRACT_FACTS.format(fields=", ".join(required)),
+            messages=messages,
+            tools=(_REMEMBER_SPEC,),
+            tool_choice="remember_customer",
+        )
+        for call in completion.tool_calls:
+            if call.name == "remember_customer":
+                await self._dispatch(business, customer, call)
 
     async def _find(self, business: Business, customer: Customer, args: dict[str, object]) -> str:
         service = await self._d.services.by_name(business.id, _arg(args, "service"))

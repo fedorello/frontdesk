@@ -54,14 +54,16 @@ async def test_skips_unknown_keys_and_empty_values() -> None:
     assert (await profiles.get(BIZ, CUST)).facts == ()
 
 
-async def test_remember_customer_tool_persists_a_fact_through_the_assistant() -> None:
+async def test_a_stated_fact_is_captured_even_when_the_reply_skips_remember() -> None:
+    # The forced extraction pass runs first and saves the fact; the main reply (2nd completion)
+    # calls no tool — proving saving is deterministic, not left to the model's discretion.
     world = build_world(
         [
             Completion(
-                "One moment.",
+                None,
                 (ToolCall("r", "remember_customer", {"details": {"birth date": "21 Dec 1984"}}),),
             ),
-            Completion("Thanks, noted."),
+            Completion("Thanks, noted."),  # the reply turn does NOT call remember_customer
         ],
         intake_fields=(IntakeField("Birth date"),),
     )
@@ -70,7 +72,7 @@ async def test_remember_customer_tool_persists_a_fact_through_the_assistant() ->
     _ = [line async for line in world.assistant.stream(world.business, customer)]
 
     profile = await world.deps.profiles.get(world.business.id, customer.id)
-    assert profile.value_of("Birth date") == "21 Dec 1984"  # tool → use case → persisted
+    assert profile.value_of("Birth date") == "21 Dec 1984"  # captured by the forced pass
 
 
 async def test_booking_sources_intake_from_the_saved_profile() -> None:
