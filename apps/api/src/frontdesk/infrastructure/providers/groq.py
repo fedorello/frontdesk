@@ -88,8 +88,9 @@ _NORMALIZE_PROMPT = (
 )
 # gpt-oss is a reasoning model: its thinking consumes the completion budget, so leave ample room
 # (a tiny cap starves the actual answer and the value comes back unchanged), and keep reasoning
-# shallow — a form-field cleanup needs no deep chain of thought.
-_NORMALIZE_MAX_TOKENS = 256
+# shallow — a form-field cleanup needs no deep chain of thought. The cap is a ceiling, not a cost:
+# temperature-0 output stops as soon as the value is emitted, so headroom is free.
+_NORMALIZE_MAX_TOKENS = 5000
 _NORMALIZE_REASONING_EFFORT = "low"
 
 
