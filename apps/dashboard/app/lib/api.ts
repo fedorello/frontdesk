@@ -253,6 +253,15 @@ async function readDetail(response: Response): Promise<string> {
   return response.statusText;
 }
 
+// A premium feature in the catalog, with this business's status (null = never requested).
+export interface PremiumFeatureItem {
+  key: string;
+  name: string;
+  description: string;
+  pricing: string;
+  status: "requested" | "active" | "suspended" | null;
+}
+
 // Auth rides the HttpOnly session cookie (set by the API on login/signup/OAuth), so no
 // method takes a token — the browser attaches the cookie automatically (credentials: include).
 export const api = {
@@ -275,6 +284,12 @@ export const api = {
     }),
 
   getBusiness: (id: string): Promise<BusinessProfile> => request("GET", `/api/businesses/${id}`),
+
+  features: (id: string): Promise<PremiumFeatureItem[]> =>
+    request("GET", `/api/businesses/${id}/features`),
+
+  requestFeature: (id: string, key: string): Promise<PremiumFeatureItem> =>
+    request("POST", `/api/businesses/${id}/features/${key}/request`),
 
   putBusiness: (id: string, body: BusinessProfile): Promise<BusinessProfile> =>
     request("PUT", `/api/businesses/${id}`, body),

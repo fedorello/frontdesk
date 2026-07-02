@@ -17,6 +17,7 @@ import { ConfirmModal } from "@/components/ConfirmModal";
 import { GroupCard } from "@/components/GroupCard";
 import { OwnerNotificationsCard } from "@/components/OwnerNotificationsCard";
 import { PasswordChangeCard } from "@/components/PasswordChangeCard";
+import { PremiumFeaturesCard } from "@/components/PremiumFeaturesCard";
 import { ServiceCard, type Service } from "@/components/ServiceCard";
 import { ToggleSwitch } from "@/components/ToggleSwitch";
 import { EmptyState } from "@/components/ui/EmptyState";
@@ -404,6 +405,8 @@ export default function SettingsPage() {
           {aiMode === "own" ? t("onboarding.ownAi") : t("onboarding.defaultAi")}
         </p>
       </section>
+
+      <PremiumFeaturesCard businessId={session.businessId} />
 
       <section className="rounded-2xl border border-line bg-surface p-5 shadow-card">
         <h2 className="font-bold">{t("onboarding.connectTelegram")}</h2>
