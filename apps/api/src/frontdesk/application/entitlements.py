@@ -6,12 +6,29 @@ registry so an unregistered feature can never be silently allowed.
 """
 
 import logging
+from dataclasses import dataclass
 
-from frontdesk.application.ports import EntitlementRepository
-from frontdesk.domain.entitlements import FeatureRegistry
+from frontdesk.application.ports import (
+    Clock,
+    EntitlementDirectory,
+    EntitlementRepository,
+)
+from frontdesk.domain.entitlements import Entitlement, FeatureRegistry
+from frontdesk.domain.enums import EntitlementStatus
 from frontdesk.domain.ids import BusinessId, FeatureKey
 
 _logger = logging.getLogger("frontdesk.entitlements")
+
+
+@dataclass(frozen=True, slots=True)
+class FeatureView:
+    """A catalog entry joined with a business's own status — ``None`` means never requested."""
+
+    key: FeatureKey
+    name: str
+    description: str
+    pricing: str
+    status: EntitlementStatus | None
 
 
 class FeatureAccess:
@@ -33,3 +50,50 @@ class FeatureAccess:
             "feature_access business=%s feature=%s enabled=%s", business_id, feature_key, enabled
         )
         return enabled
+
+
+class FeatureCatalog:
+    """The premium-feature catalog joined with one business's status — for the owner dashboard."""
+
+    def __init__(self, registry: FeatureRegistry, directory: EntitlementDirectory) -> None:
+        self._registry = registry
+        self._directory = directory
+
+    async def for_business(self, business_id: BusinessId) -> tuple[FeatureView, ...]:
+        held = await self._directory.for_business(business_id)
+        by_key = {item.feature_key: item for item in held}
+        return tuple(
+            FeatureView(
+                feature.key,
+                feature.name,
+                feature.description,
+                feature.pricing,
+                by_key[feature.key].status if feature.key in by_key else None,
+            )
+            for feature in self._registry.all()
+        )
+
+
+class RequestFeature:
+    """An owner asks to enable a premium feature — idempotent; an operator approves it later."""
+
+    def __init__(
+        self, registry: FeatureRegistry, entitlements: EntitlementRepository, clock: Clock
+    ) -> None:
+        self._registry = registry
+        self._entitlements = entitlements
+        self._clock = clock
+
+    async def execute(self, business_id: BusinessId, feature_key: FeatureKey) -> Entitlement:
+        """Record (or re-open) a request. A no-op if the feature is already active or pending.
+
+        Raises ``UnknownFeature`` for an unregistered key.
+        """
+        self._registry.require(feature_key)
+        existing = await self._entitlements.get(business_id, feature_key)
+        if existing is not None and existing.status is not EntitlementStatus.SUSPENDED:
+            return existing  # already active or already pending — nothing to do
+        requested = Entitlement.requested(business_id, feature_key, self._clock.now())
+        await self._entitlements.save(requested)
+        _logger.info("feature_requested business=%s feature=%s", business_id, feature_key)
+        return requested

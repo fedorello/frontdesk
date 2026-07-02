@@ -1,0 +1,76 @@
+"""FeatureCatalog (owner view) and RequestFeature (self-serve request) use cases."""
+
+from datetime import UTC, datetime
+
+import pytest
+
+from frontdesk.application.entitlements import FeatureCatalog, RequestFeature
+from frontdesk.domain.entitlements import Entitlement, FeatureRegistry, PremiumFeature
+from frontdesk.domain.enums import EntitlementStatus
+from frontdesk.domain.errors import UnknownFeature
+from frontdesk.domain.ids import BusinessId, FeatureKey
+from frontdesk.infrastructure.memory import InMemoryEntitlementRepository
+from frontdesk.infrastructure.system import FixedClock
+
+NOW = datetime(2026, 7, 2, 12, 0, tzinfo=UTC)
+LATER = datetime(2026, 7, 3, 9, 0, tzinfo=UTC)
+VOICE = FeatureKey("voice_receptionist")
+BIZ = BusinessId("biz")
+
+
+def _registry() -> FeatureRegistry:
+    return FeatureRegistry([PremiumFeature(VOICE, "Voice", "Answers calls.", "$1 per call")])
+
+
+async def test_catalog_shows_no_status_before_a_request() -> None:
+    catalog = FeatureCatalog(_registry(), InMemoryEntitlementRepository())
+
+    views = await catalog.for_business(BIZ)
+
+    assert [(v.key, v.name, v.pricing, v.status) for v in views] == [
+        (VOICE, "Voice", "$1 per call", None)
+    ]
+
+
+async def test_catalog_reflects_an_active_entitlement() -> None:
+    repo = InMemoryEntitlementRepository([Entitlement.requested(BIZ, VOICE, NOW).approve(NOW)])
+    catalog = FeatureCatalog(_registry(), repo)
+
+    (view,) = await catalog.for_business(BIZ)
+
+    assert view.status is EntitlementStatus.ACTIVE
+
+
+async def test_request_creates_a_pending_entitlement() -> None:
+    repo = InMemoryEntitlementRepository()
+    result = await RequestFeature(_registry(), repo, FixedClock(NOW)).execute(BIZ, VOICE)
+
+    assert result.status is EntitlementStatus.REQUESTED
+    assert result.requested_at == NOW
+    assert await repo.get(BIZ, VOICE) == result  # persisted
+
+
+async def test_request_is_idempotent_for_active_and_pending() -> None:
+    active = Entitlement.requested(BIZ, VOICE, NOW).approve(NOW)
+    repo = InMemoryEntitlementRepository([active])
+
+    result = await RequestFeature(_registry(), repo, FixedClock(LATER)).execute(BIZ, VOICE)
+
+    assert result == active  # an active feature is not downgraded, timestamps untouched
+
+
+async def test_request_reopens_a_suspended_feature() -> None:
+    suspended = Entitlement.requested(BIZ, VOICE, NOW).approve(NOW).suspend(NOW)
+    repo = InMemoryEntitlementRepository([suspended])
+
+    result = await RequestFeature(_registry(), repo, FixedClock(LATER)).execute(BIZ, VOICE)
+
+    assert result.status is EntitlementStatus.REQUESTED
+    assert result.requested_at == LATER  # a fresh request
+
+
+async def test_request_rejects_an_unregistered_feature() -> None:
+    with pytest.raises(UnknownFeature):
+        await RequestFeature(_registry(), InMemoryEntitlementRepository(), FixedClock(NOW)).execute(
+            BIZ, FeatureKey("ghost")
+        )

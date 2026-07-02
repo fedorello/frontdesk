@@ -21,6 +21,7 @@ from frontdesk.application.appointments import (
     RescheduleAppointment,
 )
 from frontdesk.application.assistant import Assistant, AssistantDeps
+from frontdesk.application.entitlements import FeatureCatalog, RequestFeature
 from frontdesk.application.owner_actions import (
     OwnerCancelAppointment,
     OwnerRescheduleAppointment,
@@ -79,6 +80,7 @@ from frontdesk.infrastructure.postgres.analytics import (
     SqlPlatformSummaryRepository,
     SqlPlatformTimeseriesRepository,
 )
+from frontdesk.infrastructure.postgres.entitlements import SqlEntitlementRepository
 from frontdesk.infrastructure.providers.anthropic import AnthropicProvider
 from frontdesk.infrastructure.providers.groq import (
     GroqReplyClaimClassifier,
@@ -107,6 +109,7 @@ from frontdesk.interface.business_config import build_llm_config_router
 from frontdesk.interface.chat import build_chat_router
 from frontdesk.interface.config_api import build_config_router
 from frontdesk.interface.conversations_api import build_conversations_router
+from frontdesk.interface.features_api import build_features_router
 from frontdesk.interface.google_auth import build_google_auth_router
 from frontdesk.interface.metrics_api import build_metrics_router
 from frontdesk.interface.owner_telegram import build_owner_telegram_router
@@ -392,6 +395,17 @@ def create_production_app() -> FastAPI:
     )
     app.include_router(build_account_router(SqlBusinessEraser(sessions), guard))
     app.include_router(build_metrics_router(usage, settings, clock, guard))
+    # Premium features & entitlements (docs/plans/premium-features-plan.md): the owner catalog +
+    # self-serve request, behind the owner guard.
+    feature_registry = feature_registry_from(settings.premium_features)
+    entitlements = SqlEntitlementRepository(sessions)
+    app.include_router(
+        build_features_router(
+            FeatureCatalog(feature_registry, entitlements),
+            RequestFeature(feature_registry, entitlements, clock),
+            guard,
+        )
+    )
     # Cross-tenant admin analytics (ADR-0012), behind the admin guard; /api/me for the client role.
     analytics = PlatformAnalytics(
         SqlPlatformSummaryRepository(sessions),
