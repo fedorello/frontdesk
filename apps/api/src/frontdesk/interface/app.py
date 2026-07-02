@@ -88,6 +88,7 @@ from frontdesk.infrastructure.postgres.analytics import (
     SqlPlatformSummaryRepository,
     SqlPlatformTimeseriesRepository,
 )
+from frontdesk.infrastructure.postgres.customer_memory import SqlCustomerProfileRepository
 from frontdesk.infrastructure.postgres.entitlements import (
     SqlDemoLeadRepository,
     SqlEntitlementRepository,
@@ -250,6 +251,7 @@ def build_assistant_deps(
         gate,
         clock,
         build_reply_classifier(settings, client),
+        SqlCustomerProfileRepository(sessions),
     )
 
 

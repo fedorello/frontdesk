@@ -18,6 +18,7 @@ from frontdesk.infrastructure.memory import (
     InMemoryBusinessRepository,
     InMemoryCalendar,
     InMemoryConversationRepository,
+    InMemoryCustomerProfileRepository,
     InMemoryCustomerRepository,
     InMemoryEventPublisher,
     InMemoryMessaging,
@@ -64,6 +65,7 @@ def build_assistant_deps(businesses: InMemoryBusinessRepository) -> AssistantDep
         gate=AutoDecisionGate(approved=False),
         clock=clock,
         classifier=InMemoryReplyClaimClassifier(),
+        profiles=InMemoryCustomerProfileRepository(),
     )
 
 

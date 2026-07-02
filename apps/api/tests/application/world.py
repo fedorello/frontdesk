@@ -33,6 +33,7 @@ from frontdesk.infrastructure.memory import (
     InMemoryBusinessRepository,
     InMemoryCalendar,
     InMemoryConversationRepository,
+    InMemoryCustomerProfileRepository,
     InMemoryCustomerRepository,
     InMemoryEventPublisher,
     InMemoryMessaging,
@@ -133,6 +134,7 @@ def build_world(
         gate=AutoDecisionGate(approved=gate_approves),
         clock=clock,
         classifier=classifier or InMemoryReplyClaimClassifier(),
+        profiles=InMemoryCustomerProfileRepository(),
     )
     return World(
         assistant=Assistant(deps),

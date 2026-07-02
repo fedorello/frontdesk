@@ -18,6 +18,7 @@ from frontdesk.application.appointments import (
     CancelAppointment,
     RescheduleAppointment,
 )
+from frontdesk.application.customer_memory import RememberCustomer
 from frontdesk.application.datetime_format import format_when
 from frontdesk.application.ports import (
     AppointmentRepository,
@@ -29,6 +30,7 @@ from frontdesk.application.ports import (
     Clock,
     Completion,
     ConversationRepository,
+    CustomerProfileRepository,
     CustomerRepository,
     Escalated,
     EventPublisher,
@@ -216,6 +218,16 @@ TOOL_SPECS: tuple[ToolSpec, ...] = (
         },
     ),
     ToolSpec(
+        "remember_customer",
+        "Save details the customer just gave about themselves so you never ask again (and remember "
+        "them next time). Pass 'details' as a map of intake field name to the value they stated.",
+        {
+            "type": "object",
+            "properties": {"details": {"type": "object"}},
+            "required": ["details"],
+        },
+    ),
+    ToolSpec(
         "escalate",
         "Hand off to a human when you cannot help.",
         {"type": "object", "properties": {"reason": {"type": "string"}}, "required": ["reason"]},
@@ -249,6 +261,7 @@ class AssistantDeps:
     gate: ApprovalGate
     clock: Clock
     classifier: ReplyClaimClassifier
+    profiles: CustomerProfileRepository
 
 
 def _arg(args: dict[str, object], key: str) -> str:
@@ -501,6 +514,7 @@ class Assistant:
             "book": self._do_book,
             "reschedule": self._do_reschedule,
             "cancel": self._do_cancel,
+            "remember_customer": self._remember,
             "escalate": self._escalate,
             "issue_refund": self._do_refund,
         }
@@ -707,6 +721,17 @@ class Assistant:
 
     async def _answer(self, business: Business, customer: Customer, args: dict[str, object]) -> str:
         return self._lookup_answer(business, _arg(args, "topic"))
+
+    async def _remember(
+        self, business: Business, customer: Customer, args: dict[str, object]
+    ) -> str:
+        details = args.get("details")
+        if not isinstance(details, dict):
+            return "No details to save."
+        saved = await RememberCustomer(self._d.profiles, self._d.services, self._d.clock).execute(
+            business.id, customer.id, details
+        )
+        return f"Saved: {', '.join(saved)}." if saved else "Nothing new to save."
 
     async def _find(self, business: Business, customer: Customer, args: dict[str, object]) -> str:
         service = await self._d.services.by_name(business.id, _arg(args, "service"))
