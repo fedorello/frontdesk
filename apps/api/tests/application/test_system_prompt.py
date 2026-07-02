@@ -98,7 +98,7 @@ def test_voice_prompt_is_speech_tuned_yet_still_grounded() -> None:
     assert "prefer short bullet lists over tables" in text
     assert "prefer short bullet lists over tables" not in voice
     assert "PHONE CALL" in voice  # speech-tuned
-    assert "as BRIEFLY as possible" in voice  # keep spoken replies short
+    assert "as BRIEF as possible" in voice  # keep spoken replies short
     assert "ONE at a time" in voice  # flow fix: collect intake one field at a time
     assert "no Markdown" in voice  # plain spoken words, not a messenger
     assert "FEMININE" in voice  # persona: a young woman — never the masculine 'понял'
