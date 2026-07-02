@@ -76,11 +76,13 @@ class NullReplyClaimClassifier:
 
 
 _NORMALIZE_PROMPT = (
-    "You clean ONE value a customer gave for a form field, in ANY language. Drop leading "
-    "prepositions and filler words and fix obvious spelling, but KEEP the customer's own words, "
-    "language and meaning — do NOT translate and do NOT turn spelled-out numbers into digits. "
-    "Reply with ONLY the cleaned value, nothing else. Examples: field 'Birth place' value "
-    "'in London' -> London; field 'Birth time' value 'at half past two' -> half past two."
+    "You clean ONE value a customer gave for a form field, in ANY language. Return only the "
+    "essential value in its natural base form: drop prepositions and filler words (like 'in', "
+    "'the city of'), and for a place give just the place name in its dictionary/nominative form. "
+    "But KEEP spelled-out numbers, times and dates as WORDS — never turn them into digits — and "
+    "keep the customer's language (do NOT translate). Reply with ONLY the cleaned value. Examples: "
+    "field 'Birth place' value 'in the city of London' -> London; field 'Birth time' value "
+    "'at half past two' -> half past two."
 )
 _NORMALIZE_MAX_TOKENS = 40
 
