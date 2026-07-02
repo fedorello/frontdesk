@@ -21,6 +21,7 @@ from frontdesk.application.analytics_models import (
     PlatformTotals,
     TimeseriesMetric,
 )
+from frontdesk.domain.customer_memory import CustomerFact, CustomerProfile
 from frontdesk.domain.entitlements import DemoLead, Entitlement
 from frontdesk.domain.enums import Channel, UserRole
 from frontdesk.domain.ids import (
@@ -371,6 +372,15 @@ class UsageStore(Protocol):
 
     async def increment_and_count(self, business_id: BusinessId, day: str) -> int: ...
     async def count(self, business_id: BusinessId, day: str) -> int: ...
+
+
+class CustomerProfileRepository(Protocol):
+    """A customer's remembered facts. ``get`` returns an empty profile when nothing is stored."""
+
+    async def get(self, business_id: BusinessId, customer_id: CustomerId) -> CustomerProfile: ...
+    async def upsert_facts(
+        self, business_id: BusinessId, customer_id: CustomerId, facts: Sequence[CustomerFact]
+    ) -> None: ...
 
 
 class CustomerRepository(Protocol):

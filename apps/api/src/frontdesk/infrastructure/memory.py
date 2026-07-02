@@ -43,6 +43,11 @@ from frontdesk.application.ports import (
     TelegramBotConfig,
 )
 from frontdesk.domain.availability import ensure_bookable, free_slots
+from frontdesk.domain.customer_memory import (
+    CustomerFact,
+    CustomerProfile,
+    normalize_key,
+)
 from frontdesk.domain.entitlements import DemoLead, Entitlement
 from frontdesk.domain.enums import (
     AppointmentStatus,
@@ -325,6 +330,23 @@ class FakeGoogleCredentialVerifier:
 
     async def verify(self, credential: str) -> GoogleIdentity | None:
         return self._identities.get(credential)
+
+
+class InMemoryCustomerProfileRepository:
+    def __init__(self) -> None:
+        # (business, customer) -> normalized key -> fact (latest value per key).
+        self._by_customer: dict[tuple[BusinessId, CustomerId], dict[str, CustomerFact]] = {}
+
+    async def get(self, business_id: BusinessId, customer_id: CustomerId) -> CustomerProfile:
+        stored = self._by_customer.get((business_id, customer_id), {})
+        return CustomerProfile(customer_id, business_id, tuple(stored.values()))
+
+    async def upsert_facts(
+        self, business_id: BusinessId, customer_id: CustomerId, facts: Sequence[CustomerFact]
+    ) -> None:
+        bucket = self._by_customer.setdefault((business_id, customer_id), {})
+        for fact in facts:
+            bucket[normalize_key(fact.key)] = fact
 
 
 class InMemoryUsageStore:
