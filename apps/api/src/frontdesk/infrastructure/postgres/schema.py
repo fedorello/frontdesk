@@ -209,6 +209,18 @@ CREATE_STATEMENTS: tuple[str, ...] = (
         created_at timestamptz NOT NULL
     )
     """,
+    # Customer memory (docs/design/customer-memory.md): remembered facts per customer, keyed by the
+    # business's intake field names (plus "name"). One row per fact; upsert on the PK.
+    """
+    CREATE TABLE customer_fact (
+        business_id text NOT NULL REFERENCES business(id) ON DELETE CASCADE,
+        customer_id text NOT NULL REFERENCES customer(id) ON DELETE CASCADE,
+        key text NOT NULL,
+        value text NOT NULL,
+        updated_at timestamptz NOT NULL,
+        PRIMARY KEY (business_id, customer_id, key)
+    )
+    """,
     # Platform-analytics aggregation indexes (ADR-0012): signups / bookings / new-customers
     # over time, and assistant-reply counts per day and per business.
     "CREATE INDEX account_created_at ON account (created_at)",
@@ -221,6 +233,7 @@ CREATE_STATEMENTS: tuple[str, ...] = (
 DROP_STATEMENTS: tuple[str, ...] = tuple(
     f"DROP TABLE IF EXISTS {table} CASCADE"
     for table in (
+        "customer_fact",
         "demo_lead",
         "business_entitlement",
         "telegram_link_code",
