@@ -81,7 +81,7 @@ def test_prompt_allows_light_markdown() -> None:
     assert "prefer short bullet lists over tables" in prompt
 
 
-def test_voice_prompt_is_terser_and_speech_tuned_yet_still_grounded() -> None:
+def test_voice_prompt_is_speech_tuned_yet_still_grounded() -> None:
     business = Business(
         BusinessId("b"),
         "Ana Studio",
@@ -94,9 +94,11 @@ def test_voice_prompt_is_terser_and_speech_tuned_yet_still_grounded() -> None:
     voice = _voice_system_prompt(business, services, NOW, "APPOINTMENTS-BLOCK")
     text = _system_prompt(business, services, NOW, "APPOINTMENTS-BLOCK")
 
-    assert len(voice) < len(text)  # a smaller prefill → lower latency on the call
+    # The voice prompt drops the text channel's messenger formatting guidance (it speaks, not types).
+    assert "prefer short bullet lists over tables" in text
+    assert "prefer short bullet lists over tables" not in voice
     assert "PHONE CALL" in voice  # speech-tuned
-    assert "ONE or TWO short" in voice
+    assert "as BRIEFLY as possible" in voice  # keep spoken replies short
     assert "ONE at a time" in voice  # flow fix: collect intake one field at a time
     assert "no Markdown" in voice  # plain spoken words, not a messenger
     assert "FEMININE" in voice  # persona: a young woman — never the masculine 'понял'
