@@ -1,23 +1,30 @@
 import { cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
-import { afterEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import { I18nProvider } from "@/app/lib/I18nProvider";
 
 import ConversationsPage from "./page";
 
-const { conversations, getBusiness, sendOwnerMessage, setHandoff, q } = vi.hoisted(() => ({
-  conversations: vi.fn(),
-  getBusiness: vi.fn(),
-  sendOwnerMessage: vi.fn(),
-  setHandoff: vi.fn(),
-  q: { value: "" },
-}));
+const { conversations, getBusiness, sendOwnerMessage, setHandoff, customerFacts, q } = vi.hoisted(
+  () => ({
+    conversations: vi.fn(),
+    getBusiness: vi.fn(),
+    sendOwnerMessage: vi.fn(),
+    setHandoff: vi.fn(),
+    customerFacts: vi.fn(),
+    q: { value: "" },
+  }),
+);
 vi.mock("@/app/lib/api", () => ({
-  api: { conversations, getBusiness, sendOwnerMessage, setHandoff },
+  api: { conversations, getBusiness, sendOwnerMessage, setHandoff, customerFacts },
 }));
 vi.mock("next/navigation", () => ({
   useSearchParams: () => new URLSearchParams(q.value ? `q=${q.value}` : ""),
 }));
+
+beforeEach(() => {
+  customerFacts.mockResolvedValue([]); // the thread view loads a customer's remembered facts
+});
 
 afterEach(() => {
   cleanup();
@@ -26,6 +33,7 @@ afterEach(() => {
   getBusiness.mockReset();
   sendOwnerMessage.mockReset();
   setHandoff.mockReset();
+  customerFacts.mockReset();
   q.value = "";
 });
 
@@ -138,6 +146,28 @@ describe("Conversations page", () => {
     fireEvent.keyDown(composer, { key: "Enter", metaKey: true });
 
     await waitFor(() => expect(sendOwnerMessage).toHaveBeenCalledWith("b", "c1", "Two minutes"));
+  });
+
+  it("shows the customer's remembered facts in the thread", async () => {
+    signIn();
+    conversations.mockResolvedValue([
+      {
+        customer: "Mara",
+        customer_id: "c1",
+        role: "customer",
+        text: "Can I book?",
+        at: "2026-06-26T14:58:00+00:00",
+      },
+    ]);
+    getBusiness.mockResolvedValue({ name: "B", timezone: "UTC" });
+    customerFacts.mockResolvedValue([{ key: "Birth date", value: "21 Dec 1984" }]);
+    renderPage();
+
+    fireEvent.click(await screen.findByText("Mara"));
+
+    expect(await screen.findByText("What we know about this customer")).toBeInTheDocument();
+    expect(screen.getByText("21 Dec 1984")).toBeInTheDocument();
+    expect(customerFacts).toHaveBeenCalledWith("b", "c1");
   });
 
   it("filters the thread list by the ?q search param", async () => {

@@ -3,7 +3,7 @@
 import { useSearchParams } from "next/navigation";
 import { type KeyboardEvent, Suspense, useEffect, useLayoutEffect, useRef, useState } from "react";
 
-import { api, type MessageView } from "@/app/lib/api";
+import { api, type CustomerFact, type MessageView } from "@/app/lib/api";
 import { readCache, writeCache } from "@/app/lib/cache";
 import { formatDay, formatTime } from "@/app/lib/format";
 import type { Locale } from "@/app/lib/i18n";
@@ -285,6 +285,7 @@ function ThreadDetail({
   const [draft, setDraft] = useState("");
   const [busy, setBusy] = useState(false);
   const [visible, setVisible] = useState(THREAD_PAGE);
+  const [facts, setFacts] = useState<CustomerFact[]>([]);
   const scrollRef = useRef<HTMLDivElement>(null);
   const bottomRef = useRef<HTMLDivElement>(null);
   const keepScroll = useRef(0);
@@ -292,6 +293,14 @@ function ThreadDetail({
 
   const shown = messages.slice(Math.max(0, messages.length - visible));
   const hasOlder = visible < messages.length;
+
+  // What the assistant has remembered about this customer (customer memory).
+  useEffect(() => {
+    void api
+      .customerFacts(businessId, customerId)
+      .then(setFacts)
+      .catch(() => setFacts([]));
+  }, [businessId, customerId]);
 
   // Open the thread → jump to the latest. A new message (e.g. from polling) → follow it only
   // if the owner is already near the bottom, so reading older history isn't interrupted.
@@ -378,6 +387,19 @@ function ThreadDetail({
         <p className="mb-3 shrink-0 rounded-lg bg-warning-soft px-3 py-2 text-xs text-warning">
           {t("conversations.youAreHandling")}
         </p>
+      )}
+
+      {facts.length > 0 && (
+        <div className="mb-3 shrink-0 rounded-lg border border-line bg-canvas px-3 py-2">
+          <p className="text-xs font-semibold text-muted">{t("conversations.knownFacts")}</p>
+          <div className="mt-1 flex flex-wrap gap-1.5">
+            {facts.map((fact) => (
+              <span key={fact.key} className="rounded-full bg-surface-3 px-2.5 py-0.5 text-xs">
+                <span className="text-muted">{fact.key}:</span> {fact.value}
+              </span>
+            ))}
+          </div>
+        </div>
       )}
 
       <div ref={scrollRef} className="min-h-0 flex-1 space-y-2.5 overflow-y-auto py-1">

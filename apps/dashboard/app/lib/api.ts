@@ -269,6 +269,12 @@ export interface VoiceDemoNumber {
   label: string;
 }
 
+// One thing the assistant has remembered about a customer.
+export interface CustomerFact {
+  key: string;
+  value: string;
+}
+
 // One business's entitlement, as the operator sees it (ADR-0013).
 export interface AdminEntitlement {
   business_id: string;
@@ -309,6 +315,9 @@ export const api = {
 
   voiceDemoNumbers: (id: string): Promise<VoiceDemoNumber[]> =>
     request("GET", `/api/businesses/${id}/voice-demo-numbers`),
+
+  customerFacts: (id: string, customerId: string): Promise<CustomerFact[]> =>
+    request("GET", `/api/businesses/${id}/customers/${customerId}/facts`),
 
   putBusiness: (id: string, body: BusinessProfile): Promise<BusinessProfile> =>
     request("PUT", `/api/businesses/${id}`, body),
