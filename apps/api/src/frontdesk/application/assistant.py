@@ -487,15 +487,39 @@ def _system_prompt(
     )
 
 
+def _voice_language_rule(language: str) -> str:
+    """The opening language rule for a call. When ``language`` is pinned (the number is bound to a
+    language), force it hard — the caller's words and the business's own notes/service names below
+    may be in other languages, but the reply must never drift. Otherwise, mirror the caller."""
+    if language:
+        return (
+            f"This is a LIVE PHONE CALL — everything you say is spoken aloud. Speak ONLY "
+            f"{language} for the WHOLE call — every single word, including questions. Fixed: NEVER "
+            f"reply in any other language, not even one word, no matter what language the caller "
+            f"uses or what language the service names, notes, or saved caller details below are "
+            f"written in — translate all of those into {language}. "
+        )
+    return (
+        "This is a LIVE PHONE CALL — everything you say is spoken aloud. Reply in the caller's "
+        "language and keep it that same language for the WHOLE call — every single word, including "
+        "questions. The business's own details (service names, notes below) may be in another "
+        "language; translate them, but NEVER switch to that language, not even for one word. "
+    )
+
+
 def _voice_system_prompt(
     business: Business,
     services: Sequence[Service],
     now: datetime,
     appointments: str,
     known: str = "",
+    language: str = "",
 ) -> str:
     """A terse, speech-tuned prompt for a phone call: a smaller prefill (lower latency) and rules
-    written for spoken dialogue, not a messenger. Reuses the same data helpers as the text path."""
+    written for spoken dialogue, not a messenger. Reuses the same data helpers as the text path.
+
+    ``language`` pins the spoken language (e.g. "English") when the called number is bound to one.
+    """
     menu = "\n".join(_menu_line(s) for s in services) or "- (none yet)"
     knowledge = "\n".join(f"Q: {item.question}\nA: {item.answer}" for item in business.knowledge)
     local_now = now.astimezone(ZoneInfo(business.timezone))
@@ -507,10 +531,7 @@ def _voice_system_prompt(
         "If the caller asks whether you are a man or a woman, say you are a young woman who helps "
         "with bookings — never answer that you have no gender or that you are just a program."
         f"{about}{_location_line(business)}\n\n"
-        "This is a LIVE PHONE CALL — everything you say is spoken aloud. Reply in the caller's "
-        "language and keep it that same language for the WHOLE call — every single word, including "
-        "questions. The business's own details (service names, notes below) may be in another "
-        "language; translate them, but NEVER switch to that language, not even for one word. "
+        f"{_voice_language_rule(language)}"
         "Be as BRIEF as possible: one short sentence whenever you can, never more than "
         "two, and keep each under about ten words. Your entire turn is ONE short reply — a single "
         "question or statement. Ask at most ONE question, then stop and wait; never chain "
@@ -674,7 +695,9 @@ class Assistant:
                 )
         return _escalation(business)
 
-    async def stream(self, business: Business, customer: Customer) -> AsyncIterator[str]:
+    async def stream(
+        self, business: Business, customer: Customer, language: str = ""
+    ) -> AsyncIterator[str]:
         """A voice turn: run the tool loop, speaking each step as it happens.
 
         Yields each spoken line as the model produces it — a short narration before a tool runs
@@ -694,6 +717,7 @@ class Assistant:
             self._d.clock.now(),
             await self._appointments_block(business, customer),
             _known_customer_block(profile, required),
+            language,
         )
         spoke = False  # whether we have yielded any text this turn
         empty_retries = 0

@@ -131,6 +131,28 @@ def test_voice_prompt_is_speech_tuned_yet_still_grounded() -> None:
     assert "APPOINTMENTS-BLOCK" in voice  # ...and the customer's appointments
 
 
+def test_voice_prompt_mirrors_the_caller_language_by_default() -> None:
+    business = Business(BusinessId("b"), "Ana Studio", "America/Montevideo")
+    services = [Service(ServiceId("s"), BusinessId("b"), "Haircut", 60)]
+
+    voice = _voice_system_prompt(business, services, NOW, "APPTS")
+
+    assert "Reply in the caller's language" in voice  # no pinned language -> mirror the caller
+    assert "Speak ONLY" not in voice
+
+
+def test_voice_prompt_pins_the_language_when_the_number_is_bound_to_one() -> None:
+    business = Business(BusinessId("b"), "Ana Studio", "America/Montevideo")
+    services = [Service(ServiceId("s"), BusinessId("b"), "Haircut", 60)]
+
+    voice = _voice_system_prompt(business, services, NOW, "APPTS", language="English")
+
+    # A pinned language is forced hard and cannot drift to the language of the notes/facts.
+    assert "Speak ONLY English" in voice
+    assert "NEVER reply in any other language" in voice
+    assert "Reply in the caller's language" not in voice
+
+
 def test_escalation_fallback_follows_business_locale() -> None:
     from frontdesk.application.assistant import ESCALATION_FALLBACK, _escalation
 
