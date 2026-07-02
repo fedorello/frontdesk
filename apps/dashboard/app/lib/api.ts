@@ -262,6 +262,15 @@ export interface PremiumFeatureItem {
   status: "requested" | "active" | "suspended" | null;
 }
 
+// One business's entitlement, as the operator sees it (ADR-0013).
+export interface AdminEntitlement {
+  business_id: string;
+  feature_key: string;
+  status: "requested" | "active" | "suspended";
+  requested_at: string;
+  decided_at: string | null;
+}
+
 // Auth rides the HttpOnly session cookie (set by the API on login/signup/OAuth), so no
 // method takes a token — the browser attaches the cookie automatically (credentials: include).
 export const api = {
@@ -404,4 +413,15 @@ export const api = {
     });
     return request("GET", `/api/admin/businesses?${params.toString()}`);
   },
+
+  // Admin entitlement management (ADR-0013). Behind the admin guard, server-side.
+  adminPendingEntitlements: (): Promise<AdminEntitlement[]> =>
+    request("GET", "/api/admin/entitlements"),
+
+  adminDecideFeature: (
+    businessId: string,
+    key: string,
+    status: "active" | "suspended",
+  ): Promise<AdminEntitlement> =>
+    request("PUT", `/api/admin/businesses/${businessId}/features/${key}`, { status }),
 };

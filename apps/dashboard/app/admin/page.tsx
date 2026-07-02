@@ -158,12 +158,18 @@ export default function AdminPage() {
         <TrendChart label={t("admin.trendUsage")} data={series.usage} />
       </div>
 
-      <div className="mt-6">
+      <div className="mt-6 flex flex-wrap gap-3">
         <Link
           href="/admin/businesses"
           className="inline-flex rounded-lg bg-accent px-4 py-2.5 text-sm font-bold text-accent-contrast"
         >
           {t("admin.viewBusinesses")}
+        </Link>
+        <Link
+          href="/admin/features"
+          className="inline-flex rounded-lg border border-line px-4 py-2.5 text-sm font-bold"
+        >
+          {t("admin.viewFeatureRequests")}
         </Link>
       </div>
     </Page>
