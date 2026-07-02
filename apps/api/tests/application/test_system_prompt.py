@@ -2,8 +2,13 @@
 
 from datetime import UTC, datetime
 
-from frontdesk.application.assistant import _system_prompt, _voice_system_prompt
-from frontdesk.domain.ids import BusinessId, ServiceId
+from frontdesk.application.assistant import (
+    _known_customer_block,
+    _system_prompt,
+    _voice_system_prompt,
+)
+from frontdesk.domain.customer_memory import CustomerFact, CustomerProfile
+from frontdesk.domain.ids import BusinessId, CustomerId, ServiceId
 from frontdesk.domain.models import Business, KnowledgeItem, Service
 
 NOW = datetime(2026, 6, 27, 17, 0, tzinfo=UTC)  # Sat 14:00 Montevideo
@@ -79,6 +84,23 @@ def test_prompt_allows_light_markdown() -> None:
     prompt = _system_prompt(Business(BusinessId("b"), "Ana", "UTC"), [], NOW, "")
     assert "Markdown" in prompt
     assert "prefer short bullet lists over tables" in prompt
+
+
+def test_known_customer_block_shows_facts_and_still_needed() -> None:
+    profile = CustomerProfile(
+        CustomerId("c"), BusinessId("b"), (CustomerFact("Birth date", "21 December 1984", NOW),)
+    )
+
+    block = _known_customer_block(profile, ["Birth date", "Birth time"])
+
+    assert "- Birth date: 21 December 1984" in block  # a known fact to use, not ask
+    assert "Still needed: Birth time" in block  # the one field left to collect
+
+
+def test_known_customer_block_is_empty_when_nothing_known_or_needed() -> None:
+    empty = CustomerProfile(CustomerId("c"), BusinessId("b"), ())
+
+    assert _known_customer_block(empty, []) == ""
 
 
 def test_voice_prompt_is_speech_tuned_yet_still_grounded() -> None:

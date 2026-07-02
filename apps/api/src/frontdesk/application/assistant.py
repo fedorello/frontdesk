@@ -46,6 +46,7 @@ from frontdesk.application.ports import (
     ToolCall,
     ToolSpec,
 )
+from frontdesk.domain.customer_memory import CustomerProfile
 from frontdesk.domain.enums import AppointmentStatus, MessageRole
 from frontdesk.domain.errors import DomainError
 from frontdesk.domain.ids import AppointmentId
@@ -336,6 +337,20 @@ def _collect_intake(
     return collected, missing
 
 
+def _merge_details(
+    profile: CustomerProfile, service: Service, details: object
+) -> dict[str, object]:
+    """Pre-fill the booking details from the customer's saved profile; passed details win."""
+    merged: dict[str, object] = {}
+    for field in service.intake_fields:
+        value = profile.value_of(field.name)
+        if value is not None:
+            merged[field.name] = value
+    if isinstance(details, dict):
+        merged.update(details)
+    return merged
+
+
 def _format_slots(slots: Sequence[TimeSlot], tz: ZoneInfo) -> str:
     if not slots:
         return "no free times right now"
@@ -390,8 +405,36 @@ def _intake_block(services: Sequence[Service]) -> str:
     return "\n\nIntake required before booking:\n" + "\n\n".join(blocks) if blocks else ""
 
 
+def _required_intake(services: Sequence[Service]) -> tuple[str, ...]:
+    """The intake field names the business collects, de-duplicated across its services."""
+    seen: dict[str, None] = {}
+    for service in services:
+        for field in service.intake_fields:
+            seen.setdefault(field.name, None)
+    return tuple(seen)
+
+
+def _known_customer_block(profile: CustomerProfile, required: Sequence[str]) -> str:
+    """The 'what we already know' + 'still needed' section, or '' when there is nothing to show."""
+    still = profile.missing(required)
+    if not profile.facts and not still:
+        return ""
+    fact_lines = [f"- {fact.key}: {fact.value}" for fact in profile.facts] or ["- (nothing yet)"]
+    lines = [
+        "\n\nWhat we already know about this caller — use these, never ask for them again:",
+        *fact_lines,
+    ]
+    if still:
+        lines.append("Still needed: " + ", ".join(still))
+    return "\n".join(lines)
+
+
 def _system_prompt(
-    business: Business, services: Sequence[Service], now: datetime, appointments: str
+    business: Business,
+    services: Sequence[Service],
+    now: datetime,
+    appointments: str,
+    known: str = "",
 ) -> str:
     menu = "\n".join(_menu_line(s) for s in services) or "- (none yet)"
     knowledge = "\n".join(f"Q: {item.question}\nA: {item.answer}" for item in business.knowledge)
@@ -426,13 +469,17 @@ def _system_prompt(
         "customer what time zone they are in, and never offer to convert times for them."
         f"{now_line}"
         f"{_intake_block(services)}"
-        f"\n\n{appointments}"
+        f"\n\n{appointments}{known}"
         f"\n\nKnowledge base:\n{knowledge}"
     )
 
 
 def _voice_system_prompt(
-    business: Business, services: Sequence[Service], now: datetime, appointments: str
+    business: Business,
+    services: Sequence[Service],
+    now: datetime,
+    appointments: str,
+    known: str = "",
 ) -> str:
     """A terse, speech-tuned prompt for a phone call: a smaller prefill (lower latency) and rules
     written for spoken dialogue, not a messenger. Reuses the same data helpers as the text path."""
@@ -467,10 +514,11 @@ def _voice_system_prompt(
         "Use the tools for real availability and booking — never invent times, prices, "
         "or services. These are the ONLY services; if asked for anything else, say you "
         f"don't offer it:\n{menu}\n\n"
-        "Collect booking details ONE at a time: ask only for the next single MISSING item and "
-        "wait. Track what the caller has already told you across the whole call — NEVER ask for a "
-        "detail they already gave, and NEVER repeat a question you have already asked. Once you "
-        "have every required detail, stop asking and book. Call "
+        "Collect booking details ONE at a time. Read the 'What we already know about this caller' "
+        "section below: NEVER ask for anything listed there — use it. Ask only for a field under "
+        "'Still needed'; the MOMENT the caller states a detail, call remember_customer to save it "
+        "(so you never ask again), then continue. Once nothing is still needed, stop asking and "
+        "book. Call "
         "find_availability right before offering times, offer at most three, and never reuse an "
         "earlier list. To change or cancel, use the customer's existing appointment listed below — "
         "reschedule or cancel that one; do NOT offer new slots or re-ask details you can already "
@@ -481,7 +529,7 @@ def _voice_system_prompt(
         f"\n\nThe current date and time is {local_now.strftime('%A, %d %B %Y, %H:%M')} "
         f"({business.timezone}, {_utc_offset(local_now)}). Turn 'today'/'tomorrow'/a weekday into "
         "exact ISO datetimes for the tools."
-        f"\n\n{appointments}"
+        f"\n\n{appointments}{known}"
         f"\n\nKnowledge base:\n{knowledge}"
     )
 
@@ -544,11 +592,14 @@ class Assistant:
 
     async def _run(self, business: Business, customer: Customer) -> str:
         messages = self._initial_messages(await self._d.conversations.history(customer), business)
+        services = await self._d.services.for_business(business.id)
+        profile = await self._d.profiles.get(business.id, customer.id)
         system = _system_prompt(
             business,
-            await self._d.services.for_business(business.id),
+            services,
             self._d.clock.now(),
             await self._appointments_block(business, customer),
+            _known_customer_block(profile, _required_intake(services)),
         )
         verified: set[ReplyClaim] = set()  # claims backed by a tool call this turn
         corrections = 0  # how many corrective retries the supervisor has spent
@@ -620,11 +671,14 @@ class Assistant:
         against the voice model in Phase 0. Persistence is the caller's job, as in ``_run``.
         """
         messages = self._initial_messages(await self._d.conversations.history(customer), business)
+        services = await self._d.services.for_business(business.id)
+        profile = await self._d.profiles.get(business.id, customer.id)
         system = _voice_system_prompt(
             business,
-            await self._d.services.for_business(business.id),
+            services,
             self._d.clock.now(),
             await self._appointments_block(business, customer),
+            _known_customer_block(profile, _required_intake(services)),
         )
         spoke = False  # whether we have yielded any text this turn
         empty_retries = 0
@@ -784,7 +838,10 @@ class Assistant:
         start = _parse_iso(args.get("start"))
         if service is None or start is None:
             return "I need a valid service and start time to book."
-        intake, missing = _collect_intake(service, args.get("details"))
+        profile = await self._d.profiles.get(business.id, customer.id)
+        intake, missing = _collect_intake(
+            service, _merge_details(profile, service, args.get("details"))
+        )
         if missing:
             return (
                 "Before booking, you must collect ALL of these from the customer, then call book "

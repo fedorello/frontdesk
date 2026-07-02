@@ -4,8 +4,9 @@ from datetime import UTC, datetime
 
 from frontdesk.application.customer_memory import RememberCustomer
 from frontdesk.application.ports import Completion, ToolCall
+from frontdesk.domain.customer_memory import CustomerFact
 from frontdesk.domain.ids import BusinessId, CustomerId, ServiceId
-from frontdesk.domain.models import IntakeField, Service
+from frontdesk.domain.models import IntakeAnswer, IntakeField, Service
 from frontdesk.infrastructure.memory import (
     InMemoryCustomerProfileRepository,
     InMemoryServiceRepository,
@@ -70,3 +71,32 @@ async def test_remember_customer_tool_persists_a_fact_through_the_assistant() ->
 
     profile = await world.deps.profiles.get(world.business.id, customer.id)
     assert profile.value_of("Birth date") == "21 Dec 1984"  # tool → use case → persisted
+
+
+async def test_booking_sources_intake_from_the_saved_profile() -> None:
+    # A returning caller whose profile already holds the required intake books without re-stating
+    # it: the book call passes no details, yet it succeeds because _do_book merges the profile.
+    world = build_world(
+        [
+            Completion(
+                "Booking now.",
+                (
+                    ToolCall(
+                        "b", "book", {"service": "Haircut", "start": "2026-06-26T15:00:00+00:00"}
+                    ),
+                ),
+            ),
+            Completion("All set."),
+        ],
+        intake_fields=(IntakeField("Birth date"),),
+    )
+    customer = make_customer()
+    await world.deps.profiles.upsert_facts(
+        world.business.id, customer.id, [CustomerFact("Birth date", "21 December 1984", NOW)]
+    )
+
+    _ = [line async for line in world.assistant.stream(world.business, customer)]
+
+    assert len(world.appointments.appointments) == 1  # booked despite no details in the tool call
+    (booked,) = world.appointments.appointments.values()
+    assert booked.intake == (IntakeAnswer("Birth date", "21 December 1984"),)  # from the profile
