@@ -80,4 +80,4 @@ for the layout). Keep this index in sync — when you add a document, add it her
   messaging port (0002), multi-tenant by business (0003), durable reminders in
   PostgreSQL (0004), human-in-the-loop via Airlock (0005), model-agnostic LLM
   provider (0006), the assistant as a tool-use agent (0007), admin role &
-  cross-tenant analytics (0012).
+  cross-tenant analytics (0012), premium-feature entitlements & operator management (0013).

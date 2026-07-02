@@ -6,7 +6,9 @@ registry so an unregistered feature can never be silently allowed.
 """
 
 import logging
+from collections.abc import Callable
 from dataclasses import dataclass
+from datetime import datetime
 
 from frontdesk.application.ports import (
     Clock,
@@ -97,3 +99,41 @@ class RequestFeature:
         await self._entitlements.save(requested)
         _logger.info("feature_requested business=%s feature=%s", business_id, feature_key)
         return requested
+
+
+class ReviewFeatureRequest:
+    """An operator's decision on a premium feature — approve (activate) or suspend a business's."""
+
+    def __init__(
+        self, registry: FeatureRegistry, entitlements: EntitlementRepository, clock: Clock
+    ) -> None:
+        self._registry = registry
+        self._entitlements = entitlements
+        self._clock = clock
+
+    async def approve(self, business_id: BusinessId, feature_key: FeatureKey) -> Entitlement:
+        """Grant the feature (creating the record if the operator grants with no prior request)."""
+        return await self._decide(business_id, feature_key, Entitlement.approve)
+
+    async def suspend(self, business_id: BusinessId, feature_key: FeatureKey) -> Entitlement:
+        """Turn the feature off for this business."""
+        return await self._decide(business_id, feature_key, Entitlement.suspend)
+
+    async def _decide(
+        self,
+        business_id: BusinessId,
+        feature_key: FeatureKey,
+        transition: Callable[[Entitlement, datetime], Entitlement],
+    ) -> Entitlement:
+        self._registry.require(feature_key)
+        existing = await self._entitlements.get(business_id, feature_key)
+        base = existing or Entitlement.requested(business_id, feature_key, self._clock.now())
+        decided = transition(base, self._clock.now())
+        await self._entitlements.save(decided)
+        _logger.info(
+            "feature_decision business=%s feature=%s status=%s",
+            business_id,
+            feature_key,
+            decided.status.value,
+        )
+        return decided

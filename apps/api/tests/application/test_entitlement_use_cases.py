@@ -4,7 +4,11 @@ from datetime import UTC, datetime
 
 import pytest
 
-from frontdesk.application.entitlements import FeatureCatalog, RequestFeature
+from frontdesk.application.entitlements import (
+    FeatureCatalog,
+    RequestFeature,
+    ReviewFeatureRequest,
+)
 from frontdesk.domain.entitlements import Entitlement, FeatureRegistry, PremiumFeature
 from frontdesk.domain.enums import EntitlementStatus
 from frontdesk.domain.errors import UnknownFeature
@@ -74,3 +78,38 @@ async def test_request_rejects_an_unregistered_feature() -> None:
         await RequestFeature(_registry(), InMemoryEntitlementRepository(), FixedClock(NOW)).execute(
             BIZ, FeatureKey("ghost")
         )
+
+
+async def test_approve_activates_a_pending_request() -> None:
+    repo = InMemoryEntitlementRepository([Entitlement.requested(BIZ, VOICE, NOW)])
+
+    result = await ReviewFeatureRequest(_registry(), repo, FixedClock(LATER)).approve(BIZ, VOICE)
+
+    assert result.status is EntitlementStatus.ACTIVE
+    assert result.decided_at == LATER
+    assert await repo.active_features(BIZ) == frozenset({VOICE})
+
+
+async def test_approve_without_a_prior_request_grants_directly() -> None:
+    repo = InMemoryEntitlementRepository()
+
+    result = await ReviewFeatureRequest(_registry(), repo, FixedClock(NOW)).approve(BIZ, VOICE)
+
+    assert result.status is EntitlementStatus.ACTIVE  # operator can grant proactively
+    assert await repo.get(BIZ, VOICE) == result
+
+
+async def test_suspend_turns_an_active_feature_off() -> None:
+    repo = InMemoryEntitlementRepository([Entitlement.requested(BIZ, VOICE, NOW).approve(NOW)])
+
+    result = await ReviewFeatureRequest(_registry(), repo, FixedClock(LATER)).suspend(BIZ, VOICE)
+
+    assert result.status is EntitlementStatus.SUSPENDED
+    assert await repo.active_features(BIZ) == frozenset()
+
+
+async def test_review_rejects_an_unregistered_feature() -> None:
+    with pytest.raises(UnknownFeature):
+        await ReviewFeatureRequest(
+            _registry(), InMemoryEntitlementRepository(), FixedClock(NOW)
+        ).approve(BIZ, FeatureKey("ghost"))

@@ -21,7 +21,11 @@ from frontdesk.application.appointments import (
     RescheduleAppointment,
 )
 from frontdesk.application.assistant import Assistant, AssistantDeps
-from frontdesk.application.entitlements import FeatureCatalog, RequestFeature
+from frontdesk.application.entitlements import (
+    FeatureCatalog,
+    RequestFeature,
+    ReviewFeatureRequest,
+)
 from frontdesk.application.owner_actions import (
     OwnerCancelAppointment,
     OwnerRescheduleAppointment,
@@ -97,6 +101,7 @@ from frontdesk.infrastructure.system import (
 )
 from frontdesk.interface.account_api import build_account_router
 from frontdesk.interface.admin_api import build_admin_router
+from frontdesk.interface.admin_entitlements_api import build_admin_entitlements_router
 from frontdesk.interface.appointments_api import build_appointments_router
 from frontdesk.interface.approvals import build_approvals_router
 from frontdesk.interface.auth import (
@@ -417,5 +422,13 @@ def create_production_app() -> FastAPI:
         accounts, session_signing_key(settings.secret_key), settings.token_max_age_seconds
     )
     app.include_router(build_admin_router(analytics, admin_guard))
+    # Operator management of premium-feature entitlements (Phase 3, ADR-0013): approve/suspend.
+    app.include_router(
+        build_admin_entitlements_router(
+            entitlements,
+            ReviewFeatureRequest(feature_registry, entitlements, clock),
+            admin_guard,
+        )
+    )
     app.include_router(build_me_router(accounts, settings))
     return app
