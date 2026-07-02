@@ -19,6 +19,17 @@ from frontdesk.domain.ids import BusinessId, CustomerId
 
 _logger = logging.getLogger("frontdesk.customer_memory")
 
+# Placeholder values the model sometimes invents when the caller hasn't actually given a field
+# (e.g. it fills 'unknown' to satisfy the tool). Saving these would mark a field known with junk,
+# so the assistant stops asking for the real value — the opposite of what we want. Drop them.
+_PLACEHOLDERS = frozenset(
+    {"unknown", "n/a", "na", "none", "null", "nil", "idk", "-", "--", "?", "tbd", "not sure"}
+)
+
+
+def _is_placeholder(value: str) -> bool:
+    return value.casefold() in _PLACEHOLDERS
+
 
 class RememberCustomer:
     """Persist the customer's stated intake facts, keyed by the business's intake field names."""
@@ -49,7 +60,7 @@ class RememberCustomer:
         for raw_key, raw_value in details.items():
             entry = allowed.get(normalize_key(raw_key))
             value = str(raw_value).strip()
-            if entry is not None and value:
+            if entry is not None and value and not _is_placeholder(value):
                 canonical, instruction = entry
                 value = await self._normalizer.normalize(canonical, value, instruction)
                 facts.append(CustomerFact(canonical, value, now))

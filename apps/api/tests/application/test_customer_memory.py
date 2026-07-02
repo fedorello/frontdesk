@@ -86,6 +86,20 @@ async def test_field_normalization_rule_is_forwarded_to_the_normalizer() -> None
     assert ("name", "") in normalizer.calls
 
 
+async def test_placeholder_values_are_never_saved() -> None:
+    # The model sometimes invents 'unknown' to satisfy the tool; saving it would wrongly mark the
+    # field known and stop the assistant asking for the real value.
+    use_case, profiles = _remember()
+
+    saved = await use_case.execute(
+        BIZ, CUST, {"Birth time": "unknown", "Birth date": "N/A", "name": "Theodore"}
+    )
+
+    assert set(saved) == {"name"}  # only the real value survives
+    profile = await profiles.get(BIZ, CUST)
+    assert profile.missing(["Birth time", "Birth date"]) == ("Birth time", "Birth date")
+
+
 async def test_values_are_cleaned_by_the_normalizer_before_saving() -> None:
     use_case, profiles = _remember(_UppercaseNormalizer())
 
