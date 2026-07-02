@@ -3,7 +3,7 @@
 from datetime import UTC, datetime
 
 from frontdesk.application.customer_memory import RememberCustomer
-from frontdesk.application.ports import Completion, ToolCall
+from frontdesk.application.ports import Completion, FactNormalizer, ToolCall
 from frontdesk.domain.customer_memory import CustomerFact
 from frontdesk.domain.ids import BusinessId, CustomerId, ServiceId
 from frontdesk.domain.models import IntakeAnswer, IntakeField, Service
@@ -11,6 +11,7 @@ from frontdesk.infrastructure.memory import (
     InMemoryCustomerProfileRepository,
     InMemoryServiceRepository,
 )
+from frontdesk.infrastructure.providers.groq import NullFactNormalizer
 from frontdesk.infrastructure.system import FixedClock
 from tests.application.world import build_world, make_customer
 
@@ -19,7 +20,9 @@ BIZ = BusinessId("biz")
 CUST = CustomerId("cust")
 
 
-def _remember() -> tuple[RememberCustomer, InMemoryCustomerProfileRepository]:
+def _remember(
+    normalizer: FactNormalizer | None = None,
+) -> tuple[RememberCustomer, InMemoryCustomerProfileRepository]:
     service = Service(
         ServiceId("svc"),
         BIZ,
@@ -28,7 +31,12 @@ def _remember() -> tuple[RememberCustomer, InMemoryCustomerProfileRepository]:
         intake_fields=(IntakeField("Birth date"), IntakeField("Birth time")),
     )
     profiles = InMemoryCustomerProfileRepository()
-    use_case = RememberCustomer(profiles, InMemoryServiceRepository([service]), FixedClock(NOW))
+    use_case = RememberCustomer(
+        profiles,
+        InMemoryServiceRepository([service]),
+        FixedClock(NOW),
+        normalizer or NullFactNormalizer(),
+    )
     return use_case, profiles
 
 
@@ -43,6 +51,21 @@ async def test_saves_recognised_intake_fields_and_the_universal_name() -> None:
     profile = await profiles.get(BIZ, CUST)
     assert profile.value_of("Birth date") == "21 December 1984"
     assert profile.value_of("name") == "Theodore"
+
+
+class _UppercaseNormalizer:
+    """A stub normalizer that uppercases, so a test can prove cleaning is applied before saving."""
+
+    async def normalize(self, field: str, value: str) -> str:
+        return value.upper()
+
+
+async def test_values_are_cleaned_by_the_normalizer_before_saving() -> None:
+    use_case, profiles = _remember(_UppercaseNormalizer())
+
+    await use_case.execute(BIZ, CUST, {"Birth date": "21 december"})
+
+    assert (await profiles.get(BIZ, CUST)).value_of("Birth date") == "21 DECEMBER"
 
 
 async def test_skips_unknown_keys_and_empty_values() -> None:

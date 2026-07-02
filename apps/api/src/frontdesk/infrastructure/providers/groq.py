@@ -73,3 +73,59 @@ class NullReplyClaimClassifier:
 
     async def classify(self, message: str) -> frozenset[ReplyClaim]:
         return frozenset()
+
+
+_NORMALIZE_PROMPT = (
+    "You clean ONE value a customer gave for a form field, in ANY language. Drop leading "
+    "prepositions and filler words and fix obvious spelling, but KEEP the customer's own words, "
+    "language and meaning — do NOT translate and do NOT turn spelled-out numbers into digits. "
+    "Reply with ONLY the cleaned value, nothing else. Examples: field 'Birth place' value "
+    "'in London' -> London; field 'Birth time' value 'at half past two' -> half past two."
+)
+_NORMALIZE_MAX_TOKENS = 40
+
+
+class GroqFactNormalizer:
+    """Cleans a captured fact value via a cheap Groq model. Best-effort: keeps the raw value if
+    Groq is unreachable, so remembering a fact never fails on a normalization hiccup."""
+
+    def __init__(
+        self, *, api_key: str, model: str, client: httpx.AsyncClient, base_url: str
+    ) -> None:
+        self._key = api_key
+        self._model = model
+        self._client = client
+        self._base = base_url.rstrip("/")
+
+    async def normalize(self, field: str, value: str) -> str:
+        clean = value.strip()
+        if not clean:
+            return clean
+        payload = {
+            "model": self._model,
+            "max_tokens": _NORMALIZE_MAX_TOKENS,
+            "temperature": 0,
+            "messages": [
+                {"role": "system", "content": _NORMALIZE_PROMPT},
+                {"role": "user", "content": f"field '{field}' value '{clean}'"},
+            ],
+        }
+        try:
+            response = await self._client.post(
+                f"{self._base}/chat/completions",
+                json=payload,
+                headers={"Authorization": f"Bearer {self._key}"},
+            )
+            response.raise_for_status()
+        except httpx.HTTPError as error:
+            _logger.warning("fact normalizer unavailable: %s", error)
+            return clean
+        content = response.json()["choices"][0]["message"].get("content") or ""
+        return content.strip() or clean
+
+
+class NullFactNormalizer:
+    """Used when no Groq key is configured: keep the raw value (only trimmed)."""
+
+    async def normalize(self, field: str, value: str) -> str:
+        return value.strip()

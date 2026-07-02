@@ -42,6 +42,7 @@ from frontdesk.infrastructure.memory import (
     InMemoryServiceRepository,
     ScriptedLlmProvider,
 )
+from frontdesk.infrastructure.providers.groq import NullFactNormalizer
 from frontdesk.infrastructure.system import FixedClock, SequentialIdGenerator
 
 NOW = datetime(2026, 6, 26, 12, 0, tzinfo=UTC)  # Friday, 12:00 UTC
@@ -135,6 +136,7 @@ def build_world(
         clock=clock,
         classifier=classifier or InMemoryReplyClaimClassifier(),
         profiles=InMemoryCustomerProfileRepository(),
+        normalizer=NullFactNormalizer(),
     )
     return World(
         assistant=Assistant(deps),

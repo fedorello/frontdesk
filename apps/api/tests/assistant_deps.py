@@ -30,6 +30,7 @@ from frontdesk.infrastructure.memory import (
     InMemoryTelegramLinkCodeStore,
     ScriptedLlmProvider,
 )
+from frontdesk.infrastructure.providers.groq import NullFactNormalizer
 from frontdesk.infrastructure.system import FixedClock, SequentialIdGenerator
 from tests.port_contracts import NOW
 
@@ -66,6 +67,7 @@ def build_assistant_deps(businesses: InMemoryBusinessRepository) -> AssistantDep
         clock=clock,
         classifier=InMemoryReplyClaimClassifier(),
         profiles=InMemoryCustomerProfileRepository(),
+        normalizer=NullFactNormalizer(),
     )
 
 

@@ -8,7 +8,12 @@ stays clean and lines up with what booking expects. Fact *values* are PII and lo
 import logging
 from collections.abc import Mapping
 
-from frontdesk.application.ports import Clock, CustomerProfileRepository, ServiceRepository
+from frontdesk.application.ports import (
+    Clock,
+    CustomerProfileRepository,
+    FactNormalizer,
+    ServiceRepository,
+)
 from frontdesk.domain.customer_memory import NAME_KEY, CustomerFact, normalize_key
 from frontdesk.domain.ids import BusinessId, CustomerId
 
@@ -23,15 +28,17 @@ class RememberCustomer:
         profiles: CustomerProfileRepository,
         services: ServiceRepository,
         clock: Clock,
+        normalizer: FactNormalizer,
     ) -> None:
         self._profiles = profiles
         self._services = services
         self._clock = clock
+        self._normalizer = normalizer
 
     async def execute(
         self, business_id: BusinessId, customer_id: CustomerId, details: Mapping[str, object]
     ) -> tuple[str, ...]:
-        """Save each recognised, non-empty detail. Returns the canonical keys actually saved.
+        """Save each recognised, non-empty detail (cleaned by the normalizer); return keys saved.
 
         Unknown keys (not an intake field of any service, and not ``name``) and empty values are
         skipped — so a stray tool argument can never pollute the profile.
@@ -43,6 +50,7 @@ class RememberCustomer:
             canonical = allowed.get(normalize_key(raw_key))
             value = str(raw_value).strip()
             if canonical is not None and value:
+                value = await self._normalizer.normalize(canonical, value)
                 facts.append(CustomerFact(canonical, value, now))
         if facts:
             await self._profiles.upsert_facts(business_id, customer_id, facts)

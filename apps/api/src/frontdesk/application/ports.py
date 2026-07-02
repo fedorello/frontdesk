@@ -383,6 +383,12 @@ class CustomerProfileRepository(Protocol):
     ) -> None: ...
 
 
+class FactNormalizer(Protocol):
+    """Clean a captured fact value (drop prepositions/filler, tidy) before it is saved."""
+
+    async def normalize(self, field: str, value: str) -> str: ...
+
+
 class CustomerRepository(Protocol):
     async def upsert(
         self, business_id: BusinessId, channel: Channel, address: str, name: str | None = None

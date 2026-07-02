@@ -38,6 +38,7 @@ from frontdesk.application.owner_notifier import OwnerNotifier
 from frontdesk.application.ports import (
     ApprovalGate,
     Clock,
+    FactNormalizer,
     IdGenerator,
     LlmProvider,
     MessagingPort,
@@ -95,7 +96,9 @@ from frontdesk.infrastructure.postgres.entitlements import (
 )
 from frontdesk.infrastructure.providers.anthropic import AnthropicProvider
 from frontdesk.infrastructure.providers.groq import (
+    GroqFactNormalizer,
     GroqReplyClaimClassifier,
+    NullFactNormalizer,
     NullReplyClaimClassifier,
 )
 from frontdesk.infrastructure.providers.openai import OpenAiProvider
@@ -203,6 +206,18 @@ def build_reply_classifier(settings: Settings, client: httpx.AsyncClient) -> Rep
     )
 
 
+def build_fact_normalizer(settings: Settings, client: httpx.AsyncClient) -> FactNormalizer:
+    """The cheap Groq fact cleaner when a key is configured; otherwise a no-op (raw value kept)."""
+    if not settings.groq_api_key:
+        return NullFactNormalizer()
+    return GroqFactNormalizer(
+        api_key=settings.groq_api_key,
+        model=settings.normalizer_model,
+        client=client,
+        base_url=settings.groq_base_url,
+    )
+
+
 def build_assistant_deps(
     settings: Settings,
     sessions: async_sessionmaker[AsyncSession],
@@ -253,6 +268,7 @@ def build_assistant_deps(
         clock,
         build_reply_classifier(settings, client),
         SqlCustomerProfileRepository(sessions),
+        build_fact_normalizer(settings, client),
     )
 
 

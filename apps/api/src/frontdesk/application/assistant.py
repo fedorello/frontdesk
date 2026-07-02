@@ -34,6 +34,7 @@ from frontdesk.application.ports import (
     CustomerRepository,
     Escalated,
     EventPublisher,
+    FactNormalizer,
     InboundMessage,
     LlmProvider,
     MessageReceived,
@@ -274,6 +275,7 @@ class AssistantDeps:
     clock: Clock
     classifier: ReplyClaimClassifier
     profiles: CustomerProfileRepository
+    normalizer: FactNormalizer
 
 
 def _arg(args: dict[str, object], key: str) -> str:
@@ -795,9 +797,9 @@ class Assistant:
         details = args.get("details")
         if not isinstance(details, dict):
             return "No details to save."
-        saved = await RememberCustomer(self._d.profiles, self._d.services, self._d.clock).execute(
-            business.id, customer.id, details
-        )
+        saved = await RememberCustomer(
+            self._d.profiles, self._d.services, self._d.clock, self._d.normalizer
+        ).execute(business.id, customer.id, details)
         return f"Saved: {', '.join(saved)}." if saved else "Nothing new to save."
 
     async def _capture_and_reload(

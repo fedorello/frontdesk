@@ -317,6 +317,33 @@ async def test_groq_classifier_degrades_to_empty_when_unreachable() -> None:
     assert await _classifier(handler).classify("Free at 10:00?") == frozenset()
 
 
+async def test_groq_fact_normalizer_cleans_a_value() -> None:
+    from frontdesk.infrastructure.providers.groq import GroqFactNormalizer
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        body = json.loads(request.content)
+        assert body["model"] == "llama-3.1-8b-instant"
+        assert body["temperature"] == 0
+        return httpx.Response(200, json={"choices": [{"message": {"content": "London"}}]})
+
+    normalizer = GroqFactNormalizer(
+        api_key="gk", model="llama-3.1-8b-instant", client=_client(handler), base_url=_GROQ_BASE
+    )
+    assert await normalizer.normalize("Birth place", "in London") == "London"
+
+
+async def test_groq_fact_normalizer_keeps_the_raw_value_when_unreachable() -> None:
+    from frontdesk.infrastructure.providers.groq import GroqFactNormalizer
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        return httpx.Response(503)  # normalizer outage must never lose the fact
+
+    normalizer = GroqFactNormalizer(
+        api_key="gk", model="llama-3.1-8b-instant", client=_client(handler), base_url=_GROQ_BASE
+    )
+    assert await normalizer.normalize("Birth place", "  in London  ") == "in London"
+
+
 async def test_null_classifier_never_flags() -> None:
     assert await NullReplyClaimClassifier().classify("Free at 10:00?") == frozenset()
 

@@ -142,6 +142,9 @@ class Settings(BaseSettings):
     groq_api_key: str = ""
     supervisor_model: str = "llama-3.1-8b-instant"
     groq_base_url: str = "https://api.groq.com/openai/v1"
+    # Cheap Groq model that cleans a captured customer fact before it is saved (drops prepositions/
+    # filler). Reuses groq_api_key + groq_base_url; an empty key falls back to a no-op normalizer.
+    normalizer_model: str = "llama-3.1-8b-instant"
 
     # The voice channel uses a low-latency provider (Groq) instead of the text default
     # (VOICE_RECEPTIONIST.md §6), reusing groq_api_key + groq_base_url. An empty model disables the
