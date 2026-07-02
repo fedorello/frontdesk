@@ -262,6 +262,13 @@ export interface PremiumFeatureItem {
   status: "requested" | "active" | "suspended" | null;
 }
 
+// A demo phone number to try the voice assistant, per language.
+export interface VoiceDemoNumber {
+  language: string;
+  e164: string;
+  label: string;
+}
+
 // One business's entitlement, as the operator sees it (ADR-0013).
 export interface AdminEntitlement {
   business_id: string;
@@ -299,6 +306,9 @@ export const api = {
 
   requestFeature: (id: string, key: string): Promise<PremiumFeatureItem> =>
     request("POST", `/api/businesses/${id}/features/${key}/request`),
+
+  voiceDemoNumbers: (id: string): Promise<VoiceDemoNumber[]> =>
+    request("GET", `/api/businesses/${id}/voice-demo-numbers`),
 
   putBusiness: (id: string, body: BusinessProfile): Promise<BusinessProfile> =>
     request("PUT", `/api/businesses/${id}`, body),

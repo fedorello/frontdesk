@@ -12,6 +12,7 @@ export const NAV_ITEMS: NavItem[] = [
   { href: "/", key: "nav.overview", icon: "overview" },
   { href: "/conversations", key: "nav.conversations", icon: "conversations" },
   { href: "/calendar", key: "nav.calendar", icon: "calendar" },
+  { href: "/calls", key: "nav.calls", icon: "calls" },
   { href: "/approvals", key: "nav.approvals", icon: "approvals" },
   { href: "/settings", key: "nav.settings", icon: "settings" },
 ];
