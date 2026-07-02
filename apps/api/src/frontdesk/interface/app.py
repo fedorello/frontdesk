@@ -23,6 +23,7 @@ from frontdesk.application.appointments import (
 from frontdesk.application.assistant import Assistant, AssistantDeps
 from frontdesk.application.entitlements import (
     FeatureCatalog,
+    RecordDemoLead,
     RequestFeature,
     ReviewFeatureRequest,
 )
@@ -44,7 +45,7 @@ from frontdesk.application.ports import (
     SecretCipher,
 )
 from frontdesk.core.settings import PremiumFeatureConfig, Settings
-from frontdesk.domain.entitlements import FeatureRegistry, PremiumFeature
+from frontdesk.domain.entitlements import DemoNumber, FeatureRegistry, PremiumFeature
 from frontdesk.domain.ids import FeatureKey
 from frontdesk.infrastructure.airlock_gate import AirlockApprovalGate
 from frontdesk.infrastructure.channels.composite import LoggingMessaging, RoutingMessaging
@@ -56,7 +57,10 @@ from frontdesk.infrastructure.channels.telegram import (
 from frontdesk.infrastructure.channels.whatsapp import WhatsAppMessaging
 from frontdesk.infrastructure.db import create_engine, make_session_factory
 from frontdesk.infrastructure.events import DispatchingEventPublisher, LoggingEventListener
-from frontdesk.infrastructure.google_oauth import HttpGoogleOAuthClient
+from frontdesk.infrastructure.google_oauth import (
+    HttpGoogleCredentialVerifier,
+    HttpGoogleOAuthClient,
+)
 from frontdesk.infrastructure.keys import session_signing_key
 from frontdesk.infrastructure.logging_setup import configure_logging
 from frontdesk.infrastructure.memory import InMemoryIdempotency
@@ -84,7 +88,10 @@ from frontdesk.infrastructure.postgres.analytics import (
     SqlPlatformSummaryRepository,
     SqlPlatformTimeseriesRepository,
 )
-from frontdesk.infrastructure.postgres.entitlements import SqlEntitlementRepository
+from frontdesk.infrastructure.postgres.entitlements import (
+    SqlDemoLeadRepository,
+    SqlEntitlementRepository,
+)
 from frontdesk.infrastructure.providers.anthropic import AnthropicProvider
 from frontdesk.infrastructure.providers.groq import (
     GroqReplyClaimClassifier,
@@ -114,6 +121,7 @@ from frontdesk.interface.business_config import build_llm_config_router
 from frontdesk.interface.chat import build_chat_router
 from frontdesk.interface.config_api import build_config_router
 from frontdesk.interface.conversations_api import build_conversations_router
+from frontdesk.interface.demo_api import DemoAccessConfig, build_demo_router
 from frontdesk.interface.features_api import build_features_router
 from frontdesk.interface.google_auth import build_google_auth_router
 from frontdesk.interface.metrics_api import build_metrics_router
@@ -409,6 +417,21 @@ def create_production_app() -> FastAPI:
             FeatureCatalog(feature_registry, entitlements),
             RequestFeature(feature_registry, entitlements, clock),
             guard,
+        )
+    )
+    # Public landing demo (Phase 4): Google sign-in captures a lead, then returns the demo numbers.
+    app.include_router(
+        build_demo_router(
+            HttpGoogleCredentialVerifier(settings.google_client_id, client),
+            RecordDemoLead(SqlDemoLeadRepository(sessions), ids, clock),
+            DemoAccessConfig(
+                FeatureKey(settings.voice_feature_key),
+                tuple(DemoNumber(n.language, n.e164, n.label) for n in settings.voice_demo_numbers),
+                settings.demo_rate_limit,
+                settings.demo_rate_window_seconds,
+                settings.trusted_proxy_hops,
+            ),
+            rate_limiter,
         )
     )
     # Cross-tenant admin analytics (ADR-0012), behind the admin guard; /api/me for the client role.

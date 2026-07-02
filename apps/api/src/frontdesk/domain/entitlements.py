@@ -83,3 +83,12 @@ class DemoLead:
     email: str
     feature_key: FeatureKey
     created_at: datetime
+
+
+@dataclass(frozen=True, slots=True)
+class DemoNumber:
+    """A landing-demo phone number for one language (revealed after a lead signs in)."""
+
+    language: str
+    e164: str
+    label: str

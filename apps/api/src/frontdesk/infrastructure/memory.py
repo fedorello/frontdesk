@@ -31,6 +31,7 @@ from frontdesk.application.ports import (
     Completion,
     Decision,
     DomainEvent,
+    GoogleIdentity,
     IdGenerator,
     LlmConfig,
     OutboundMessage,
@@ -314,6 +315,16 @@ class InMemoryDemoLeadRepository:
 
     async def record(self, lead: DemoLead) -> None:
         self.leads.append(lead)
+
+
+class FakeGoogleCredentialVerifier:
+    """Maps known credentials to identities; anything else fails verification (returns None)."""
+
+    def __init__(self, identities: Mapping[str, GoogleIdentity] | None = None) -> None:
+        self._identities = dict(identities or {})
+
+    async def verify(self, credential: str) -> GoogleIdentity | None:
+        return self._identities.get(credential)
 
 
 class InMemoryUsageStore:

@@ -121,6 +121,11 @@ class Settings(BaseSettings):
     # FRONTDESK_PREMIUM_FEATURES / FRONTDESK_VOICE_DEMO_NUMBERS (JSON).
     premium_features: list[PremiumFeatureConfig] = _DEFAULT_PREMIUM_FEATURES
     voice_demo_numbers: list[DemoNumberConfig] = _DEFAULT_VOICE_DEMO_NUMBERS
+    # The feature the landing voice demo captures leads for, and the per-IP limit on the public
+    # demo-access endpoint (0 disables the limit).
+    voice_feature_key: str = "voice_receptionist"
+    demo_rate_limit: int = 20
+    demo_rate_window_seconds: int = 3600
 
     # Whether a business may bring its own LLM provider + key (vs the managed default).
     # Off until the feature is launched; enable via FRONTDESK_ALLOW_OWN_LLM=true.

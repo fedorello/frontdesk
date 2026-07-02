@@ -172,6 +172,44 @@ async def test_anthropic_streams_a_single_buffered_chunk() -> None:
     assert chunks[-1].completion == Completion("We're open 9-17.")
 
 
+async def test_google_credential_verifier_accepts_a_valid_token() -> None:
+    from frontdesk.infrastructure.google_oauth import HttpGoogleCredentialVerifier
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        assert request.url.params["id_token"] == "cred"
+        return httpx.Response(
+            200,
+            json={
+                "aud": "my-client",
+                "iss": "https://accounts.google.com",
+                "email": "caller@example.com",
+                "email_verified": "true",
+                "name": "Caller",
+            },
+        )
+
+    identity = await HttpGoogleCredentialVerifier("my-client", _client(handler)).verify("cred")
+
+    assert identity is not None
+    assert identity.email == "caller@example.com"
+
+
+async def test_google_credential_verifier_rejects_wrong_audience_and_bad_status() -> None:
+    from frontdesk.infrastructure.google_oauth import HttpGoogleCredentialVerifier
+
+    def wrong_aud(request: httpx.Request) -> httpx.Response:
+        return httpx.Response(
+            200,
+            json={"aud": "someone-else", "iss": "accounts.google.com", "email_verified": "true"},
+        )
+
+    def invalid(request: httpx.Request) -> httpx.Response:
+        return httpx.Response(400, json={"error": "invalid_token"})
+
+    assert await HttpGoogleCredentialVerifier("my-client", _client(wrong_aud)).verify("c") is None
+    assert await HttpGoogleCredentialVerifier("my-client", _client(invalid)).verify("c") is None
+
+
 async def test_anthropic_builds_request_and_parses_blocks() -> None:
     def handler(request: httpx.Request) -> httpx.Response:
         body = json.loads(request.content)

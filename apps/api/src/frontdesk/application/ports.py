@@ -250,6 +250,14 @@ class GoogleOAuthClient(Protocol):
     async def exchange_code(self, code: str) -> GoogleIdentity: ...
 
 
+class GoogleCredentialVerifier(Protocol):
+    """Verifies a Google Identity Services credential (an id_token from the browser), for the
+    landing demo. Returns the identity when the token is valid and its email is verified, else None.
+    """
+
+    async def verify(self, credential: str) -> GoogleIdentity | None: ...
+
+
 class LlmProvider(Protocol):
     async def complete(
         self,

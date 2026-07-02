@@ -3,12 +3,16 @@
 import base64
 import binascii
 import json
+import logging
 
 import httpx
 
 from frontdesk.application.ports import GoogleIdentity
 
+_logger = logging.getLogger("frontdesk.google")
+
 _TOKEN_ENDPOINT = "https://oauth2.googleapis.com/token"
+_TOKENINFO_ENDPOINT = "https://oauth2.googleapis.com/tokeninfo"
 _ISSUERS = frozenset({"https://accounts.google.com", "accounts.google.com"})
 
 
@@ -55,6 +59,43 @@ class HttpGoogleOAuthClient:
         return GoogleIdentity(
             email=str(claims.get("email", "")),
             email_verified=bool(claims.get("email_verified", False)),
+            name=str(claims.get("name", "")),
+            picture=str(claims.get("picture", "")),
+        )
+
+
+class HttpGoogleCredentialVerifier:
+    """Verifies a Google Identity Services credential via Google's tokeninfo endpoint.
+
+    The credential arrives from the browser (not over a trusted TLS channel from Google), so we
+    have Google re-check the signature at tokeninfo, then pin the audience/issuer and require a
+    verified email. Returns None on any failure — the caller treats that as unauthorized.
+    """
+
+    def __init__(self, client_id: str, http: httpx.AsyncClient) -> None:
+        self._client_id = client_id
+        self._http = http
+
+    async def verify(self, credential: str) -> GoogleIdentity | None:
+        response = await self._http.get(_TOKENINFO_ENDPOINT, params={"id_token": credential})
+        if response.status_code != 200:  # noqa: PLR2004 — Google returns 400 for an invalid token
+            _logger.info(
+                "demo google credential rejected: tokeninfo status=%s", response.status_code
+            )
+            return None
+        claims = response.json()
+        # tokeninfo returns email_verified as the string "true"/"false".
+        verified = str(claims.get("email_verified", "")).lower() == "true"
+        if (
+            claims.get("aud") != self._client_id
+            or claims.get("iss") not in _ISSUERS
+            or not verified
+        ):
+            _logger.info("demo google credential rejected: audience/issuer/email_verified")
+            return None
+        return GoogleIdentity(
+            email=str(claims.get("email", "")),
+            email_verified=True,
             name=str(claims.get("name", "")),
             picture=str(claims.get("picture", "")),
         )

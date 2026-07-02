@@ -12,12 +12,14 @@ from datetime import datetime
 
 from frontdesk.application.ports import (
     Clock,
+    DemoLeadRepository,
     EntitlementDirectory,
     EntitlementRepository,
+    IdGenerator,
 )
-from frontdesk.domain.entitlements import Entitlement, FeatureRegistry
+from frontdesk.domain.entitlements import DemoLead, Entitlement, FeatureRegistry
 from frontdesk.domain.enums import EntitlementStatus
-from frontdesk.domain.ids import BusinessId, FeatureKey
+from frontdesk.domain.ids import BusinessId, DemoLeadId, FeatureKey
 
 _logger = logging.getLogger("frontdesk.entitlements")
 
@@ -137,3 +139,19 @@ class ReviewFeatureRequest:
             decided.status.value,
         )
         return decided
+
+
+class RecordDemoLead:
+    """Stores a landing-demo lead — the email captured before revealing a feature's demo numbers."""
+
+    def __init__(self, leads: DemoLeadRepository, ids: IdGenerator, clock: Clock) -> None:
+        self._leads = leads
+        self._ids = ids
+        self._clock = clock
+
+    async def execute(self, email: str, feature_key: FeatureKey) -> None:
+        await self._leads.record(
+            DemoLead(DemoLeadId(self._ids.new()), email, feature_key, self._clock.now())
+        )
+        _logger.info("demo_lead_recorded feature=%s", feature_key)  # email is PII → DEBUG only
+        _logger.debug("demo_lead email=%s feature=%s", email, feature_key)

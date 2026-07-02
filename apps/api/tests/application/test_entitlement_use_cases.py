@@ -6,6 +6,7 @@ import pytest
 
 from frontdesk.application.entitlements import (
     FeatureCatalog,
+    RecordDemoLead,
     RequestFeature,
     ReviewFeatureRequest,
 )
@@ -13,8 +14,11 @@ from frontdesk.domain.entitlements import Entitlement, FeatureRegistry, PremiumF
 from frontdesk.domain.enums import EntitlementStatus
 from frontdesk.domain.errors import UnknownFeature
 from frontdesk.domain.ids import BusinessId, FeatureKey
-from frontdesk.infrastructure.memory import InMemoryEntitlementRepository
-from frontdesk.infrastructure.system import FixedClock
+from frontdesk.infrastructure.memory import (
+    InMemoryDemoLeadRepository,
+    InMemoryEntitlementRepository,
+)
+from frontdesk.infrastructure.system import FixedClock, SequentialIdGenerator
 
 NOW = datetime(2026, 7, 2, 12, 0, tzinfo=UTC)
 LATER = datetime(2026, 7, 3, 9, 0, tzinfo=UTC)
@@ -113,3 +117,15 @@ async def test_review_rejects_an_unregistered_feature() -> None:
         await ReviewFeatureRequest(
             _registry(), InMemoryEntitlementRepository(), FixedClock(NOW)
         ).approve(BIZ, FeatureKey("ghost"))
+
+
+async def test_record_demo_lead_stores_the_email_and_feature() -> None:
+    leads = InMemoryDemoLeadRepository()
+
+    await RecordDemoLead(leads, SequentialIdGenerator("lead"), FixedClock(NOW)).execute(
+        "caller@example.com", VOICE
+    )
+
+    assert [(lead.email, lead.feature_key, lead.created_at) for lead in leads.leads] == [
+        ("caller@example.com", VOICE, NOW)
+    ]
