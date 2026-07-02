@@ -412,11 +412,15 @@ def create_production_app() -> FastAPI:
     # self-serve request, behind the owner guard.
     feature_registry = feature_registry_from(settings.premium_features)
     entitlements = SqlEntitlementRepository(sessions)
+    demo_numbers = tuple(
+        DemoNumber(n.language, n.e164, n.label) for n in settings.voice_demo_numbers
+    )
     app.include_router(
         build_features_router(
             FeatureCatalog(feature_registry, entitlements),
             RequestFeature(feature_registry, entitlements, clock),
             guard,
+            demo_numbers,
         )
     )
     # Public landing demo (Phase 4): Google sign-in captures a lead, then returns the demo numbers.
@@ -426,7 +430,7 @@ def create_production_app() -> FastAPI:
             RecordDemoLead(SqlDemoLeadRepository(sessions), ids, clock),
             DemoAccessConfig(
                 FeatureKey(settings.voice_feature_key),
-                tuple(DemoNumber(n.language, n.e164, n.label) for n in settings.voice_demo_numbers),
+                demo_numbers,
                 settings.demo_rate_limit,
                 settings.demo_rate_window_seconds,
                 settings.trusted_proxy_hops,

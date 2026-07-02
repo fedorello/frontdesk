@@ -9,7 +9,7 @@ import httpx
 from fastapi import FastAPI
 
 from frontdesk.application.entitlements import FeatureCatalog, RequestFeature
-from frontdesk.domain.entitlements import FeatureRegistry, PremiumFeature
+from frontdesk.domain.entitlements import DemoNumber, FeatureRegistry, PremiumFeature
 from frontdesk.domain.ids import FeatureKey
 from frontdesk.infrastructure.memory import InMemoryEntitlementRepository
 from frontdesk.infrastructure.system import FixedClock
@@ -17,6 +17,7 @@ from frontdesk.interface.features_api import build_features_router
 
 NOW = datetime(2026, 7, 2, 12, 0, tzinfo=UTC)
 VOICE = FeatureKey("voice_receptionist")
+NUMBERS = (DemoNumber("en", "+16055463259", "English"), DemoNumber("ru", "+19306001900", "Русский"))
 
 
 def _client() -> httpx.AsyncClient:
@@ -27,7 +28,10 @@ def _client() -> httpx.AsyncClient:
     app = FastAPI()
     app.include_router(
         build_features_router(
-            FeatureCatalog(registry, repo), RequestFeature(registry, repo, FixedClock(NOW))
+            FeatureCatalog(registry, repo),
+            RequestFeature(registry, repo, FixedClock(NOW)),
+            None,
+            NUMBERS,
         )
     )
     return httpx.AsyncClient(transport=httpx.ASGITransport(app=app), base_url="http://test")
@@ -57,6 +61,17 @@ async def test_request_then_list_shows_pending() -> None:
     assert posted.status_code == 200
     assert posted.json()["status"] == "requested"
     assert listed.json()[0]["status"] == "requested"
+
+
+async def test_lists_the_voice_demo_numbers() -> None:
+    async with _client() as client:
+        response = await client.get("/api/businesses/biz/voice-demo-numbers")
+
+    assert response.status_code == 200
+    assert [(n["language"], n["e164"]) for n in response.json()] == [
+        ("en", "+16055463259"),
+        ("ru", "+19306001900"),
+    ]
 
 
 async def test_request_unknown_feature_is_404() -> None:

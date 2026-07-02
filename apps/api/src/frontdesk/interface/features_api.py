@@ -5,12 +5,13 @@ business). ``GET`` lists the catalog with this business's status; ``POST .../req
 request (idempotent) that an operator later approves.
 """
 
-from collections.abc import Awaitable, Callable
+from collections.abc import Awaitable, Callable, Sequence
 
 from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel
 
 from frontdesk.application.entitlements import FeatureCatalog, FeatureView, RequestFeature
+from frontdesk.domain.entitlements import DemoNumber
 from frontdesk.domain.errors import UnknownFeature
 from frontdesk.domain.ids import BusinessId, FeatureKey
 
@@ -25,6 +26,12 @@ class FeatureCatalogItem(BaseModel):
     status: str | None  # requested | active | suspended, or null when never requested
 
 
+class DemoNumberItem(BaseModel):
+    language: str
+    e164: str
+    label: str
+
+
 def _item(view: FeatureView) -> FeatureCatalogItem:
     return FeatureCatalogItem(
         key=view.key,
@@ -36,7 +43,10 @@ def _item(view: FeatureView) -> FeatureCatalogItem:
 
 
 def build_features_router(
-    catalog: FeatureCatalog, requests: RequestFeature, guard: Guard = None
+    catalog: FeatureCatalog,
+    requests: RequestFeature,
+    guard: Guard = None,
+    demo_numbers: Sequence[DemoNumber] = (),
 ) -> APIRouter:
     router = APIRouter(dependencies=[Depends(guard)] if guard is not None else [])
 
@@ -44,6 +54,14 @@ def build_features_router(
     async def list_features(business_id: str) -> list[FeatureCatalogItem]:
         views = await catalog.for_business(BusinessId(business_id))
         return [_item(view) for view in views]
+
+    @router.get("/api/businesses/{business_id}/voice-demo-numbers")
+    async def voice_demo_numbers(business_id: str) -> list[DemoNumberItem]:
+        # The demo numbers to try the voice assistant from inside the app (owner is signed in).
+        return [
+            DemoNumberItem(language=number.language, e164=number.e164, label=number.label)
+            for number in demo_numbers
+        ]
 
     @router.post("/api/businesses/{business_id}/features/{feature_key}/request")
     async def request_feature(business_id: str, feature_key: str) -> FeatureCatalogItem:
