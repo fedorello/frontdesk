@@ -83,6 +83,16 @@ interface Copy {
     punchline: string;
   };
   cta: { title: string; sub: string };
+  voice: {
+    title: string;
+    sub: string;
+    pricing: string;
+    comingSoon: string;
+    signInCta: string;
+    signInNote: string;
+    callPrompt: string;
+    error: string;
+  };
   footer: {
     brand: string;
     github: string;
@@ -270,6 +280,16 @@ const en: Copy = {
   cta: {
     title: "Your front desk, handled.",
     sub: "Free, unlimited, and open source. Set it up in minutes.",
+  },
+  voice: {
+    title: "Voice receptionist — premium",
+    sub: "A real phone number that answers, talks naturally, and books — in English, Spanish, or Russian. Only on tovayo.com.",
+    pricing: "$1 per call · pay-as-you-go",
+    comingSoon: "Billing coming soon",
+    signInCta: "Sign in with Google to try the live demo",
+    signInNote: "We only use your email to follow up about early access.",
+    callPrompt: "Call to try it — speak in the language you choose:",
+    error: "Couldn't verify your sign-in. Please try again.",
   },
   footer: {
     brand: "Tovayo — open-source AI front desk.",
@@ -461,6 +481,17 @@ const es: Copy = {
   cta: {
     title: "Tu recepción, resuelta.",
     sub: "Gratis, ilimitado y de código abierto. Configúralo en minutos.",
+  },
+  voice: {
+    title: "Recepcionista de voz — premium",
+    sub: "Un número real que contesta, habla con naturalidad y agenda — en inglés, español o ruso. Solo en tovayo.com.",
+    pricing: "$1 por llamada · pago por uso",
+    comingSoon: "Cobro próximamente",
+    signInCta: "Inicia sesión con Google para probar la demo",
+    signInNote:
+      "Solo usamos tu correo para contactarte sobre el acceso anticipado.",
+    callPrompt: "Llama para probarlo — habla en el idioma que elijas:",
+    error: "No pudimos verificar tu inicio de sesión. Inténtalo de nuevo.",
   },
   footer: {
     brand: "Tovayo — recepción con IA de código abierto.",
@@ -656,6 +687,16 @@ const ru: Copy = {
     title: "Ваш ресепшн — под контролем.",
     sub: "Бесплатно, без лимитов и с открытым кодом. Настройка за минуты.",
   },
+  voice: {
+    title: "Голосовой ресепшн — премиум",
+    sub: "Настоящий номер, который отвечает, говорит естественно и записывает — на английском, испанском или русском. Только на tovayo.com.",
+    pricing: "$1 за звонок · оплата по факту",
+    comingSoon: "Оплата скоро",
+    signInCta: "Войдите через Google, чтобы попробовать демо",
+    signInNote: "Используем ваш email только чтобы связаться о раннем доступе.",
+    callPrompt: "Позвоните и попробуйте — говорите на выбранном языке:",
+    error: "Не удалось подтвердить вход. Попробуйте ещё раз.",
+  },
   footer: {
     brand: "Tovayo — открытый ИИ-ресепшн.",
     github: "GitHub",
@@ -827,6 +868,16 @@ const zh: Copy = {
       "一个永不停歇的助手：客户一发来消息，它立刻行动——¡vaya, ayo!——而那个「yo」（「我」）替你回应。搞定——voilà。",
   },
   cta: { title: "前台，交给我们。", sub: "免费、无限、开源。几分钟即可设置。" },
+  voice: {
+    title: "语音接待员 — 高级功能",
+    sub: "一个真实的电话号码，会接听、自然交谈并预约 — 支持英语、西班牙语或俄语。仅在 tovayo.com 提供。",
+    pricing: "每通电话 $1 · 按量付费",
+    comingSoon: "计费即将上线",
+    signInCta: "使用 Google 登录以试用演示",
+    signInNote: "我们仅使用您的邮箱就抢先体验与您联系。",
+    callPrompt: "拨打试用 — 用您选择的语言交谈：",
+    error: "无法验证您的登录，请重试。",
+  },
   footer: {
     brand: "Tovayo——开源 AI 前台。",
     github: "GitHub",

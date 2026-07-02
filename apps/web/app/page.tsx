@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 
 import { writeCookie } from "@/app/lib/cookie";
 import { I18nProvider, useI18n } from "@/app/lib/i18n";
@@ -11,6 +11,8 @@ import { Logo } from "@/components/Logo";
 const APP_URL = process.env.NEXT_PUBLIC_APP_URL ?? "https://app.tovayo.com";
 const GITHUB_URL =
   process.env.NEXT_PUBLIC_GITHUB_URL ?? "https://github.com/fedorello/tovayo";
+const API_URL = process.env.NEXT_PUBLIC_API_URL ?? "https://api.tovayo.com";
+const GOOGLE_CLIENT_ID = process.env.NEXT_PUBLIC_GOOGLE_CLIENT_ID ?? "";
 
 /* ---------- icons ---------- */
 
@@ -133,6 +135,7 @@ export default function Landing() {
         <Demo />
         <HowItWorks />
         <Features />
+        <VoicePremium />
         <RunItTwoWays />
         <TrustAndData />
         <Faq />
@@ -141,6 +144,128 @@ export default function Landing() {
         <Footer />
       </div>
     </I18nProvider>
+  );
+}
+
+/* ---------- voice receptionist (premium demo) ---------- */
+
+interface DemoNumber {
+  language: string;
+  e164: string;
+  label: string;
+}
+
+// Minimal typing for the Google Identity Services global (loaded from Google's CDN).
+interface GoogleIdApi {
+  initialize(config: {
+    client_id: string;
+    callback: (response: { credential: string }) => void;
+  }): void;
+  renderButton(
+    parent: HTMLElement,
+    options: { theme?: string; size?: string; text?: string },
+  ): void;
+}
+declare global {
+  interface Window {
+    google?: { accounts: { id: GoogleIdApi } };
+  }
+}
+
+function VoicePremium() {
+  const { c } = useI18n();
+  const buttonRef = useRef<HTMLDivElement>(null);
+  const [numbers, setNumbers] = useState<DemoNumber[] | null>(null);
+  const [error, setError] = useState(false);
+
+  const unlock = useCallback(async (credential: string) => {
+    setError(false);
+    try {
+      const response = await fetch(`${API_URL}/api/demo/voice-access`, {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ credential }),
+      });
+      if (!response.ok) throw new Error(String(response.status));
+      const data = (await response.json()) as { numbers: DemoNumber[] };
+      setNumbers(data.numbers);
+    } catch {
+      setError(true);
+    }
+  }, []);
+
+  useEffect(() => {
+    // Load Google Identity Services once, then render its sign-in button into our slot.
+    if (!GOOGLE_CLIENT_ID || numbers !== null) return;
+    const script = document.createElement("script");
+    script.src = "https://accounts.google.com/gsi/client";
+    script.async = true;
+    script.onload = () => {
+      const id = window.google?.accounts.id;
+      if (!id || buttonRef.current === null) return;
+      id.initialize({
+        client_id: GOOGLE_CLIENT_ID,
+        callback: (response) => void unlock(response.credential),
+      });
+      id.renderButton(buttonRef.current, {
+        theme: "outline",
+        size: "large",
+        text: "signin_with",
+      });
+    };
+    document.body.appendChild(script);
+    return () => script.remove();
+  }, [numbers, unlock]);
+
+  return (
+    <Section id="voice" className="bg-pink-soft/40">
+      <Heading>{c.voice.title}</Heading>
+      <p className="mx-auto mt-4 max-w-2xl text-center text-lg text-muted">
+        {c.voice.sub}
+      </p>
+      <div className="mx-auto mt-8 max-w-xl rounded-2xl border border-line-strong bg-surface p-8 shadow-card">
+        <div className="mb-6 text-center">
+          <div className="text-lg font-bold">{c.voice.pricing}</div>
+          <div className="mt-1 inline-block rounded-full bg-surface-3 px-3 py-1 text-xs font-semibold text-muted">
+            {c.voice.comingSoon}
+          </div>
+        </div>
+        {numbers === null ? (
+          <div className="flex flex-col items-center gap-3">
+            <p className="text-center text-sm font-semibold">
+              {c.voice.signInCta}
+            </p>
+            <div ref={buttonRef} />
+            <p className="text-center text-xs text-muted">
+              {c.voice.signInNote}
+            </p>
+            {error && (
+              <p className="text-center text-sm text-accent">{c.voice.error}</p>
+            )}
+          </div>
+        ) : (
+          <div>
+            <p className="mb-3 text-center text-sm font-semibold">
+              {c.voice.callPrompt}
+            </p>
+            <div className="grid gap-3 sm:grid-cols-3">
+              {numbers.map((number) => (
+                <a
+                  key={number.language}
+                  href={`tel:${number.e164}`}
+                  className="flex flex-col items-center rounded-xl border border-line-strong bg-canvas px-4 py-3 text-center transition hover:bg-surface-3"
+                >
+                  <span className="text-xs font-semibold text-muted">
+                    {number.label}
+                  </span>
+                  <span className="mt-1 font-bold">{number.e164}</span>
+                </a>
+              ))}
+            </div>
+          </div>
+        )}
+      </div>
+    </Section>
   );
 }
 
