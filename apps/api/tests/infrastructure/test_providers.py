@@ -8,6 +8,7 @@ from collections.abc import Callable
 from datetime import UTC, datetime
 
 import httpx
+import pytest
 
 from frontdesk.application.ports import Completion, LlmProvider, ReplyClaim, ToolSpec
 from frontdesk.domain.enums import MessageRole
@@ -159,6 +160,26 @@ async def test_openai_streams_text_deltas_then_a_final_completion() -> None:
     assert final.text == "Let me check."  # deltas reassembled
     assert final.tool_calls[0].name == "find_availability"  # accumulated across deltas
     assert final.tool_calls[0].args == {"x": 1}
+
+
+async def test_streaming_logs_the_prompt_when_enabled(
+    caplog: pytest.LogCaptureFixture,
+) -> None:
+    body = 'data: {"choices": [{"delta": {"content": "hi"}}]}\n\ndata: [DONE]\n\n'
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        return httpx.Response(200, content=body, headers={"content-type": "text/event-stream"})
+
+    provider = OpenAiProvider(api_key="k", model="gpt", client=_client(handler), log_prompts=True)
+    with caplog.at_level("INFO", logger="frontdesk.llm"):
+        async for _ in provider.complete_stream(
+            system="SECTION: what we know", messages=[], tools=[]
+        ):
+            pass
+
+    # The streaming path must log the full system prompt, not just the non-streaming extractor.
+    assert any("LLM REQUEST (stream)" in r.message for r in caplog.records)
+    assert any("SECTION: what we know" in r.message for r in caplog.records)
 
 
 async def test_anthropic_streams_a_single_buffered_chunk() -> None:

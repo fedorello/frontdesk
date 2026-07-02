@@ -183,6 +183,15 @@ class OpenAiProvider:
         tool_choice: str | None = None,
     ) -> AsyncIterator[StreamChunk]:
         payload = {**self._payload(system, messages, tools, tool_choice), "stream": True}
+        if self._log_prompts:
+            _logger.info(
+                "LLM REQUEST (stream) model=%s\n--- system ---\n%s\n--- messages ---\n%s"
+                "\n--- tools ---\n%s",
+                self._model,
+                system,
+                "\n".join(f"[{message.role.value}] {message.text}" for message in messages),
+                ", ".join(tool.name for tool in tools),
+            )
         text_parts: list[str] = []
         fragments: dict[int, _ToolFragment] = {}
         async with self._client.stream(
@@ -201,4 +210,11 @@ class OpenAiProvider:
                     yield StreamChunk(text_delta=content)
                 for raw in delta.get("tool_calls") or []:
                     _merge_tool_fragment(fragments, raw)
-        yield StreamChunk(completion=_assemble(text_parts, fragments))
+        completion = _assemble(text_parts, fragments)
+        if self._log_prompts:
+            _logger.info(
+                "LLM REPLY (stream) text=%r tool_calls=%s",
+                completion.text,
+                [(c.name, c.args) for c in completion.tool_calls],
+            )
+        yield StreamChunk(completion=completion)
