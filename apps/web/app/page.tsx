@@ -332,6 +332,7 @@ function Navbar() {
     [c.nav.demo, "#demo"],
     [c.nav.how, "#how"],
     [c.nav.features, "#features"],
+    [c.nav.guide, "/guide"],
     [c.nav.faq, "#faq"],
   ];
   return (

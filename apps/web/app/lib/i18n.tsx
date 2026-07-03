@@ -24,6 +24,7 @@ interface Copy {
     demo: string;
     how: string;
     features: string;
+    guide: string;
     faq: string;
     github: string;
     start: string;
@@ -107,6 +108,7 @@ const en: Copy = {
     demo: "Demo",
     how: "How it works",
     features: "Features",
+    guide: "Guide",
     faq: "FAQ",
     github: "View on GitHub",
     start: "Start free",
@@ -305,6 +307,7 @@ const es: Copy = {
     demo: "Demo",
     how: "Cómo funciona",
     features: "Funciones",
+    guide: "Guía",
     faq: "Preguntas",
     github: "Ver en GitHub",
     start: "Empieza gratis",
@@ -507,6 +510,7 @@ const ru: Copy = {
     demo: "Демо",
     how: "Как это работает",
     features: "Возможности",
+    guide: "Инструкция",
     faq: "Вопросы",
     github: "Открыть на GitHub",
     start: "Начать бесплатно",
@@ -711,6 +715,7 @@ const zh: Copy = {
     demo: "演示",
     how: "工作原理",
     features: "功能",
+    guide: "指南",
     faq: "常见问题",
     github: "在 GitHub 查看",
     start: "免费开始",
