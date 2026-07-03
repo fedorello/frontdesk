@@ -3,7 +3,8 @@ import { Manrope } from "next/font/google";
 import { cookies, headers } from "next/headers";
 
 import "./globals.css";
-import { I18nProvider, LOCALES, type Locale } from "./lib/i18n";
+import { I18nProvider } from "./lib/i18n";
+import { LOCALES, type Locale } from "./lib/locales";
 import { SITE_DESCRIPTION, SITE_TITLE, SITE_URL } from "./lib/site";
 
 // Manrope covers Latin AND Cyrillic in one geometric sans close to Plus Jakarta Sans,

@@ -3,15 +3,9 @@
 import { createContext, useContext, useEffect, useState } from "react";
 
 import { readLocaleCookie, writeLocaleCookie } from "./localeCookie";
+import { LOCALES, LOCALE_NAMES, type Locale } from "./locales";
 
-export const LOCALES = ["en", "es", "ru", "zh"] as const;
-export type Locale = (typeof LOCALES)[number];
-export const LOCALE_NAMES: Record<Locale, string> = {
-  en: "English",
-  es: "Español",
-  ru: "Русский",
-  zh: "中文",
-};
+export { LOCALES, LOCALE_NAMES, type Locale };
 
 type Sample = {
   who: "user" | "bot";
