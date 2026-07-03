@@ -3,6 +3,7 @@ import { Manrope } from "next/font/google";
 import { cookies, headers } from "next/headers";
 
 import "./globals.css";
+import { AuthProvider } from "./lib/auth";
 import { I18nProvider } from "./lib/i18n";
 import { LOCALES, type Locale } from "./lib/locales";
 import { SITE_DESCRIPTION, SITE_TITLE, SITE_URL } from "./lib/site";
@@ -67,7 +68,9 @@ export default async function RootLayout({
         <script nonce={nonce} dangerouslySetInnerHTML={{ __html: NO_FLASH }} />
       </head>
       <body className="min-h-full bg-canvas text-ink antialiased">
-        <I18nProvider initialLocale={locale}>{children}</I18nProvider>
+        <I18nProvider initialLocale={locale}>
+          <AuthProvider>{children}</AuthProvider>
+        </I18nProvider>
       </body>
     </html>
   );

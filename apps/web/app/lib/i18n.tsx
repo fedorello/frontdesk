@@ -22,6 +22,7 @@ interface Copy {
     faq: string;
     github: string;
     start: string;
+    openApp: string;
   };
   hero: {
     badge: string;
@@ -106,6 +107,7 @@ const en: Copy = {
     faq: "FAQ",
     github: "View on GitHub",
     start: "Start free",
+    openApp: "Open app",
   },
   hero: {
     badge: "Free & open source · MIT",
@@ -305,6 +307,7 @@ const es: Copy = {
     faq: "Preguntas",
     github: "Ver en GitHub",
     start: "Empieza gratis",
+    openApp: "Abrir app",
   },
   hero: {
     badge: "Gratis y de código abierto · MIT",
@@ -508,6 +511,7 @@ const ru: Copy = {
     faq: "Вопросы",
     github: "Открыть на GitHub",
     start: "Начать бесплатно",
+    openApp: "Открыть приложение",
   },
   hero: {
     badge: "Бесплатно и open source · MIT",
@@ -713,6 +717,7 @@ const zh: Copy = {
     faq: "常见问题",
     github: "在 GitHub 查看",
     start: "免费开始",
+    openApp: "打开应用",
   },
   hero: {
     badge: "免费开源 · MIT",

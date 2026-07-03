@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 
 import { writeCookie } from "@/app/lib/cookie";
+import { useAuthed } from "@/app/lib/auth";
 import { useI18n } from "@/app/lib/i18n";
 import { LanguageSwitcher } from "@/components/LanguageSwitcher";
 import { Logo } from "@/components/Logo";
@@ -325,6 +326,7 @@ function Heading({ children }: { children: React.ReactNode }) {
 
 function Navbar() {
   const { c } = useI18n();
+  const authed = useAuthed();
   const [dark, toggle] = useTheme();
   const links: [string, string][] = [
     [c.nav.demo, "#demo"],
@@ -371,7 +373,7 @@ function Navbar() {
             href={APP_URL}
             className="rounded-[10px] bg-accent px-4 py-2 text-sm font-bold text-accent-contrast"
           >
-            {c.nav.start}
+            {authed ? c.nav.openApp : c.nav.start}
           </a>
         </div>
       </div>
@@ -383,6 +385,7 @@ function Navbar() {
 
 function Hero() {
   const { c } = useI18n();
+  const authed = useAuthed();
   return (
     <header id="top" className="relative overflow-hidden">
       <div className="pointer-events-none absolute left-1/2 top-[-120px] h-[460px] w-[760px] max-w-full -translate-x-1/2 rounded-full bg-accent-soft opacity-80 blur-2xl" />
@@ -401,7 +404,7 @@ function Hero() {
         </p>
         <div className="mt-8 flex flex-wrap justify-center gap-3">
           <a href={APP_URL} className={primaryBtn}>
-            {c.hero.ctaPrimary} <ArrowIcon />
+            {authed ? c.nav.openApp : c.hero.ctaPrimary} <ArrowIcon />
           </a>
           <a href={GITHUB_URL} className={secondaryBtn}>
             <GithubIcon /> {c.hero.ctaSecondary}
@@ -757,6 +760,7 @@ function NameStory() {
 
 function CtaBanner() {
   const { c } = useI18n();
+  const authed = useAuthed();
   return (
     <Section>
       <div className="relative overflow-hidden rounded-[24px] border border-line bg-surface px-6 py-12 text-center shadow-pop">
@@ -770,7 +774,7 @@ function CtaBanner() {
           </p>
           <div className="mt-7 flex flex-wrap justify-center gap-3">
             <a href={APP_URL} className={primaryBtn}>
-              {c.hero.ctaPrimary} <ArrowIcon />
+              {authed ? c.nav.openApp : c.hero.ctaPrimary} <ArrowIcon />
             </a>
             <a href={GITHUB_URL} className={secondaryBtn}>
               <GithubIcon /> {c.hero.ctaSecondary}
