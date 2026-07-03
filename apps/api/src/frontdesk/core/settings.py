@@ -44,7 +44,7 @@ _DEFAULT_PREMIUM_FEATURES = [
 ]
 _DEFAULT_VOICE_DEMO_NUMBERS = [
     DemoNumberConfig(language="en", e164="+16055463259", label="English"),
-    DemoNumberConfig(language="ru", e164="+19306001900", label="Русский"),
+    DemoNumberConfig(language="ru", e164="+12728087116", label="Русский"),
     DemoNumberConfig(language="es", e164="+16055463337", label="Español"),
 ]
 

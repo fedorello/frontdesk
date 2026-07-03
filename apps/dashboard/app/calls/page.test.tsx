@@ -41,13 +41,13 @@ function renderPage() {
 describe("Calls page", () => {
   it("lists the demo numbers and a connect request button", async () => {
     voiceDemoNumbers.mockResolvedValue([
-      { language: "ru", e164: "+19306001900", label: "Русский" },
+      { language: "ru", e164: "+12728087116", label: "Русский" },
     ]);
     features.mockResolvedValue([VOICE]);
     renderPage();
 
-    const link = await screen.findByText("+19306001900");
-    expect(link.closest("a")).toHaveAttribute("href", "tel:+19306001900");
+    const link = await screen.findByText("+12728087116");
+    expect(link.closest("a")).toHaveAttribute("href", "tel:+12728087116");
     expect(screen.getByRole("button", { name: "Request to connect" })).toBeInTheDocument();
   });
 

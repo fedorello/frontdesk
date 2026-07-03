@@ -17,7 +17,7 @@ from frontdesk.interface.features_api import build_features_router
 
 NOW = datetime(2026, 7, 2, 12, 0, tzinfo=UTC)
 VOICE = FeatureKey("voice_receptionist")
-NUMBERS = (DemoNumber("en", "+16055463259", "English"), DemoNumber("ru", "+19306001900", "Русский"))
+NUMBERS = (DemoNumber("en", "+16055463259", "English"), DemoNumber("ru", "+12728087116", "Русский"))
 
 
 def _client() -> httpx.AsyncClient:
@@ -70,7 +70,7 @@ async def test_lists_the_voice_demo_numbers() -> None:
     assert response.status_code == 200
     assert [(n["language"], n["e164"]) for n in response.json()] == [
         ("en", "+16055463259"),
-        ("ru", "+19306001900"),
+        ("ru", "+12728087116"),
     ]
 
 

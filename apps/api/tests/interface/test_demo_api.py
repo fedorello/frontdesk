@@ -21,7 +21,7 @@ NOW = datetime(2026, 7, 2, 12, 0, tzinfo=UTC)
 VOICE = FeatureKey("voice_receptionist")
 GOOD = "good-credential"
 IDENTITY = GoogleIdentity(email="caller@example.com", email_verified=True, name="Caller")
-NUMBERS = (DemoNumber("en", "+16055463259", "English"), DemoNumber("ru", "+19306001900", "Русский"))
+NUMBERS = (DemoNumber("en", "+16055463259", "English"), DemoNumber("ru", "+12728087116", "Русский"))
 
 
 def _app(leads: InMemoryDemoLeadRepository, *, rate_limit: int = 5) -> FastAPI:
@@ -47,7 +47,7 @@ async def test_valid_credential_returns_numbers_and_records_the_lead() -> None:
         response = await client.post("/api/demo/voice-access", json={"credential": GOOD})
 
     assert response.status_code == 200
-    assert [n["e164"] for n in response.json()["numbers"]] == ["+16055463259", "+19306001900"]
+    assert [n["e164"] for n in response.json()["numbers"]] == ["+16055463259", "+12728087116"]
     assert [(lead.email, lead.feature_key) for lead in leads.leads] == [
         ("caller@example.com", VOICE)
     ]
