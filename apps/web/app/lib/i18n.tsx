@@ -904,15 +904,22 @@ const I18nContext = createContext<{
   c: en,
 });
 
-export function I18nProvider({ children }: { children: React.ReactNode }) {
-  const [locale, setLocaleState] = useState<Locale>("en");
+export function I18nProvider({
+  children,
+  initialLocale,
+}: {
+  children: React.ReactNode;
+  initialLocale?: Locale;
+}) {
+  const [locale, setLocaleState] = useState<Locale>(initialLocale ?? "en");
   useEffect(() => {
+    if (initialLocale) return; // the server already read the cookie and gave us the language
     const saved = readLocaleCookie();
     if (saved && (LOCALES as readonly string[]).includes(saved)) {
       // eslint-disable-next-line react-hooks/set-state-in-effect -- restore the shared language on mount
       setLocaleState(saved as Locale);
     }
-  }, []);
+  }, [initialLocale]);
   const setLocale = (l: Locale) => {
     setLocaleState(l);
     writeLocaleCookie(l);

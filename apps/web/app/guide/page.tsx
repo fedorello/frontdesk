@@ -4,7 +4,7 @@ import Link from "next/link";
 import { useEffect, useState } from "react";
 
 import { writeCookie } from "@/app/lib/cookie";
-import { I18nProvider, useI18n } from "@/app/lib/i18n";
+import { useI18n } from "@/app/lib/i18n";
 import { LanguageSwitcher } from "@/components/LanguageSwitcher";
 import { Logo } from "@/components/Logo";
 
@@ -513,9 +513,5 @@ function ThemeToggle() {
 }
 
 export default function Page() {
-  return (
-    <I18nProvider>
-      <GuidePage />
-    </I18nProvider>
-  );
+  return <GuidePage />;
 }

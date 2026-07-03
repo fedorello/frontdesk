@@ -3,7 +3,7 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 
 import { writeCookie } from "@/app/lib/cookie";
-import { I18nProvider, useI18n } from "@/app/lib/i18n";
+import { useI18n } from "@/app/lib/i18n";
 import { LanguageSwitcher } from "@/components/LanguageSwitcher";
 import { Logo } from "@/components/Logo";
 
@@ -128,22 +128,20 @@ const FEATURE_ICONS = [
 
 export default function Landing() {
   return (
-    <I18nProvider>
-      <div className="font-sans">
-        <Navbar />
-        <Hero />
-        <Demo />
-        <HowItWorks />
-        <Features />
-        <VoicePremium />
-        <RunItTwoWays />
-        <TrustAndData />
-        <Faq />
-        <NameStory />
-        <CtaBanner />
-        <Footer />
-      </div>
-    </I18nProvider>
+    <div className="font-sans">
+      <Navbar />
+      <Hero />
+      <Demo />
+      <HowItWorks />
+      <Features />
+      <VoicePremium />
+      <RunItTwoWays />
+      <TrustAndData />
+      <Faq />
+      <NameStory />
+      <CtaBanner />
+      <Footer />
+    </div>
   );
 }
 
