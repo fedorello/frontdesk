@@ -45,6 +45,9 @@ def _summary(name: str, *, replies: int = 0, last: datetime | None = None) -> Bu
     return BusinessSummary(
         business_id=name,
         name=name,
+        owner_email=f"{name}@example.com",
+        signup_ip="",
+        signup_country="",
         locale="en",
         timezone="UTC",
         created_at=NOW,

@@ -338,6 +338,16 @@ class Account:
     sessions_valid_after: int = 0
     # Owner by default; an admin (ADR-0012) owns no business and reads cross-tenant analytics.
     role: UserRole = UserRole.OWNER
+    # Sign-up origin, captured once (never overwritten) for the operator's admin view: the client
+    # IP and the country resolved from it (best-effort; "" when unknown). Not shown to the owner.
+    signup_ip: str = ""
+    signup_country: str = ""
+
+
+class GeoIpResolver(Protocol):
+    """Best-effort country name for a client IP; returns '' when unknown or lookup fails."""
+
+    async def country(self, ip: str) -> str: ...
 
 
 class AccountRepository(Protocol):

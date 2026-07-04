@@ -25,6 +25,9 @@ function renderPage() {
 const ROW = {
   business_id: "b1",
   name: "Salon Uno",
+  owner_email: "ana@example.com",
+  signup_ip: "203.0.113.7",
+  signup_country: "Uruguay",
   locale: "en",
   timezone: "UTC",
   created_at: "2026-06-01T00:00:00+00:00",
@@ -53,6 +56,9 @@ describe("Admin businesses page", () => {
     renderPage();
 
     expect(await screen.findByText("Salon Uno")).toBeInTheDocument();
+    expect(screen.getByText("ana@example.com")).toBeInTheDocument(); // owner email
+    expect(screen.getByText("Uruguay")).toBeInTheDocument(); // country from signup IP
+    expect(screen.getByText("203.0.113.7")).toBeInTheDocument(); // signup IP
     expect(screen.getByText("Managed")).toBeInTheDocument(); // uses_own_llm === false
   });
 });

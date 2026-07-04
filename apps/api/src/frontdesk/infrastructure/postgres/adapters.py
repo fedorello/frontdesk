@@ -1080,6 +1080,8 @@ def _to_account(row: Row) -> Account:
         BusinessId(row["business_id"]) if row["business_id"] else None,
         row["sessions_valid_after"],
         UserRole(row["role"]),
+        row["signup_ip"] or "",
+        row["signup_country"] or "",
     )
 
 
@@ -1118,10 +1120,13 @@ class SqlAccountRepository:
             await session.execute(
                 text(
                     "INSERT INTO account (id, email, password_hash, business_id, "
-                    "sessions_valid_after, role) VALUES (:id, :email, :ph, :bid, :sva, :role) "
+                    "sessions_valid_after, role, signup_ip, signup_country) "
+                    "VALUES (:id, :email, :ph, :bid, :sva, :role, :ip, :country) "
                     "ON CONFLICT (id) DO UPDATE SET "
                     "email = :email, password_hash = :ph, business_id = :bid, "
                     "sessions_valid_after = :sva, role = :role"
+                    # signup_ip / signup_country are set once at sign-up; a later upsert (password
+                    # change, logout) must not overwrite them, so they stay out of DO UPDATE.
                 ),
                 {
                     "id": str(account.id),
@@ -1130,6 +1135,8 @@ class SqlAccountRepository:
                     "bid": str(account.business_id) if account.business_id else None,
                     "sva": account.sessions_valid_after,
                     "role": account.role.value,
+                    "ip": account.signup_ip,
+                    "country": account.signup_country,
                 },
             )
             await session.commit()

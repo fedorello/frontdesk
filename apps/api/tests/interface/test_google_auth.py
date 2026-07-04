@@ -12,6 +12,7 @@ from frontdesk.infrastructure.memory import (
     InMemoryBusinessRepository,
     InMemoryResourceRepository,
 )
+from frontdesk.infrastructure.providers.geoip import NullGeoIpResolver
 from frontdesk.infrastructure.rate_limit import InMemoryRateLimiter
 from frontdesk.infrastructure.system import SequentialIdGenerator
 from frontdesk.interface.google_auth import build_google_auth_router
@@ -50,6 +51,7 @@ def _app(
             SequentialIdGenerator("id"),
             settings,
             InMemoryRateLimiter(),
+            NullGeoIpResolver(),
         )
     )
     return app, accounts

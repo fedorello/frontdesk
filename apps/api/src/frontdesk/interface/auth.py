@@ -17,6 +17,7 @@ from frontdesk.application.ports import (
     Account,
     AccountRepository,
     BusinessRepository,
+    GeoIpResolver,
     IdGenerator,
     RateLimiter,
     ResourceRepository,
@@ -91,6 +92,7 @@ def build_auth_router(
     ids: IdGenerator,
     settings: Settings,
     limiter: RateLimiter,
+    geoip: GeoIpResolver,
 ) -> APIRouter:
     router = APIRouter()
     signing_key = session_signing_key(settings.secret_key)  # purpose-separated from encryption
@@ -113,7 +115,16 @@ def build_auth_router(
         await businesses.upsert(Business(business_id, body.business_name, body.timezone))
         # Every business starts with one group, so services always have a valid calendar.
         await resources.upsert(default_group(business_id, ResourceId(ids.new())))
-        account = Account(AccountId(ids.new()), email, hash_password(body.password), business_id)
+        # Capture the sign-up origin (best-effort) for the operator's admin view.
+        ip = client_ip(request, settings.trusted_proxy_hops)
+        account = Account(
+            AccountId(ids.new()),
+            email,
+            hash_password(body.password),
+            business_id,
+            signup_ip=ip,
+            signup_country=await geoip.country(ip),
+        )
         await accounts.upsert(account)
         set_session_cookie(
             response, issue_token(account.id, signing_key, int(time.time())), settings

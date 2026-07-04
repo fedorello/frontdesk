@@ -1,7 +1,8 @@
 """Cross-tenant analytics endpoints for the admin dashboard (ADR-0012).
 
-Read-only and aggregate-only: the response models carry counts and config — never a customer's
-message, address, or intake answer — so the privacy boundary holds at the API surface too.
+Read-only for the operator: the response models carry each business's counts, config, and the
+owner's own account/sign-up metadata (email, sign-up IP + country) — but never a CUSTOMER's
+message, address, or intake answer, so that privacy boundary still holds at the API surface.
 Mounted behind the admin guard in the composition root.
 """
 
@@ -92,6 +93,9 @@ class DailyCountView(_FromAttributes):
 class BusinessSummaryView(_FromAttributes):
     business_id: str
     name: str
+    owner_email: str  # operator view: the owner's contact + sign-up origin (never customer PII)
+    signup_ip: str
+    signup_country: str
     locale: str
     timezone: str
     created_at: datetime

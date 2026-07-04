@@ -384,6 +384,39 @@ async def test_groq_fact_normalizer_keeps_the_raw_value_when_unreachable() -> No
     assert await normalizer.normalize("Birth place", "  in London  ") == "in London"
 
 
+async def test_geoip_resolves_country_for_a_public_ip() -> None:
+    from frontdesk.infrastructure.providers.geoip import HttpGeoIpResolver
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        assert request.url.path == "/8.8.8.8/country_name/"
+        return httpx.Response(200, text="United States\n")
+
+    resolver = HttpGeoIpResolver(_client(handler))
+    assert await resolver.country("8.8.8.8") == "United States"
+
+
+async def test_geoip_skips_private_ips_without_a_call() -> None:
+    from frontdesk.infrastructure.providers.geoip import HttpGeoIpResolver
+
+    def handler(request: httpx.Request) -> httpx.Response:  # pragma: no cover - must not be called
+        raise AssertionError("private/loopback IPs must not hit the network")
+
+    resolver = HttpGeoIpResolver(_client(handler))
+    assert await resolver.country("127.0.0.1") == ""
+    assert await resolver.country("10.0.0.4") == ""
+    assert await resolver.country("") == ""
+
+
+async def test_geoip_is_best_effort_on_error() -> None:
+    from frontdesk.infrastructure.providers.geoip import HttpGeoIpResolver, NullGeoIpResolver
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        return httpx.Response(429)  # rate-limited upstream
+
+    assert await HttpGeoIpResolver(_client(handler)).country("203.0.113.7") == ""
+    assert await NullGeoIpResolver().country("203.0.113.7") == ""
+
+
 async def test_null_classifier_never_flags() -> None:
     assert await NullReplyClaimClassifier().classify("Free at 10:00?") == frozenset()
 

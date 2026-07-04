@@ -82,6 +82,9 @@ def test_business_summary_carries_counts_and_config_only() -> None:
     summary = BusinessSummary(
         business_id="b1",
         name="Salon",
+        owner_email="owner@example.com",
+        signup_ip="203.0.113.7",
+        signup_country="Uruguay",
         locale="en",
         timezone="UTC",
         created_at=datetime(2026, 1, 1, tzinfo=UTC),

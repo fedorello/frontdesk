@@ -107,10 +107,14 @@ export default function AdminBusinessesPage() {
               <tr>
                 <Th>{t("admin.colName")}</Th>
                 <Th>{t("admin.colSignup")}</Th>
+                <Th>{t("admin.colLocation")}</Th>
+                <Th>{t("admin.colServices")}</Th>
+                <Th>{t("admin.colLang")}</Th>
                 <Th>{t("admin.colCustomers")}</Th>
                 <Th>{t("admin.colAppointments")}</Th>
                 <Th>{t("admin.colReplies")}</Th>
                 <Th>{t("admin.colLastActivity")}</Th>
+                <Th>{t("admin.colBot")}</Th>
                 <Th>{t("admin.colLlm")}</Th>
               </tr>
             </thead>
@@ -118,15 +122,27 @@ export default function AdminBusinessesPage() {
               {rows.map((row) => (
                 <tr key={row.business_id} className="border-b border-line last:border-b-0">
                   <Td>
-                    <span className="font-semibold">{row.name}</span>
+                    <div className="font-semibold">{row.name}</div>
+                    {row.owner_email && (
+                      <div className="text-xs text-muted">{row.owner_email}</div>
+                    )}
                   </Td>
                   <Td>{formatDay(row.created_at, locale, ADMIN_TZ)}</Td>
+                  <Td>
+                    <div>{row.signup_country || "—"}</div>
+                    {row.signup_ip && (
+                      <div className="font-mono text-xs text-muted">{row.signup_ip}</div>
+                    )}
+                  </Td>
+                  <Td className="tabular-nums">{row.service_count}</Td>
+                  <Td className="uppercase">{row.locale}</Td>
                   <Td className="tabular-nums">{row.customer_count}</Td>
                   <Td className="tabular-nums">{row.appointments.total}</Td>
                   <Td className="tabular-nums">{row.agent_reply_count}</Td>
                   <Td>
                     {row.last_activity_at ? formatDay(row.last_activity_at, locale, ADMIN_TZ) : "—"}
                   </Td>
+                  <Td>{row.bot_connected ? "✓" : "—"}</Td>
                   <Td>{row.uses_own_llm ? t("admin.llmOwn") : t("admin.llmDefault")}</Td>
                 </tr>
               ))}

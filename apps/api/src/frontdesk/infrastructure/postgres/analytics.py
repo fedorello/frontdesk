@@ -205,6 +205,9 @@ _DIRECTORY_ORDER: dict[DirectorySort, str] = {
 
 _DIRECTORY_SQL = """
 SELECT b.id, b.name, b.locale, b.timezone, a.created_at AS created_at,
+  COALESCE(a.email, '') AS owner_email,
+  COALESCE(a.signup_ip, '') AS signup_ip,
+  COALESCE(a.signup_country, '') AS signup_country,
   (SELECT count(*) FROM service s WHERE s.business_id = b.id) AS service_count,
   (SELECT count(*) FROM customer c WHERE c.business_id = b.id) AS customer_count,
   (SELECT count(*) FROM appointment ap WHERE ap.business_id = b.id) AS appt_total,
@@ -237,6 +240,9 @@ def _to_summary(row: Row) -> BusinessSummary:
     return BusinessSummary(
         business_id=row.id,
         name=row.name,
+        owner_email=row.owner_email,
+        signup_ip=row.signup_ip,
+        signup_country=row.signup_country,
         locale=row.locale,
         timezone=row.timezone,
         created_at=row.created_at,

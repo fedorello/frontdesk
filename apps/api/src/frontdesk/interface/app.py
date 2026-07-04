@@ -95,6 +95,7 @@ from frontdesk.infrastructure.postgres.entitlements import (
     SqlEntitlementRepository,
 )
 from frontdesk.infrastructure.providers.anthropic import AnthropicProvider
+from frontdesk.infrastructure.providers.geoip import HttpGeoIpResolver
 from frontdesk.infrastructure.providers.groq import (
     GroqFactNormalizer,
     GroqReplyClaimClassifier,
@@ -347,6 +348,7 @@ def create_production_app() -> FastAPI:
     app.include_router(
         build_owner_telegram_router(SqlOwnerTelegramLinkRepository(sessions), owner_linking, guard)
     )
+    geoip = HttpGeoIpResolver(client)  # best-effort IP → country for the admin view
     app.include_router(
         build_auth_router(
             accounts,
@@ -355,6 +357,7 @@ def create_production_app() -> FastAPI:
             ids,
             settings,
             rate_limiter,
+            geoip,
         )
     )
     app.include_router(
@@ -371,6 +374,7 @@ def create_production_app() -> FastAPI:
             ids,
             settings,
             rate_limiter,
+            geoip,
         )
     )
     app.include_router(build_llm_config_router(llm_configs, settings.allow_own_llm, guard))

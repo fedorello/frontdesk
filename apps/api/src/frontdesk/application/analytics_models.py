@@ -146,10 +146,17 @@ class DirectoryQuery:
 
 @dataclass(frozen=True, slots=True)
 class BusinessSummary:
-    """One business's rollup for the directory table — counts and config only, no PII."""
+    """One business's rollup for the operator's directory table (ADR-0012).
+
+    Includes the owner's account/sign-up metadata (email, sign-up IP + country) for the operator,
+    but never a customer's message, address, or intake answer.
+    """
 
     business_id: str
     name: str
+    owner_email: str
+    signup_ip: str
+    signup_country: str
     locale: str
     timezone: str
     created_at: datetime

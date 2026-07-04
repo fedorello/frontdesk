@@ -15,6 +15,7 @@ from frontdesk.infrastructure.memory import (
     InMemoryBusinessRepository,
     InMemoryResourceRepository,
 )
+from frontdesk.infrastructure.providers.geoip import NullGeoIpResolver
 from frontdesk.infrastructure.rate_limit import InMemoryRateLimiter
 from frontdesk.infrastructure.security import issue_token
 from frontdesk.infrastructure.system import SequentialIdGenerator
@@ -42,6 +43,7 @@ def _app(accounts: InMemoryAccountRepository) -> FastAPI:
             SequentialIdGenerator("id"),
             SETTINGS,
             InMemoryRateLimiter(),
+            NullGeoIpResolver(),
         )
     )
     app.include_router(build_me_router(accounts, SETTINGS))

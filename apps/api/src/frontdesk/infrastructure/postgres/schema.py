@@ -63,7 +63,9 @@ CREATE_STATEMENTS: tuple[str, ...] = (
         business_id text REFERENCES business(id),
         sessions_valid_after bigint NOT NULL DEFAULT 0,
         role text NOT NULL DEFAULT 'owner' CHECK (role IN ('owner', 'admin')),
-        created_at timestamptz NOT NULL DEFAULT now()
+        created_at timestamptz NOT NULL DEFAULT now(),
+        signup_ip text NOT NULL DEFAULT '',
+        signup_country text NOT NULL DEFAULT ''
     )
     """,
     # Per-business daily usage of the managed-default LLM (cost control; ADR-0009).

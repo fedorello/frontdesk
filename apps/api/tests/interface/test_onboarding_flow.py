@@ -19,6 +19,7 @@ from frontdesk.infrastructure.memory import (
     InMemoryServiceRepository,
     InMemoryTelegramBotRepository,
 )
+from frontdesk.infrastructure.providers.geoip import NullGeoIpResolver
 from frontdesk.infrastructure.rate_limit import InMemoryRateLimiter
 from frontdesk.infrastructure.system import SequentialIdGenerator
 from frontdesk.interface.auth import build_auth_router, make_owner_guard
@@ -54,6 +55,7 @@ def _app(client: httpx.AsyncClient) -> FastAPI:
             SequentialIdGenerator("id"),
             SETTINGS,
             InMemoryRateLimiter(),
+            NullGeoIpResolver(),
         )
     )
     app.include_router(

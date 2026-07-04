@@ -12,6 +12,7 @@ from frontdesk.infrastructure.memory import (
     InMemoryBusinessRepository,
     InMemoryResourceRepository,
 )
+from frontdesk.infrastructure.providers.geoip import NullGeoIpResolver
 from frontdesk.infrastructure.rate_limit import InMemoryRateLimiter
 from frontdesk.infrastructure.security import (
     hash_password,
@@ -55,6 +56,7 @@ def _app() -> FastAPI:
             SequentialIdGenerator("id"),
             SETTINGS,
             InMemoryRateLimiter(),
+            NullGeoIpResolver(),
         )
     )
     guard = make_owner_guard(accounts, session_signing_key(SETTINGS.secret_key))
@@ -99,6 +101,42 @@ async def test_signup_login_and_scoping() -> None:
         assert (await client.get(f"/api/businesses/{business_id}/secret")).status_code == 401
 
 
+class _StubGeoIp:
+    """Returns a fixed country, so a test can assert the sign-up origin is captured."""
+
+    async def country(self, ip: str) -> str:
+        return "Uruguay" if ip else ""
+
+
+async def test_signup_captures_ip_and_country() -> None:
+    accounts = InMemoryAccountRepository()
+    app = FastAPI()
+    app.include_router(
+        build_auth_router(
+            accounts,
+            InMemoryBusinessRepository([], {}),
+            InMemoryResourceRepository(),
+            SequentialIdGenerator("id"),
+            SETTINGS,
+            InMemoryRateLimiter(),
+            _StubGeoIp(),
+        )
+    )
+    transport = httpx.ASGITransport(app=app)
+    async with httpx.AsyncClient(transport=transport, base_url="http://test") as client:
+        ok = await client.post(
+            "/api/signup",
+            json={"email": "a@x.com", "password": "test-pw-123", "business_name": "Ana"},
+            headers={"x-forwarded-for": "203.0.113.7"},  # the trusted proxy's client hop
+        )
+        assert ok.status_code == 200
+
+    account = await accounts.by_email("a@x.com")
+    assert account is not None
+    assert account.signup_ip == "203.0.113.7"  # taken from X-Forwarded-For
+    assert account.signup_country == "Uruguay"  # resolved by the geoip port
+
+
 async def test_email_is_validated_and_normalized() -> None:
     transport = httpx.ASGITransport(app=_app())
     async with httpx.AsyncClient(transport=transport, base_url="http://test") as client:
@@ -138,6 +176,7 @@ async def test_login_is_rate_limited() -> None:
             SequentialIdGenerator("id"),
             settings,
             InMemoryRateLimiter(),
+            NullGeoIpResolver(),
         )
     )
     transport = httpx.ASGITransport(app=app)
@@ -161,6 +200,7 @@ async def test_signup_creates_a_default_group() -> None:
             SequentialIdGenerator("id"),
             SETTINGS,
             InMemoryRateLimiter(),
+            NullGeoIpResolver(),
         )
     )
     transport = httpx.ASGITransport(app=app)
@@ -188,6 +228,7 @@ def _auth_app(accounts: InMemoryAccountRepository) -> FastAPI:
             SequentialIdGenerator("id"),
             SETTINGS,
             InMemoryRateLimiter(),
+            NullGeoIpResolver(),
         )
     )
     return app

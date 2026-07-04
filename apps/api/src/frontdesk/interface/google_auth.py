@@ -18,6 +18,7 @@ from frontdesk.application.ports import (
     Account,
     AccountRepository,
     BusinessRepository,
+    GeoIpResolver,
     GoogleOAuthClient,
     IdGenerator,
     RateLimiter,
@@ -51,6 +52,7 @@ def build_google_auth_router(
     ids: IdGenerator,
     settings: Settings,
     limiter: RateLimiter,
+    geoip: GeoIpResolver,
 ) -> APIRouter:
     router = APIRouter()
     enabled = bool(settings.google_client_id and settings.google_redirect_uri)
@@ -87,6 +89,7 @@ def build_google_auth_router(
 
     @router.get("/api/auth/google/callback")
     async def callback(
+        request: Request,
         code: str = "",
         state: str = "",
         error: str = "",
@@ -123,7 +126,16 @@ def build_google_auth_router(
             )
             # Every business starts with one group, so services always have a valid calendar.
             await resources.upsert(default_group(business_id, ResourceId(ids.new())))
-            account = Account(AccountId(ids.new()), identity.email, "", business_id)
+            # Capture the sign-up origin (best-effort) for the operator's admin view.
+            ip = client_ip(request, settings.trusted_proxy_hops)
+            account = Account(
+                AccountId(ids.new()),
+                identity.email,
+                "",
+                business_id,
+                signup_ip=ip,
+                signup_country=await geoip.country(ip),
+            )
             await accounts.upsert(account)
 
         token = issue_token(account.id, signing_key, int(time.time()))

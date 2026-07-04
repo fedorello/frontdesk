@@ -49,6 +49,9 @@ def _summary(name: str) -> BusinessSummary:
     return BusinessSummary(
         business_id=name,
         name=name,
+        owner_email=f"{name}@example.com",
+        signup_ip="203.0.113.7",
+        signup_country="Uruguay",
         locale="en",
         timezone="UTC",
         created_at=NOW,
@@ -147,7 +150,12 @@ async def test_businesses_returns_a_page_and_total() -> None:
     body = response.json()
     assert body["total"] == 2
     assert [row["business_id"] for row in body["items"]] == ["A"]  # page size 1
-    assert body["items"][0]["uses_own_llm"] is False
+    row = body["items"][0]
+    assert row["uses_own_llm"] is False
+    # The operator sees the owner's contact + sign-up origin.
+    assert row["owner_email"] == "A@example.com"
+    assert row["signup_ip"] == "203.0.113.7"
+    assert row["signup_country"] == "Uruguay"
 
 
 async def test_businesses_rejects_unknown_sort() -> None:

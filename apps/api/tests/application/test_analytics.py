@@ -116,6 +116,9 @@ async def test_businesses_returns_a_page_and_total() -> None:
         BusinessSummary(
             business_id=name,
             name=name,
+            owner_email=f"{name}@example.com",
+            signup_ip="",
+            signup_country="",
             locale="en",
             timezone="UTC",
             created_at=NOW,

@@ -91,6 +91,9 @@ export type DirectorySort =
 export interface BusinessSummary {
   business_id: string;
   name: string;
+  owner_email: string;
+  signup_ip: string;
+  signup_country: string;
   locale: string;
   timezone: string;
   created_at: string;
