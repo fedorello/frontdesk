@@ -167,6 +167,10 @@ engineer's job is to specify, review, and decide.
 
 Everything is built and reviewed against [`CODING_PRINCIPLES.md`](./CODING_PRINCIPLES.md).
 
+## Author
+
+Built by [Fedor Chishchin](https://fedorthinks.com), an AI engineer who builds AI agents and MCP servers. The story behind the project: [Tovayo case study](https://fedorthinks.com/work/tovayo).
+
 ## License
 
 [MIT](./LICENSE)
