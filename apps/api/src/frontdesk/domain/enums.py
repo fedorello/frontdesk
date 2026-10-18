@@ -38,6 +38,10 @@ class ReminderStatus(StrEnum):
     PENDING = "pending"
     SENT = "sent"
     CANCELLED = "cancelled"
+    # The channel refused it for good (unknown chat, bot blocked, no text channel).
+    FAILED = "failed"
+    # Not sent because the appointment had already started when it came due.
+    SKIPPED = "skipped"
 
 
 class RiskTier(StrEnum):

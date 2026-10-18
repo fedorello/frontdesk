@@ -9,6 +9,7 @@ import httpx
 
 from frontdesk.application.ports import (
     InboundMessage,
+    MessageNotDelivered,
     OutboundMessage,
     TelegramBotRepository,
 )
@@ -18,6 +19,12 @@ from frontdesk.domain.models import MAX_MESSAGE_LENGTH, Business, Customer
 from frontdesk.infrastructure.channels.telegram_format import markdown_to_telegram_html
 
 _logger = logging.getLogger("frontdesk.telegram")
+
+# Telegram refuses these for good: 400 (e.g. "chat not found") and 403 (the user blocked
+# the bot). A bad or revoked bot token (401 / 404) is a configuration problem the owner
+# can fix, so it stays retryable, like rate limits (429) and server errors (5xx).
+_PERMANENT_STATUSES = frozenset({httpx.codes.BAD_REQUEST, httpx.codes.FORBIDDEN})
+_MAX_REASON_LENGTH = 200
 
 
 class TelegramMessaging:
@@ -48,14 +55,37 @@ class TelegramMessaging:
                 "resize_keyboard": True,
                 "one_time_keyboard": True,
             }
-        url = f"{self._base}/bot{self._token}/sendMessage"
-        response = await self._client.post(url, json=payload)
+        response = await self._post(payload)
         if response.status_code == httpx.codes.BAD_REQUEST:
             # Malformed HTML entities — resend as plain text so the reply still arrives.
             payload["text"] = message.text
             del payload["parse_mode"]
-            response = await self._client.post(url, json=payload)
-        response.raise_for_status()
+            response = await self._post(payload)
+        if not response.is_success:
+            raise MessageNotDelivered(
+                _refusal(response), permanent=response.status_code in _PERMANENT_STATUSES
+            )
+
+    async def _post(self, payload: dict[str, object]) -> httpx.Response:
+        # The URL carries the bot token, so no error raised here may include it.
+        try:
+            return await self._client.post(
+                f"{self._base}/bot{self._token}/sendMessage", json=payload
+            )
+        except httpx.TransportError as exc:
+            raise MessageNotDelivered(
+                f"telegram unreachable: {type(exc).__name__}", permanent=False
+            ) from None
+
+
+def _refusal(response: httpx.Response) -> str:
+    """Telegram's own reason ("Bad Request: chat not found"), without the request URL."""
+    try:
+        description = response.json().get("description")
+    except ValueError, AttributeError:
+        description = None
+    reason = str(description or response.reason_phrase)[:_MAX_REASON_LENGTH]
+    return f"telegram {response.status_code}: {reason}"
 
 
 def parse_telegram_inbound(

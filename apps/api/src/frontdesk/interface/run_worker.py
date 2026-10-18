@@ -7,6 +7,8 @@ import httpx
 
 from frontdesk.application.worker import SendDueReminders
 from frontdesk.core.settings import Settings
+from frontdesk.infrastructure.channels.composite import RoutingMessaging
+from frontdesk.infrastructure.channels.whatsapp import WhatsAppMessaging
 from frontdesk.infrastructure.db import create_engine, make_session_factory
 from frontdesk.infrastructure.logging_setup import configure_logging
 from frontdesk.infrastructure.postgres.adapters import (
@@ -37,8 +39,21 @@ async def run() -> None:
         SqlCustomerRepository(sessions, ids),
         SqlServiceRepository(sessions),
         SqlBusinessRepository(sessions),  # for the reminder's locale + time zone
-        # each reminder via its business's own bot
-        TenantTelegramMessaging(telegram_bots, client, settings.telegram_api_base),
+        # By the customer's channel: Telegram through the business's own bot, WhatsApp
+        # through the shared number. A channel that cannot carry text (voice) has no
+        # adapter, so its reminders are marked failed instead of sent to the wrong place.
+        RoutingMessaging(
+            telegram=TenantTelegramMessaging(telegram_bots, client, settings.telegram_api_base),
+            whatsapp=(
+                WhatsAppMessaging(
+                    token=settings.whatsapp_token,
+                    phone_number_id=settings.whatsapp_phone_number_id,
+                    client=client,
+                )
+                if settings.whatsapp_token
+                else None
+            ),
+        ),
     )
     worker = ReminderWorker(send, build_clock(settings))
 

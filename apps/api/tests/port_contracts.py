@@ -91,6 +91,13 @@ async def check_reminder_store(store: ReminderStore) -> None:
     await store.cancel_for(appt_id)  # cancels the remaining pending one
     assert await store.claim_due(NOW + timedelta(hours=2)) == []
 
+    failed = Reminder(ReminderId("r-failed"), business_id, appt_id, NOW - timedelta(hours=1), "2h")
+    stale = Reminder(ReminderId("r-stale"), business_id, appt_id, NOW - timedelta(hours=2), "24h")
+    await store.schedule([failed, stale])
+    await store.mark_failed(failed.id)
+    await store.mark_skipped(stale.id)
+    assert await store.claim_due(NOW) == []  # failed and skipped are closed, never retried
+
 
 async def check_calendar(calendar: Calendar) -> None:
     service, customer = make_service(), make_customer()

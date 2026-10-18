@@ -3,7 +3,7 @@ event publisher accepts any domain event."""
 
 import pytest
 
-from frontdesk.application.ports import MessageReceived, OutboundMessage
+from frontdesk.application.ports import MessageNotDelivered, MessageReceived, OutboundMessage
 from frontdesk.domain.enums import Channel
 from frontdesk.domain.ids import BusinessId, CustomerId
 from frontdesk.domain.models import Customer
@@ -27,11 +27,12 @@ async def test_routes_to_the_customers_channel() -> None:
     assert len(telegram.sent) == 1
 
 
-async def test_raises_when_a_channel_has_no_adapter() -> None:
+async def test_a_channel_without_an_adapter_is_a_permanent_refusal() -> None:
     routing = RoutingMessaging(whatsapp=InMemoryMessaging())
 
-    with pytest.raises(RuntimeError, match="telegram"):
+    with pytest.raises(MessageNotDelivered, match="telegram") as refused:
         await routing.send(_customer(Channel.TELEGRAM), OutboundMessage("hi"))
+    assert refused.value.permanent is True
 
 
 async def test_falls_back_when_a_channel_is_not_configured() -> None:

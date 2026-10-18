@@ -6,11 +6,14 @@ from typing import Any
 
 import httpx
 
-from frontdesk.application.ports import InboundMessage, OutboundMessage
+from frontdesk.application.ports import InboundMessage, MessageNotDelivered, OutboundMessage
 from frontdesk.domain.enums import Channel
 from frontdesk.domain.models import MAX_MESSAGE_LENGTH, Customer
 
 _MAX_BUTTONS = 3  # WhatsApp interactive reply-button limit
+# Meta refuses a malformed or not-allowed message for good; rate limits (429), auth (401)
+# and server errors stay retryable.
+_PERMANENT_STATUSES = frozenset({httpx.codes.BAD_REQUEST, httpx.codes.FORBIDDEN})
 
 
 class WhatsAppMessaging:
@@ -49,12 +52,21 @@ class WhatsAppMessaging:
         else:
             payload["type"] = "text"
             payload["text"] = {"body": message.text}
-        response = await self._client.post(
-            f"{self._base}/{self._phone_number_id}/messages",
-            json=payload,
-            headers={"Authorization": f"Bearer {self._token}"},
-        )
-        response.raise_for_status()
+        try:
+            response = await self._client.post(
+                f"{self._base}/{self._phone_number_id}/messages",
+                json=payload,
+                headers={"Authorization": f"Bearer {self._token}"},
+            )
+        except httpx.TransportError as exc:
+            raise MessageNotDelivered(
+                f"whatsapp unreachable: {type(exc).__name__}", permanent=False
+            ) from None
+        if not response.is_success:
+            raise MessageNotDelivered(
+                f"whatsapp {response.status_code}: {response.reason_phrase}",
+                permanent=response.status_code in _PERMANENT_STATUSES,
+            )
 
 
 def parse_whatsapp_inbound(payload: Mapping[str, Any]) -> InboundMessage | None:

@@ -553,8 +553,16 @@ class InMemoryReminderStore:
         return sorted(due, key=lambda reminder: reminder.due_at)[:limit]
 
     async def mark_sent(self, reminder_id: ReminderId) -> None:
-        reminder = self.reminders[reminder_id]
-        self.reminders[reminder_id] = replace(reminder, status=ReminderStatus.SENT)
+        self._set(reminder_id, ReminderStatus.SENT)
+
+    async def mark_failed(self, reminder_id: ReminderId) -> None:
+        self._set(reminder_id, ReminderStatus.FAILED)
+
+    async def mark_skipped(self, reminder_id: ReminderId) -> None:
+        self._set(reminder_id, ReminderStatus.SKIPPED)
+
+    def _set(self, reminder_id: ReminderId, status: ReminderStatus) -> None:
+        self.reminders[reminder_id] = replace(self.reminders[reminder_id], status=status)
 
 
 class InMemoryCalendar:

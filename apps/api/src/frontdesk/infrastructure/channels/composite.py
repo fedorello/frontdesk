@@ -7,7 +7,7 @@ runs end-to-end locally without Meta/Telegram credentials.
 
 import logging
 
-from frontdesk.application.ports import MessagingPort, OutboundMessage
+from frontdesk.application.ports import MessageNotDelivered, MessagingPort, OutboundMessage
 from frontdesk.domain.enums import Channel
 from frontdesk.domain.models import Customer
 
@@ -49,5 +49,7 @@ class RoutingMessaging:
     async def send(self, customer: Customer, message: OutboundMessage) -> None:
         adapter = self._by_channel.get(customer.channel) or self._fallback
         if adapter is None:
-            raise RuntimeError(f"No messaging adapter configured for {customer.channel.value}")
+            raise MessageNotDelivered(
+                f"no messaging adapter for {customer.channel.value}", permanent=True
+            )
         await adapter.send(customer, message)

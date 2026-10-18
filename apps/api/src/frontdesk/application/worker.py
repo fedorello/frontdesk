@@ -1,5 +1,6 @@
 """The worker use case: send the reminders that are due."""
 
+import logging
 from datetime import datetime
 
 from frontdesk.application.datetime_format import format_when
@@ -7,11 +8,15 @@ from frontdesk.application.ports import (
     AppointmentRepository,
     BusinessRepository,
     CustomerRepository,
+    MessageNotDelivered,
     MessagingPort,
     OutboundMessage,
     ReminderStore,
     ServiceRepository,
 )
+from frontdesk.domain.models import Reminder
+
+_logger = logging.getLogger("frontdesk.reminders")
 
 # Localized by the studio's chosen language (business.locale), like the booking receipt.
 _REMINDER = {
@@ -48,17 +53,44 @@ class SendDueReminders:
         self._messaging = messaging
 
     async def __call__(self, now: datetime) -> int:
-        due = await self._reminders.claim_due(now)
-        for reminder in due:
-            appointment = await self._appointments.get(reminder.appointment_id)
-            customer = await self._customers.get(appointment.customer_id)
-            service = await self._services.get(appointment.service_id)
-            business = await self._businesses.get(appointment.business_id)
-            locale = business.locale if business.locale in _REMINDER else "en"
-            # Studio's language + time zone (format_when localizes and adds the UTC offset).
-            text = _REMINDER[locale].format(
-                service=service.name, when=format_when(appointment.slot.starts_at, business)
-            )
+        """Handle every due reminder; returns how many were sent.
+
+        One reminder can never block the rest: a stale one (the appointment already
+        started) is skipped, a permanent refusal is marked failed, and a temporary one
+        stays pending for the next pass.
+        """
+        sent = 0
+        for reminder in await self._reminders.claim_due(now):
+            if await self._handle(reminder, now):
+                sent += 1
+        return sent
+
+    async def _handle(self, reminder: Reminder, now: datetime) -> bool:
+        appointment = await self._appointments.get(reminder.appointment_id)
+        if appointment.slot.starts_at <= now:
+            await self._reminders.mark_skipped(reminder.id)
+            _logger.info("reminder_skipped_stale reminder=%s", reminder.id)
+            return False
+        customer = await self._customers.get(appointment.customer_id)
+        service = await self._services.get(appointment.service_id)
+        business = await self._businesses.get(appointment.business_id)
+        locale = business.locale if business.locale in _REMINDER else "en"
+        # Studio's language + time zone (format_when localizes and adds the UTC offset).
+        text = _REMINDER[locale].format(
+            service=service.name, when=format_when(appointment.slot.starts_at, business)
+        )
+        try:
             await self._messaging.send(customer, OutboundMessage(text, buttons=_BUTTONS[locale]))
-            await self._reminders.mark_sent(reminder.id)
-        return len(due)
+        except MessageNotDelivered as exc:
+            if exc.permanent:
+                await self._reminders.mark_failed(reminder.id)
+            _logger.warning(
+                "reminder_not_delivered reminder=%s channel=%s permanent=%s reason=%s",
+                reminder.id,
+                customer.channel.value,
+                exc.permanent,
+                exc.reason,
+            )
+            return False
+        await self._reminders.mark_sent(reminder.id)
+        return True

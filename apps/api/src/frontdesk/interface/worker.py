@@ -2,11 +2,14 @@
 
 import asyncio
 import contextlib
+import logging
 
 from frontdesk.application.ports import Clock
 from frontdesk.application.worker import SendDueReminders
 
 DEFAULT_INTERVAL_SECONDS = 60.0
+
+_logger = logging.getLogger("frontdesk.worker")
 
 
 class ReminderWorker:
@@ -30,6 +33,12 @@ class ReminderWorker:
     async def run_until(self, stop: asyncio.Event) -> None:
         """Tick every ``interval_seconds`` until ``stop`` is set."""
         while not stop.is_set():
-            await self.tick()
+            try:
+                await self.tick()
+            except Exception:
+                # A failed pass (database blip, a bug in one reminder) must not kill the
+                # process: a crash-looping container sends nothing at all. Log it and try
+                # again on the next tick.
+                _logger.exception("reminder_tick_failed")
             with contextlib.suppress(TimeoutError):
                 await asyncio.wait_for(stop.wait(), timeout=self._interval)

@@ -4,8 +4,9 @@ import json
 from collections.abc import Callable
 
 import httpx
+import pytest
 
-from frontdesk.application.ports import MessagingPort, OutboundMessage
+from frontdesk.application.ports import MessageNotDelivered, MessagingPort, OutboundMessage
 from frontdesk.domain.enums import Channel
 from frontdesk.domain.ids import BusinessId, CustomerId
 from frontdesk.domain.models import MAX_MESSAGE_LENGTH, Customer
@@ -158,3 +159,29 @@ def test_whatsapp_inbound_truncates_an_oversized_message() -> None:
 
     assert inbound is not None
     assert len(inbound.text) == MAX_MESSAGE_LENGTH
+
+
+@pytest.mark.parametrize(("status", "permanent"), [(400, True), (403, True), (429, False)])
+async def test_whatsapp_refusal_raises_not_delivered(status: int, permanent: bool) -> None:
+    messaging = WhatsAppMessaging(
+        token="T", phone_number_id="PNID", client=_client(lambda r: httpx.Response(status))
+    )
+    customer = Customer(CustomerId("c"), BusinessId("b"), Channel.WHATSAPP, "+1")
+
+    with pytest.raises(MessageNotDelivered) as refused:
+        await messaging.send(customer, OutboundMessage("hi"))
+
+    assert refused.value.permanent is permanent
+    assert refused.value.reason.startswith(f"whatsapp {status}")
+
+
+async def test_whatsapp_unreachable_is_temporary() -> None:
+    def handler(request: httpx.Request) -> httpx.Response:
+        raise httpx.ConnectError("down", request=request)
+
+    messaging = WhatsAppMessaging(token="T", phone_number_id="PNID", client=_client(handler))
+    customer = Customer(CustomerId("c"), BusinessId("b"), Channel.WHATSAPP, "+1")
+
+    with pytest.raises(MessageNotDelivered, match="whatsapp unreachable") as refused:
+        await messaging.send(customer, OutboundMessage("hi"))
+    assert refused.value.permanent is False

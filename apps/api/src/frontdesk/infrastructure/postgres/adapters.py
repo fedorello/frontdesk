@@ -700,10 +700,19 @@ class SqlReminderStore:
             return reminders
 
     async def mark_sent(self, reminder_id: ReminderId) -> None:
+        await self._set(reminder_id, ReminderStatus.SENT)
+
+    async def mark_failed(self, reminder_id: ReminderId) -> None:
+        await self._set(reminder_id, ReminderStatus.FAILED)
+
+    async def mark_skipped(self, reminder_id: ReminderId) -> None:
+        await self._set(reminder_id, ReminderStatus.SKIPPED)
+
+    async def _set(self, reminder_id: ReminderId, status: ReminderStatus) -> None:
         async with self._sf() as session:
             await session.execute(
-                text("UPDATE reminder SET status = 'sent' WHERE id = :id"),
-                {"id": str(reminder_id)},
+                text("UPDATE reminder SET status = :status WHERE id = :id"),
+                {"status": status.value, "id": str(reminder_id)},
             )
             await session.commit()
 

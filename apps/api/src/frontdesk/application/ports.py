@@ -211,7 +211,19 @@ class Idempotency(Protocol):
 # --------------------------------------------------------------------------- #
 
 
+class MessageNotDelivered(Exception):
+    """A channel did not take a message. ``permanent``: retrying the same message will not
+    help (unknown chat, blocked bot, no channel that can carry text for this customer)."""
+
+    def __init__(self, reason: str, *, permanent: bool) -> None:
+        super().__init__(reason)
+        self.reason = reason
+        self.permanent = permanent
+
+
 class MessagingPort(Protocol):
+    """Raises :class:`MessageNotDelivered` when the channel refuses the message."""
+
     async def send(self, customer: Customer, message: OutboundMessage) -> None: ...
 
 
@@ -528,6 +540,8 @@ class ReminderStore(Protocol):
     async def cancel_for(self, appointment_id: AppointmentId) -> None: ...
     async def claim_due(self, now: datetime, *, limit: int = 100) -> list[Reminder]: ...
     async def mark_sent(self, reminder_id: ReminderId) -> None: ...
+    async def mark_failed(self, reminder_id: ReminderId) -> None: ...
+    async def mark_skipped(self, reminder_id: ReminderId) -> None: ...
 
 
 class PlatformSummaryRepository(Protocol):
